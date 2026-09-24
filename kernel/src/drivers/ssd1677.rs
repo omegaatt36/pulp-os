@@ -14,23 +14,12 @@ use embedded_hal::digital::{InputPin, OutputPin};
 use embedded_hal::spi::SpiDevice;
 use esp_hal::delay::Delay;
 
-use super::strip::{STRIP_COUNT, StripBuffer};
-
-pub const WIDTH: u16 = 800;
-pub const HEIGHT: u16 = 480;
+use pulp_render::panel::{HEIGHT, RenderState, Rotation, WIDTH, align_partial_region};
+use pulp_render::strip::{STRIP_COUNT, StripBuffer};
 
 pub const SPI_FREQ_MHZ: u32 = 20;
 
 const POWER_OFF_TIME_MS: u32 = 200; // analog shutdown timeout
-
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub enum Rotation {
-    #[default]
-    Deg0,
-    Deg90,
-    Deg180,
-    Deg270,
-}
 
 #[allow(dead_code)]
 mod cmd {
@@ -51,16 +40,6 @@ mod cmd {
     pub const SET_RAM_Y_RANGE: u8 = 0x45;
     pub const SET_RAM_X_COUNTER: u8 = 0x4E;
     pub const SET_RAM_Y_COUNTER: u8 = 0x4F;
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct RenderState {
-    pub px: u16,
-    pub py: u16,
-    pub pw: u16,
-    pub ph: u16,
-    pub left_mask: u8,
-    pub right_mask: u8,
 }
 
 pub struct DisplayDriver<SPI, DC, RST, BUSY> {
@@ -255,42 +234,6 @@ where
         self.init_done = true;
     }
 
-    fn transform_region(&self, x: u16, y: u16, w: u16, h: u16) -> (u16, u16, u16, u16) {
-        match self.rotation {
-            Rotation::Deg0 => (x, y, w, h),
-            Rotation::Deg90 => (WIDTH - y - h, x, h, w),
-            Rotation::Deg180 => (WIDTH - x - w, HEIGHT - y - h, w, h),
-            Rotation::Deg270 => (y, HEIGHT - x - w, h, w),
-        }
-    }
-
-    fn align_partial_region(&self, x: u16, y: u16, w: u16, h: u16) -> Option<RenderState> {
-        let (tx, ty, tw, th) = self.transform_region(x, y, w, h);
-
-        let px = (tx & !7).min(WIDTH);
-        let py = ty.min(HEIGHT);
-        let pw = ((tw + (tx & 7) + 7) & !7).min(WIDTH - px);
-        let ph = th.min(HEIGHT - py);
-
-        if pw == 0 || ph == 0 {
-            return None;
-        }
-
-        let lp = (tx - px) as u32;
-        let rp = ((px + pw) - (tx + tw)) as u32;
-        let left_mask: u8 = if lp > 0 { !((1u8 << (8 - lp)) - 1) } else { 0 };
-        let right_mask: u8 = if rp > 0 { (1u8 << rp) - 1 } else { 0 };
-
-        Some(RenderState {
-            px,
-            py,
-            pw,
-            ph,
-            left_mask,
-            right_mask,
-        })
-    }
-
     // gates wired in reverse; Y flipped, X inc / Y dec
     fn set_partial_ram_area(&mut self, x: u16, y: u16, w: u16, h: u16) {
         let y_flipped = HEIGHT - y - h;
@@ -407,7 +350,7 @@ where
             self.init_display(delay);
         }
 
-        let rs = self.align_partial_region(x, y, w, h)?;
+        let rs = align_partial_region(self.rotation, x, y, w, h)?;
         self.write_region_strips(
             strip,
             rs.px,
@@ -443,7 +386,7 @@ where
             self.init_display(delay);
         }
 
-        let rs = self.align_partial_region(x, y, w, h)?;
+        let rs = align_partial_region(self.rotation, x, y, w, h)?;
         self.write_region_strips_bw_inv_red(
             strip,
             rs.px,
@@ -595,7 +538,7 @@ where
             self.init_display(delay);
         }
 
-        let rs = match self.align_partial_region(x, y, w, h) {
+        let rs = match align_partial_region(self.rotation, x, y, w, h) {
             Some(rs) => rs,
             None => return,
         };

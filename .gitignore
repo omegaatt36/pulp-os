@@ -11,3 +11,17 @@ target/
 **/.DS_Store
 
 *.md
+
+# generated font packs (tools/fontpack)
+/out/
+
+# local scratch: git worktrees and dependency/toolchain spikes
+.worktrees/
+.s1-spike/
+
+# upstream source fonts and their licence, staged at the repo root for the
+# documented `pulp-fontpack` workflow (tools/fontpack/tests/fixtures/README.txt).
+# The subset actually used by tests IS tracked under
+# tools/fontpack/tests/fixtures/; only the full-size originals stay untracked.
+/Iansui-Regular.ttf
+/OFL.txt

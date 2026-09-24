@@ -13,19 +13,20 @@ use core::fmt::Write as _;
 use crate::apps::{App, AppContext, AppId, Transition};
 use crate::board::action::{Action, ActionEvent};
 use crate::board::{SCREEN_H, SCREEN_W};
-use crate::drivers::strip::StripBuffer;
 use crate::fonts;
 use crate::fonts::max_size_idx;
 use crate::kernel::KernelHandle;
 use crate::kernel::config::{
     self, GHOST_CLEAR_STEP, MAX_GHOST_CLEAR, MAX_SLEEP_TIMEOUT, MIN_GHOST_CLEAR,
-    NUM_READING_THEMES, SLEEP_TIMEOUT_STEP, SystemSettings, WifiConfig, parse_settings_txt,
-    reading_theme, write_settings_txt,
+    NUM_READING_THEMES, SLEEP_TIMEOUT_STEP, SystemSettings, parse_settings_txt, reading_theme,
+    write_settings_txt,
 };
 use crate::ui::{
-    Alignment, BUTTON_BAR_H, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, LARGE_MARGIN, Region,
-    SECTION_GAP, StackFmt, TITLE_Y, wrap_next, wrap_prev,
+    BUTTON_BAR_H, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, LARGE_MARGIN, SECTION_GAP, StackFmt,
+    TITLE_Y, wrap_next, wrap_prev,
 };
+use pulp_render::geometry::{Alignment, Region};
+use pulp_render::strip::StripBuffer;
 
 // layout constants
 const ROW_H: u16 = 40;
@@ -49,7 +50,6 @@ impl Default for SettingsApp {
 
 pub struct SettingsApp {
     settings: SystemSettings,
-    wifi: WifiConfig,
     selected: usize,
     scroll: usize,
     loaded: bool,
@@ -63,7 +63,6 @@ impl SettingsApp {
         let uf = fonts::UiFonts::for_size(0);
         Self {
             settings: SystemSettings::defaults(),
-            wifi: WifiConfig::empty(),
             selected: 0,
             scroll: 0,
             loaded: false,
@@ -86,10 +85,6 @@ impl SettingsApp {
         &mut self.settings
     }
 
-    pub fn wifi_config(&self) -> &WifiConfig {
-        &self.wifi
-    }
-
     pub fn mark_save_needed(&mut self) {
         self.save_needed = true;
     }
@@ -107,11 +102,10 @@ impl SettingsApp {
         let mut buf = [0u8; 512];
 
         self.settings = SystemSettings::defaults();
-        self.wifi = WifiConfig::empty();
 
         match k.read_app_data_start(config::SETTINGS_FILE, &mut buf) {
             Ok((_size, n)) if n > 0 => {
-                parse_settings_txt(&buf[..n], &mut self.settings, &mut self.wifi);
+                parse_settings_txt(&buf[..n], &mut self.settings);
                 self.settings.sanitize();
                 log::info!("settings: loaded from {}", config::SETTINGS_FILE);
             }
@@ -125,7 +119,7 @@ impl SettingsApp {
 
     fn save(&self, k: &mut KernelHandle<'_>) -> bool {
         let mut buf = [0u8; 512];
-        let len = write_settings_txt(&self.settings, &self.wifi, &mut buf);
+        let len = write_settings_txt(&self.settings, &mut buf);
         match k.write_app_data(config::SETTINGS_FILE, &buf[..len]) {
             Ok(_) => {
                 log::info!("settings: saved to {}", config::SETTINGS_FILE);

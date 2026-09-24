@@ -9,7 +9,6 @@ pub mod reader;
 pub mod widgets;
 
 pub mod settings;
-pub mod upload;
 
 use crate::kernel::app::AppIdType;
 
@@ -19,9 +18,6 @@ pub enum AppId {
     Files,
     Reader,
     Settings,
-    // upload bypasses the App trait; AppManager::needs_special_mode
-    // returns true for this variant and run_special_mode handles it
-    Upload,
 }
 
 impl AppIdType for AppId {

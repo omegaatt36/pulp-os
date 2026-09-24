@@ -11,7 +11,7 @@ use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
 use embedded_graphics::text::Text;
 
-use crate::drivers::strip::StripBuffer;
+use pulp_render::strip::StripBuffer;
 
 const MAX_LINES: usize = 40;
 const MAX_LINE_LEN: usize = 76;

@@ -5,4 +5,3 @@ pub mod input;
 pub mod sdcard;
 pub mod ssd1677;
 pub mod storage;
-pub mod strip;

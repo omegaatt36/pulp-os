@@ -1,7 +1,7 @@
 // system configuration: key=value text in _PULP/SETTINGS.TXT
 //
-// SystemSettings and WifiConfig are kernel-owned configuration;
-// the SettingsApp in apps/ provides the UI for editing them
+// SystemSettings is kernel-owned configuration; the SettingsApp in
+// apps/ provides the UI for editing it
 
 pub const SETTINGS_FILE: &str = "SETTINGS.TXT";
 
@@ -136,51 +136,6 @@ impl SystemSettings {
     const DEFAULT_MAX_FONT_IDX: u8 = 4;
 }
 
-pub const WIFI_SSID_CAP: usize = 32;
-pub const WIFI_PASS_CAP: usize = 63;
-
-pub struct WifiConfig {
-    ssid: [u8; WIFI_SSID_CAP],
-    ssid_len: u8,
-    pass: [u8; WIFI_PASS_CAP],
-    pass_len: u8,
-}
-
-impl WifiConfig {
-    pub const fn empty() -> Self {
-        Self {
-            ssid: [0u8; WIFI_SSID_CAP],
-            ssid_len: 0,
-            pass: [0u8; WIFI_PASS_CAP],
-            pass_len: 0,
-        }
-    }
-
-    pub fn ssid(&self) -> &str {
-        core::str::from_utf8(&self.ssid[..self.ssid_len as usize]).unwrap_or("")
-    }
-
-    pub fn password(&self) -> &str {
-        core::str::from_utf8(&self.pass[..self.pass_len as usize]).unwrap_or("")
-    }
-
-    pub fn has_credentials(&self) -> bool {
-        self.ssid_len > 0
-    }
-
-    fn set_ssid(&mut self, val: &[u8]) {
-        let n = val.len().min(WIFI_SSID_CAP);
-        self.ssid[..n].copy_from_slice(&val[..n]);
-        self.ssid_len = n as u8;
-    }
-
-    fn set_pass(&mut self, val: &[u8]) {
-        let n = val.len().min(WIFI_PASS_CAP);
-        self.pass[..n].copy_from_slice(&val[..n]);
-        self.pass_len = n as u8;
-    }
-}
-
 fn trim(s: &[u8]) -> &[u8] {
     let mut start = 0;
     let mut end = s.len();
@@ -207,7 +162,7 @@ fn parse_u16(s: &[u8]) -> Option<u16> {
     Some(val)
 }
 
-fn apply_setting(key: &[u8], val: &[u8], s: &mut SystemSettings, w: &mut WifiConfig) {
+fn apply_setting(key: &[u8], val: &[u8], s: &mut SystemSettings) {
     match key {
         b"sleep_timeout" => {
             if let Some(v) = parse_u16(val) {
@@ -237,13 +192,11 @@ fn apply_setting(key: &[u8], val: &[u8], s: &mut SystemSettings, w: &mut WifiCon
         b"swap_buttons" => {
             s.swap_buttons = val == b"1" || val == b"true";
         }
-        b"wifi_ssid" => w.set_ssid(val),
-        b"wifi_pass" => w.set_pass(val),
         _ => {}
     }
 }
 
-pub fn parse_settings_txt(data: &[u8], settings: &mut SystemSettings, wifi: &mut WifiConfig) {
+pub fn parse_settings_txt(data: &[u8], settings: &mut SystemSettings) {
     for line in data.split(|&b| b == b'\n') {
         let line = trim(line);
         if line.is_empty() || line[0] == b'#' {
@@ -252,7 +205,7 @@ pub fn parse_settings_txt(data: &[u8], settings: &mut SystemSettings, wifi: &mut
         if let Some(eq) = line.iter().position(|&b| b == b'=') {
             let key = trim(&line[..eq]);
             let val = trim(&line[eq + 1..]);
-            apply_setting(key, val, settings, wifi);
+            apply_setting(key, val, settings);
         }
     }
 }
@@ -295,16 +248,9 @@ impl<'a> TxtWriter<'a> {
         self.put_u16(val);
         self.put(b"\n");
     }
-
-    fn kv_str(&mut self, key: &[u8], val: &[u8]) {
-        self.put(key);
-        self.put(b"=");
-        self.put(val);
-        self.put(b"\n");
-    }
 }
 
-pub fn write_settings_txt(s: &SystemSettings, w: &WifiConfig, buf: &mut [u8]) -> usize {
+pub fn write_settings_txt(s: &SystemSettings, buf: &mut [u8]) -> usize {
     let mut wr = TxtWriter::new(buf);
     wr.put(b"# pulp-os settings\n");
     wr.put(b"# lines starting with # are ignored\n\n");
@@ -323,8 +269,5 @@ pub fn write_settings_txt(s: &SystemSettings, w: &WifiConfig, buf: &mut [u8]) ->
     wr.put(b"\n# control settings\n");
     wr.kv_num(b"swap_buttons", if s.swap_buttons { 1 } else { 0 });
 
-    wr.put(b"\n# wifi credentials for upload mode\n");
-    wr.kv_str(b"wifi_ssid", &w.ssid[..w.ssid_len as usize]);
-    wr.kv_str(b"wifi_pass", &w.pass[..w.pass_len as usize]);
     wr.pos
 }

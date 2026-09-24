@@ -1,0 +1,21 @@
+[package]
+name         = "pulp-fontpack"
+edition      = "2024"
+rust-version = "1.88"
+version      = "0.1.0"
+authors      = ["Hans Martin <hansmrtn@users.noreply.github.com>"]
+description  = "host converter from TTF to the pulp-os 1-bit font pack (.PFP, docs/font-pack.txt)"
+license      = "MIT"
+repository   = "https://github.com/hansmrtn/pulp-os"
+publish      = false
+
+[dependencies]
+# the device loader: every written pack is self-verified with it (§9)
+pulp-render = { path = "../../render" }
+# same rasteriser and version as the firmware's build.rs, so pack glyphs match built-in fonts
+fontdue    = "0.9"
+# select the best Unicode cmap before fontdue rasterises glyphs (docs/font-pack.txt §9)
+ttf-parser = { version = "0.21", default-features = false, features = ["opentype-layout"] }
+crc32fast  = "1.4"
+sha2       = "0.10"
+libc       = "0.2"

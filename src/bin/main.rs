@@ -26,7 +26,6 @@ use pulp_os::drivers::battery;
 use pulp_os::drivers::input::InputDriver;
 use pulp_os::drivers::sdcard::SdStorage;
 use pulp_os::drivers::storage;
-use pulp_os::drivers::strip::StripBuffer;
 use pulp_os::kernel::BookmarkCache;
 use pulp_os::kernel::BootConsole;
 use pulp_os::kernel::Kernel;
@@ -34,6 +33,7 @@ use pulp_os::kernel::dir_cache::DirCache;
 use pulp_os::kernel::tasks;
 use pulp_os::kernel::work_queue;
 use pulp_os::ui::paint_stack;
+use pulp_render::strip::StripBuffer;
 use static_cell::{ConstStaticCell, StaticCell};
 
 esp_bootloader_esp_idf::esp_app_desc!();

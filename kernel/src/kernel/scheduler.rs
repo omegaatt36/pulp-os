@@ -22,8 +22,8 @@ use super::app::{AppLayer, Redraw, Transition};
 use crate::board::button::Button;
 use crate::drivers::battery;
 use crate::drivers::input::Event;
-use crate::drivers::strip::StripBuffer;
 use crate::kernel::tasks;
+use pulp_render::strip::StripBuffer;
 
 use crate::ui::{free_stack_bytes, stack_high_water_mark};
 
@@ -111,11 +111,6 @@ impl super::Kernel {
         let mut work_ticker = Ticker::every(Duration::from_millis(timing::TICK_MS));
 
         loop {
-            if app_mgr.needs_special_mode() {
-                self.handle_special_mode(app_mgr).await;
-                continue;
-            }
-
             // async point 1: wait for input or tick
             let hw_event = match select(tasks::INPUT_EVENTS.receive(), work_ticker.next()).await {
                 Either::First(ev) => Some(ev),
@@ -130,10 +125,6 @@ impl super::Kernel {
                     self.sleep_with_session(app_mgr, "power held").await;
                     continue;
                 }
-            }
-
-            if app_mgr.needs_special_mode() {
-                continue;
             }
 
             // SPI bus sharing invariant
@@ -172,10 +163,6 @@ impl super::Kernel {
                     self.sleep_with_session(app_mgr, "power held").await;
                     continue;
                 }
-
-                if app_mgr.needs_special_mode() {
-                    continue;
-                }
             }
 
             if self.poll_housekeeping(app_mgr) {
@@ -191,17 +178,6 @@ impl super::Kernel {
                 }
             }
         }
-    }
-
-    // delegate to app layer for modes that bypass normal dispatch
-    // (e.g. wifi upload); kernel passes hardware resources through
-    async fn handle_special_mode<A: AppLayer>(&mut self, app_mgr: &mut A) {
-        app_mgr
-            .run_special_mode(&mut self.epd, self.strip, &mut self.delay, &self.sd)
-            .await;
-
-        app_mgr.apply_transition(Transition::Pop, &mut self.handle());
-        app_mgr.request_full_redraw();
     }
 
     // returns true if caller should call enter_sleep

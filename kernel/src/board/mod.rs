@@ -8,9 +8,9 @@ pub mod layout;
 pub mod raw_gpio;
 
 pub use crate::drivers::sdcard::{SdStorage, SyncSdCard};
-pub use crate::drivers::ssd1677::{DisplayDriver, HEIGHT, SPI_FREQ_MHZ, WIDTH};
-pub use crate::drivers::strip::StripBuffer;
+pub use crate::drivers::ssd1677::{DisplayDriver, SPI_FREQ_MHZ};
 pub use button::{Button, ROW1_THRESHOLDS, ROW2_THRESHOLDS, decode_ladder};
+pub use pulp_render::panel::{HEIGHT, WIDTH};
 
 // logical screen size (portrait mode via 270-degree rotation of 800x480 panel)
 pub const SCREEN_W: u16 = HEIGHT; // 480

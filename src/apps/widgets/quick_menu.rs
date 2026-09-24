@@ -2,12 +2,13 @@ use embedded_graphics::{pixelcolor::BinaryColor, prelude::*, primitives::Primiti
 
 use crate::board::SCREEN_W;
 use crate::board::action::Action;
-use crate::drivers::strip::StripBuffer;
 use crate::fonts::bitmap::BitmapFont;
 use crate::fonts::font_data;
 pub use crate::kernel::app::{MAX_APP_ACTIONS, QuickAction, QuickActionKind};
 use crate::ui::stack_fmt::StackFmt;
-use crate::ui::{Alignment, Region, wrap_next, wrap_prev};
+use crate::ui::{wrap_next, wrap_prev};
+use pulp_render::geometry::{Alignment, Region};
+use pulp_render::strip::StripBuffer;
 
 use super::selectable_row::draw_selection_if_visible;
 

@@ -33,7 +33,7 @@ pub struct RtcSession {
 
     // navigation stack (8 bytes)
     pub nav_depth: u8,                  // stack depth (1-4)
-    pub nav_stack: [u8; MAX_NAV_STACK], // app ids: Home=0, Files=1, Reader=2, Settings=3, Upload=4
+    pub nav_stack: [u8; MAX_NAV_STACK], // app ids: Home=0, Files=1, Reader=2, Settings=3
     _nav_pad: [u8; 3],
 
     // reader state (48 bytes)

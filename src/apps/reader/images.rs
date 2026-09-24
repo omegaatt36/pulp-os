@@ -322,7 +322,7 @@ impl ReaderApp {
 
     // pre-scan the page buffer for IMG_REF markers and look up each
     // image's decoded dimensions (from cache or ZIP headers).
-    // populates self.img_heights so wrap_proportional can reserve
+    // populates self.img_heights so layout::wrap can reserve
     // the exact number of lines for each image.
     pub(super) fn prescan_image_heights(&mut self, k: &mut KernelHandle<'_>, buf_len: usize) {
         self.img_height_count = 0;

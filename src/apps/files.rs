@@ -12,15 +12,16 @@ use crate::apps::{App, AppContext, AppId, Transition};
 use crate::board::action::{Action, ActionEvent};
 use crate::board::{SCREEN_H, SCREEN_W};
 use crate::drivers::storage::DirEntry;
-use crate::drivers::strip::StripBuffer;
 use crate::error::{Error, ErrorKind};
 use crate::fonts;
 use crate::kernel::KernelHandle;
 use crate::kernel::QuickAction;
 use crate::ui::{
-    Alignment, BitmapDynLabel, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN,
-    Region, SECTION_GAP, TITLE_Y_OFFSET,
+    BitmapDynLabel, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN, SECTION_GAP,
+    TITLE_Y_OFFSET,
 };
+use pulp_render::geometry::{Alignment, Region};
+use pulp_render::strip::StripBuffer;
 use smol_epub::cache;
 use smol_epub::epub::{self, EpubMeta, EpubSpine};
 use smol_epub::zip::ZipIndex;

@@ -29,10 +29,6 @@ pub enum ErrorKind {
     OutOfMemory,
     BufferTooSmall,
 
-    // network (upload)
-    NetworkIo,
-    Protocol,
-
     // catch-all
     Other,
 }
@@ -55,8 +51,6 @@ impl ErrorKind {
             Self::BadEncoding => "bad encoding",
             Self::OutOfMemory => "out of memory",
             Self::BufferTooSmall => "buffer too small",
-            Self::NetworkIo => "network error",
-            Self::Protocol => "protocol error",
             Self::Other => "error",
         }
     }
@@ -196,18 +190,12 @@ impl From<&'static str> for Error {
         let kind = match msg {
             "read failed" | "read local header failed" => ErrorKind::ReadFailed,
             "write failed" => ErrorKind::WriteFailed,
-            "read error" | "read error during upload" => ErrorKind::NetworkIo,
             "no sd card" => ErrorKind::NoCard,
-            "not found" | "OPF not found" | "no filename in upload" => ErrorKind::NotFound,
+            "not found" | "OPF not found" => ErrorKind::NotFound,
             "too small" | "CD truncated" | "cache file too small" => ErrorKind::InvalidData,
             "CD too large" | "OOM for cached image" => ErrorKind::OutOfMemory,
             "bad OPF path" | "bad encoding" | "filename encoding error" => ErrorKind::BadEncoding,
             "parse failed" | "no title in OPF" => ErrorKind::ParseFailed,
-            "boundary too long"
-            | "part headers too large"
-            | "invalid filename"
-            | "upload incomplete"
-            | "connection closed during headers" => ErrorKind::Protocol,
             _ => ErrorKind::Other,
         };
         Self { kind, source: msg }

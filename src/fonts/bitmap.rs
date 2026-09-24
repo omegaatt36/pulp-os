@@ -10,11 +10,11 @@
 use embedded_graphics_core::geometry::Size;
 use embedded_graphics_core::pixelcolor::BinaryColor;
 
-use crate::drivers::strip::StripBuffer;
-use crate::ui::{Alignment, Region};
+use pulp_render::geometry::{Alignment, Region};
+use pulp_render::strip::StripBuffer;
 
 // re-export UTF-8 iterator from kernel util for convenience
-pub use pulp_kernel::util::Utf8Iter;
+pub use pulp_render::utf8::Utf8Iter;
 
 pub const FIRST_CHAR: u8 = 0x20;
 pub const LAST_CHAR: u8 = 0x7E;
@@ -246,4 +246,4 @@ fn blit_glyph(
     );
 }
 
-// UTF-8 iteration is provided by pulp_kernel::util::Utf8Iter (re-exported above)
+// UTF-8 iteration is provided by pulp_render::utf8::Utf8Iter (re-exported above)

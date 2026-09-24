@@ -10,8 +10,8 @@ use embedded_graphics_core::{
     primitives::Rectangle,
 };
 
-use super::ssd1677::{HEIGHT, Rotation, WIDTH};
-use crate::ui::Region;
+use crate::geometry::Region;
+use crate::panel::{HEIGHT, Rotation, WIDTH};
 
 pub const STRIP_ROWS: u16 = 40;
 pub const PHYS_BYTES_PER_ROW: usize = (WIDTH as usize) / 8;
@@ -54,7 +54,7 @@ impl StripBuffer {
     }
 
     pub fn begin_window(&mut self, rotation: Rotation, x: u16, y: u16, w: u16, mut h: u16) {
-        let rb = (w / 8) as usize;
+        let rb = (w as usize).div_ceil(8);
         if rb == 0 {
             self.win_w = 0;
             self.win_h = 0;
@@ -126,7 +126,7 @@ impl StripBuffer {
     }
 
     pub fn max_rows_for_width(width: u16) -> u16 {
-        let rb = (width / 8) as usize;
+        let rb = (width as usize).div_ceil(8);
         if rb == 0 {
             return 0;
         }

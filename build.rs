@@ -24,7 +24,7 @@ fn linker_be_nice() {
                 ),
                 "_stack_start" => hint("is the linker script `linkall.x` missing?"),
                 what if what.starts_with("esp_rtos_") => hint(
-                    "`esp-radio` has no scheduler enabled. make sure you have initialized `esp-rtos` or provided an external scheduler.",
+                    "`esp-rtos` was linked without its scheduler. make sure you have initialized `esp-rtos` or provided an external scheduler.",
                 ),
                 "embedded_test_linker_file_not_added_to_rustflags" => hint(
                     "`embedded-test` not found - make sure `embedded-test.x` is added as a linker script for tests",

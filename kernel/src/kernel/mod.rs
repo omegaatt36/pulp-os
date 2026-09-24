@@ -12,6 +12,7 @@ pub mod config;
 pub mod console;
 pub mod dir_cache;
 pub mod handle;
+pub mod pack;
 pub mod rtc_session;
 pub mod scheduler;
 pub mod tasks;
@@ -38,8 +39,8 @@ use esp_hal::delay::Delay;
 
 use crate::board::Epd;
 use crate::drivers::sdcard::SdStorage;
-use crate::drivers::strip::StripBuffer;
 use crate::kernel::dir_cache::DirCache;
+use pulp_render::strip::StripBuffer;
 
 // default ghost-clear interval (overridden by settings once loaded)
 pub const DEFAULT_GHOST_CLEAR_EVERY: u32 = 10;

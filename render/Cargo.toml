@@ -1,0 +1,17 @@
+[package]
+name         = "pulp-render"
+edition      = "2024"
+rust-version = "1.88"
+version      = "0.1.0"
+authors      = ["Hans Martin <hansmrtn@users.noreply.github.com>"]
+description  = "hardware-independent text and rendering core for pulp-os (host-testable)"
+license      = "MIT"
+repository   = "https://github.com/hansmrtn/pulp-os"
+
+[dependencies]
+embedded-graphics-core.workspace = true
+log.workspace                    = true
+
+[dev-dependencies]
+# zlib for the PNG review copies of the golden images (tests only)
+miniz_oxide = "0.8"

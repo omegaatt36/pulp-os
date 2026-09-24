@@ -5,14 +5,15 @@ use core::fmt::Write as _;
 use crate::apps::{App, AppContext, AppId, RECENT_FILE, Transition};
 use crate::board::action::{Action, ActionEvent};
 use crate::board::{SCREEN_H, SCREEN_W};
-use crate::drivers::strip::StripBuffer;
 use crate::fonts;
 use crate::kernel::KernelHandle;
 use crate::kernel::bookmarks::{self, BmListEntry};
 use crate::ui::{
-    Alignment, BitmapDynLabel, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN,
-    Region, SECTION_GAP, TITLE_Y_OFFSET,
+    BitmapDynLabel, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN, SECTION_GAP,
+    TITLE_Y_OFFSET,
 };
+use pulp_render::geometry::{Alignment, Region};
+use pulp_render::strip::StripBuffer;
 
 const ITEM_W: u16 = 280;
 const ITEM_H: u16 = 52;
@@ -54,6 +55,9 @@ enum MenuAction {
     Continue,
     Push(AppId),
     OpenBookmarks,
+    /// index past the last item; `item_count` bounds the caller, so this only
+    /// exists to keep the match total
+    None,
 }
 
 pub struct HomeApp {
@@ -171,7 +175,7 @@ impl HomeApp {
     }
 
     fn rebuild_item_count(&mut self) {
-        self.item_count = if self.recent_book_len > 0 { 5 } else { 4 };
+        self.item_count = if self.recent_book_len > 0 { 4 } else { 3 };
         if self.selected >= self.item_count {
             self.selected = 0;
         }
@@ -188,14 +192,14 @@ impl HomeApp {
                 1 => "Files",
                 2 => "Bookmarks",
                 3 => "Settings",
-                _ => "Upload",
+                _ => "",
             }
         } else {
             match idx {
                 0 => "Files",
                 1 => "Bookmarks",
                 2 => "Settings",
-                _ => "Upload",
+                _ => "",
             }
         }
     }
@@ -207,14 +211,14 @@ impl HomeApp {
                 1 => MenuAction::Push(AppId::Files),
                 2 => MenuAction::OpenBookmarks,
                 3 => MenuAction::Push(AppId::Settings),
-                _ => MenuAction::Push(AppId::Upload),
+                _ => MenuAction::None,
             }
         } else {
             match idx {
                 0 => MenuAction::Push(AppId::Files),
                 1 => MenuAction::OpenBookmarks,
                 2 => MenuAction::Push(AppId::Settings),
-                _ => MenuAction::Push(AppId::Upload),
+                _ => MenuAction::None,
             }
         }
     }
@@ -373,6 +377,7 @@ impl HomeApp {
                     ctx.request_full_redraw();
                     Transition::None
                 }
+                MenuAction::None => Transition::None,
             },
             _ => Transition::None,
         }

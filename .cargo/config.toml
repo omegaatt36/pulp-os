@@ -1,15 +1,42 @@
+# Cargo merges .cargo/config.toml from EVERY ancestor directory, so a nested
+# crate cannot shadow the firmware settings below -- there is no way to make
+# `cargo test` inside render/ ignore them. The firmware target is therefore
+# NOT a global default; it is an explicit, named action (`cargo fw`).
+#
+# Consequences:
+#   cargo test          -> host (x86_64-unknown-linux-gnu), no build-std
+#   cargo fw            -> riscv32imc-unknown-none-elf + build-std, release
+
 [target.riscv32imc-unknown-none-elf]
 runner = "espflash flash --monitor --chip esp32c3"
 
 [env]
-ESP_LOG="info"
+ESP_LOG = "info"
+
+# NOTE: `.stack` is a residual linker bucket -- it absorbs whatever internal
+# DRAM is left after every static is placed -- so overflowing it does not fail
+# the build, it silently corrupts memory at run time. esp-hal gained
+# `ESP_HAL_CONFIG_ENSURE_MAIN_STACK_MINIMUM` to turn that into a link error,
+# but that option does not exist in the 1.0.0 pinned here (it arrives with the
+# 1.1.x upgrade). Until then `paint_stack()` in src/bin/main.rs is the guard:
+# it paints the stack and reports the high-water mark every 5 s.
+# ADD ESP_HAL_CONFIG_ENSURE_MAIN_STACK_MINIMUM = "24576" HERE AT THE UPGRADE.
 
 [build]
 rustflags = [
   "-C", "force-frame-pointers",
 ]
 
-target = "riscv32imc-unknown-none-elf"
+[net]
+# deps come from git over SSH (see the url.insteadOf rewrite in ~/.gitconfig);
+# cargo's built-in libgit2 has no agent access, so shell out to the git CLI.
+git-fetch-with-cli = true
 
-[unstable]
-build-std = ["alloc", "core"]
+[alias]
+# firmware build/flash. -Zbuild-std lives here rather than in [unstable] so it
+# only applies when explicitly building for the embedded target.
+fw        = "build --release --target riscv32imc-unknown-none-elf -Zbuild-std=core,alloc"
+# Only the host-buildable crates. pulp-os and pulp-kernel are firmware-only
+# (esp-hal, portable-atomic, ... do not build for a host target) and are
+# covered by `cargo fw` instead.
+host-test = "test -p pulp-render -p pulp-fontpack"

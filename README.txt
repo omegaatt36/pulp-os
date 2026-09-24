@@ -34,13 +34,83 @@ building
 
         cargo run --release
 
-    local path dependencies (sibling dirs):
-      embedded-sdmmc    async FAT filesystem over SD/SPI (local fork)
+    host tests (no hardware, no Python, no untracked files):
+
+        cargo host-test
+
+    an alias for `cargo test -p pulp-render -p pulp-fontpack
+    --target host-tuple`, defined in .cargo/config.toml. it runs the
+    shared text/render core in render/ (the code the firmware uses)
+    and the font pack converter in tools/fontpack/. it does not compile
+    the reader app or board code; check those with `cargo build --release`.
+    the host suite reports pass
+    or fail for:
+      font lookup       pack loading and every §6 load error, glyph
+                        lookup, the visible fallback for absent glyphs
+      pagination        line wrapping with the CJK line-break rules,
+                        page splits with nothing lost or repeated
+      rendered pixels   page glyphs drawn through the strip renderer
+                        with no font reads during the draw
+      converter         pack writer, rasteriser, self-verification,
+                        CLI, the tracked fixture staying reproducible
+    render/tests/iansui_acceptance.rs runs all three core stages end
+    to end on a real CJK face: a tracked, OFL-licensed Iansui subset
+    (tools/fontpack/tests/fixtures/README.txt says how it was made).
+    render/tests/iansui_golden.rs compares two pages of it, drawn
+    through the strip renderer, byte for byte with the reviewed
+    golden frames in render/tests/golden/ (PBM), and checks that
+    partial-window passes match the full-frame pass inside each
+    window. every run writes upright PNG copies of the goldens to
+    target/<host triple>/tmp/golden-review/; on a mismatch it also
+    writes the actual render and a diff there and names the files.
+    goldens change only on request, after reviewing the new render:
+
+        PULP_UPDATE_GOLDEN=1 cargo host-test
+
+    git dependencies (fetched by cargo):
+      embedded-sdmmc    async FAT filesystem over SD/SPI (fork)
       smol-epub         no_std epub/zip/html/image processing
+
+CJK font pack (Iansui)
+    pulp-fontpack converts a TTF into a 1-bit font pack (.PFP, format
+    in docs/font-pack.txt). it packs every code point of the font,
+    prints Unicode coverage by Han / kana / Hangul block, and loads
+    the written pack with the device loader (pulp-render) and checks
+    every glyph round-trips before anything is written. it stages the
+    pack, license, and manifest together; reported conversion or
+    publication errors leave previous outputs unchanged. a forced kill
+    during the three-file publication can leave a partial output set;
+    rerun the converter before copying files to SD.
+    on Unix hosts a conversion locks the output directory while it
+    publishes the three files. the OS releases the lock when the
+    process exits, including after a forced kill.
+
+    with Iansui-Regular.ttf and its OFL.txt in the repository root
+    (neither is tracked; get them from
+    https://github.com/ButTaiwan/iansui):
+
+        cargo run -p pulp-fontpack --target host-tuple --release -- \
+            --ttf Iansui-Regular.ttf --license OFL.txt \
+            --size 24 --family IANSUI --out out/FONTS/ \
+            --expect-sha256 7f1aa62e9dcbf40d0ce41a5d3f1e5ea602e66c295778ac6fefb6b84d8ed08bd5
+
+    --expect-sha256 is the optional full check: it fails before
+    writing anything if the TTF is not the supplied Iansui build.
+    output in out/FONTS/ (gitignored): IANSUI24.PFP (about 1 MB,
+    12,666 glyphs), IANSUOFL.TXT (the license, byte-identical) and
+    IANSUI24.TXT (build manifest: source and pack SHA-256, coverage,
+    self-verify result). --size takes 8..96; each size is its own
+    file.
+
+    SD card: copy IANSUI24.PFP and IANSUOFL.TXT to /FONTS/ at the
+    card root, i.e. /FONTS/IANSUI24.PFP and /FONTS/IANSUOFL.TXT
+    (docs/font-pack.txt §7). the firmware does not open packs yet;
+    the loader it will use is render/src/font_pack.rs.
 
 features
     txt reader      lazy page-indexed, read-ahead prefetch,
                     proportional font wrapping
+                    up to 512 pages per index; overflow reports an error
     epub reader     ZIP/OPF/HTML-strip pipeline, chapter cache on SD,
                     proportional fonts with bold/italic/heading styles,
                     inline PNG/JPEG (1-bit Floyd-Steinberg dithered),
@@ -49,8 +119,6 @@ features
                     scanner (resolves titles from OPF metadata)
     bookmarks       16-slot LRU in RAM, flushed to SD every 30 s;
                     home screen bookmarks browser sorted by recency
-    wifi upload     HTTP file upload + mDNS (pulp.local);
-                    drag-and-drop web UI with delete support
     fonts           regular/bold/italic TTFs rasterised at build time
                     via fontdue; five sizes, book and UI independently
                     configurable
@@ -59,7 +127,7 @@ features
     quick menu      per-app actions + screen refresh + go home,
                     triggered by power button
     settings        sleep timeout, ghost clear interval,
-                    book font size, UI font size, wifi credentials
+                    book font size, UI font size
     sleep           idle timeout + power long-press; EPD deep sleep
                     (~3 uA) + ESP32-C3 deep sleep (~5 uA); GPIO3 wake
 
@@ -135,7 +203,6 @@ directory layout
         home.rs             launcher menu + bookmarks browser
         files.rs            SD file browser + background title scanner
         settings.rs         settings UI
-        upload.rs           wifi upload server
         reader/
           mod.rs            state machine, lifecycle, draw, quick actions
           paging.rs         text wrapping, page navigation, load/prefetch
@@ -149,7 +216,6 @@ directory layout
 
     build.rs                fontdue TTF rasterisation at compile time
     assets/fonts/           TTF files (regular, bold, italic)
-    assets/upload.html      web UI for wifi upload mode
 
 design notes
     kernel / app split. the kernel crate (kernel/) has zero imports
@@ -225,10 +291,6 @@ design notes
 
     settings. key=value text in _PULP/SETTINGS.TXT. parsed at boot,
     saved on change. font size changes propagate to all apps.
-
-    wifi upload. bypasses normal dispatch. HTTP server on port 80,
-    mDNS on 5353 (pulp.local). multipart upload with 8.3 filename
-    sanitisation. radio torn down before returning to app loop.
 
     memory budget. ~172 KB heap for epub text and image decode
     (alloc::vec). everything else is static or stack. ~56 KB stack,

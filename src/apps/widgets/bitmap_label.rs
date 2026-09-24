@@ -2,9 +2,9 @@ use core::convert::Infallible;
 
 use embedded_graphics::{pixelcolor::BinaryColor, prelude::*, primitives::PrimitiveStyle};
 
-use crate::drivers::strip::StripBuffer;
 use crate::fonts::bitmap::BitmapFont;
-use crate::ui::{Alignment, Region};
+use pulp_render::geometry::{Alignment, Region};
+use pulp_render::strip::StripBuffer;
 
 pub struct BitmapLabel<'a> {
     region: Region,

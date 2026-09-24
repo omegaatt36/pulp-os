@@ -1,0 +1,270 @@
+# Pulp font pack (`.PFP`), format version 1
+
+A pre-rasterised, 1-bit font pack. A host converter builds it from a TTF,
+the user copies it to the SD card, and the device reads it with random-access
+reads. One file holds one pixel size of one face. The device never loads the
+whole file: it keeps the parsed header plus a lookup table of at most 8 KiB.
+
+Reference input: `Iansui-Regular.ttf` (9,447,424 bytes, 15,215 glyphs,
+**12,666 mapped code points**, 334 of them above U+FFFF, max U+31C7F,
+5,243 contiguous runs; hhea ascent 940 / descent -180 / gap 0 at 1000 upm).
+At 24 px the index is 202,656 bytes and the bitmaps are 807,227 bytes (measured: 64 B per glyph on average), so
+bitmap offsets must be `u32`. The current `BitmapGlyph.bitmap_offset: u16`
+tops out at 64 KiB.
+
+## 1. Conventions
+
+- All multi-byte integers are **little-endian**. Signed values are two's complement.
+- Offsets are absolute file byte offsets unless the field is marked *section-relative*.
+- `CRC32` is CRC-32/ISO-HDLC, the zlib `crc32` (reflected poly `0xEDB88320`,
+  init `0xFFFFFFFF`, xorout `0xFFFFFFFF`, check value `crc32("123456789") = 0xCBF43926`).
+  Host: Python `zlib.crc32` or the `crc32fast` crate. Device: a bitwise or
+  256-entry-table implementation, which is no_std and allocation-free.
+- Writers MUST zero every reserved and padding byte. Readers MUST ignore them.
+  Reserved bytes are covered by the CRCs, so they cannot be flipped silently.
+
+## 2. File layout (sections are contiguous and in this fixed order)
+
+| Offset             | Length           | Section                            |
+|--------------------|------------------|------------------------------------|
+| 0                  | 64               | Header                             |
+| 64                 | 448              | Zero padding (aligns the index to an SD sector) |
+| 512                | 16 × glyph_count | Index (glyph records, sorted by code point) |
+| 512 + index_len    | bitmap_len       | Bitmaps                            |
+| bitmap_off + bitmap_len | license_len | License text (UTF-8, byte-exact)   |
+
+The index starts at 512 and records are 16 bytes, so each group of 32
+records fills exactly one 512-byte SD sector (FAT clusters are
+sector-aligned). A lookup therefore costs one sector read for the index and
+one or two for the bitmap.
+
+## 3. Header (64 bytes)
+
+| Off | Type     | Field          | Rule                                                        |
+|-----|----------|----------------|-------------------------------------------------------------|
+| 0   | [u8; 8]  | magic          | `"PULPFONT"` = `50 55 4C 50 46 4F 4E 54`                    |
+| 8   | u16      | format_version | `1`. Bytes 0..10 are frozen for all future versions.        |
+| 10  | u16      | header_len     | `64`                                                        |
+| 12  | u16      | pixel_size     | 8..=96. The rasterisation size in px.                       |
+| 14  | u16      | line_height    | ≥ 1. `ceil(new_line_size)`, same as `BitmapFont.line_height`. |
+| 16  | u16      | ascent         | ≤ line_height. `ceil(ascent)`, same as `BitmapFont.ascent`. |
+| 18  | u16      | reserved       | 0                                                           |
+| 20  | u32      | glyph_count    | 1..=65,536                                                  |
+| 24  | u32      | fallback_cp    | Code point drawn for missing glyphs (R4). Must be in the index. |
+| 28  | u32      | index_off      | `512`                                                       |
+| 32  | u32      | index_len      | `16 × glyph_count`                                          |
+| 36  | u32      | bitmap_off     | `index_off + index_len`                                     |
+| 40  | u32      | bitmap_len     | ≥ 0                                                         |
+| 44  | u32      | license_off    | `bitmap_off + bitmap_len`                                   |
+| 48  | u32      | license_len    | ≥ 1                                                         |
+| 52  | u32      | file_len       | `license_off + license_len`. Must equal the actual file size. |
+| 56  | u32      | index_crc32    | CRC32 over the index section bytes `[index_off, index_off+index_len)` |
+| 60  | u32      | header_crc32   | CRC32 over header bytes `[0, 60)`                           |
+
+The offsets are fully determined by the counts. They are still stored so
+that a host dump is self-describing and the loader can verify them against
+each other (`BadLayout`) before it trusts any of them. There is no
+bits-per-pixel field: format version 1 is 1-bit by definition, and a
+different depth needs a new version.
+
+**Checksum choice.** CRC32 protects the only bytes the device uses for
+addressing (header and index). The loader streams the index once through a
+512-byte buffer. That scan also validates every record, so later lookups
+need no checks. At 24 px this is about 200 KB, a one-off cost of a few
+hundred ms on SPI SD. Bitmaps (about 0.8 MB) are deliberately not
+checksummed: reading them all at every load is too slow, and per-glyph bounds
+are already proven at load time, so a corrupt bitmap byte can only produce
+wrong pixels, never an out-of-bounds read. The host `verify` command can
+compare whole files by hash if needed. FNV-1a would work too, but CRC32 has
+a standard check value and tooling on both sides.
+
+## 4. Index record (16 bytes, sorted strictly ascending by `code_point`)
+
+| Off | Type    | Field         | Relation to `BitmapGlyph`                       |
+|-----|---------|---------------|-------------------------------------------------|
+| 0   | u32     | code_point    | Unicode scalar value (≤ 0x10FFFF, not D800..DFFF) |
+| 4   | u32     | bitmap_offset | **section-relative** to `bitmap_off`, widened from u16 |
+| 8   | u8      | width         | same                                            |
+| 9   | u8      | height        | same                                            |
+| 10  | u8      | advance       | same                                            |
+| 11  | i8      | offset_x      | same (cursor to glyph left edge)                |
+| 12  | i8      | offset_y      | same (baseline to glyph top, negative = above)  |
+| 13  | [u8; 3] | reserved      | 0                                               |
+
+Metrics sit inside the index record, so one record read returns everything
+except the pixels. The fields keep the exact types and semantics of the
+existing `BitmapGlyph`, so a record maps onto it losslessly apart from the
+widened offset. The converter MUST **fail** when a value does not fit. It
+must not clamp the way `build.rs::rasterize_char` does today, because clamping
+would break R3's "original metrics".
+
+A sorted flat array is used rather than CrossPoint-style ranges. Iansui has
+5,243 runs for 12,666 code points, so ranges would save almost nothing and
+add a second indirection. The array also handles arbitrarily sparse
+coverage.
+
+## 5. Bitmap encoding
+
+For each glyph: `row_bytes = ceil(width / 8)` and
+`len = row_bytes × height` (≤ 32 × 255 = 8,160). Rows run top to bottom and
+are packed MSB-first: bit 7 of byte 0 is pixel (0,0). 1 = ink. Unused
+low bits at the end of each row are 0. Every glyph starts on a byte boundary
+and every row is byte-aligned. This is byte-for-byte the same encoding
+`build.rs` produces today (coverage ≥ `THRESHOLD` = 100). A glyph with
+`width == 0` or `height == 0` (for example a space) has `len = 0`. Records may
+share a `bitmap_offset` when their bitmaps are identical (dedup is optional).
+The bitmap length is derived, not stored, so it cannot disagree with the
+metrics.
+
+## 6. Loader checks and errors
+
+The loader runs the steps in order and **returns the first failure**. Each
+error has exactly one trigger, so a test can build a file that isolates it.
+On any error, the caller keeps built-in `BitmapFont` rendering (R5).
+
+| #  | Error                    | Trigger                                                                  |
+|----|--------------------------|--------------------------------------------------------------------------|
+| 1  | `NotFound`               | `/FONTS` or the pack file does not exist                                 |
+| 2  | `Io`                     | any other SD/FAT error while opening, seeking, or reading                |
+| 3  | `Truncated`              | actual size < 64                                                         |
+| 4  | `BadMagic`               | bytes 0..8 ≠ `"PULPFONT"`                                                |
+| 5  | `UnsupportedVersion`     | `format_version` ≠ 1                                                     |
+| 6  | `HeaderChecksumMismatch` | CRC32(header[0..60]) ≠ `header_crc32`                                    |
+| 7  | `BadHeader`              | `header_len`≠64, `pixel_size`∉8..=96, `line_height`=0, `ascent`>`line_height`, `glyph_count`∉1..=65,536, or `license_len`=0 |
+| 8  | `WrongPixelSize`         | `pixel_size` ≠ the size requested / encoded in the file name (§7)        |
+| 9  | `BadLayout`              | any §3 offset/length equation fails, or its computation overflows u32 (this covers "index out of bounds") |
+| 10 | `Truncated`              | actual size < `file_len` (same variant as #3; both mean "file too short") |
+| 11 | `TrailingData`           | actual size > `file_len`                                                 |
+| 12 | `IndexChecksumMismatch`  | CRC32(index section) ≠ `index_crc32`                                     |
+| 13 | `InvalidCodePoint`       | a record's `code_point` > 0x10FFFF or in 0xD800..=0xDFFF                 |
+| 14 | `Unsorted`               | a record's `code_point` ≤ the previous record's (covers duplicates)      |
+| 15 | `BitmapOutOfBounds`      | `bitmap_offset + row_bytes×height > bitmap_len` (computed in u64)        |
+| 16 | `FallbackMissing`        | no record has `code_point == fallback_cp`                                |
+
+Steps 12–16 happen in one streaming pass over the index. The CRC takes
+priority: the loader remembers the first per-record failure (checks 13→14→15
+in index order) and reports it only if the CRC matches. A random bit flip
+therefore reads as `IndexChecksumMismatch`, and a converter bug with a valid
+CRC reads as the specific structural error. The same pass records the
+largest glyph `len`, which sizes the runtime scratch buffer.
+
+The same pass also builds the lookup table: `first_cp[k]` = code point of
+record `32k` (`ceil(glyph_count/32)` × 4 bytes; 1,584 B for Iansui, 8 KiB at
+the cap).
+
+**Runtime lookup(cp):** binary-search `first_cp` in RAM, read the one
+512-byte index sector, binary-search its ≤ 32 records, then read `len` bytes
+at `bitmap_off + bitmap_offset`. On a miss, use the record for `fallback_cp`,
+which is cached at load (R4). After a successful load, the only possible
+runtime errors are `Io`, and `Truncated` on a short read (card swapped or
+removed). Both disable the pack and fall back to built-in fonts.
+
+## 7. Pixel sizes, SD path, file names
+
+- **One file per pixel size.** Each size is an independent raster with its
+  own metrics. Keeping them separate keeps the header flat and the offsets
+  trivial, lets users install only the sizes they read at (about 1.0 MB
+  each), and lets a bad copy of one size fail without affecting the others.
+  A multi-size container would add a TOC and one more class of layout errors
+  for no benefit.
+- **Directory:** `/FONTS/` at the SD root. FAT is case-insensitive, so this
+  is the same directory CrossPoint uses (`/fonts/`). Their long-named
+  `.cpfont` files can sit alongside without clashing.
+- **Pack name (8.3):** `<FAMILY><SS>.PFP`, where `FAMILY` is 1–6 uppercase
+  ASCII letters/digits and `SS` is the pixel size as two decimal digits
+  (08–96). Iansui at 24 px is `/FONTS/IANSUI24.PFP`. `PFP` = Pulp Font Pack.
+  embedded-sdmmc 0.9 (the version in `Cargo.lock`) opens files by short name
+  only, so every name MUST already be a valid 8.3 name: the converter emits
+  exactly this form and the device never needs LFN.
+- **License sidecar:** `/FONTS/<FAM5>OFL.TXT`, where `FAM5` is the first
+  1–5 characters of `FAMILY`. Iansui's sidecar is `/FONTS/IANSUOFL.TXT`. The
+  `.TXT` extension makes it open on any desktop.
+
+## 8. Attribution and licensing (R14)
+
+Both placements are used:
+
+1. **Embedded:** the license section holds the exact bytes of the source
+   font's `OFL.txt` (Iansui: 4,479 bytes, starting with a UTF-8 BOM and then
+   `Copyright 2025 The Iansui Project Authors (https://github.com/ButTaiwan/iansui).`
+   followed by the SIL OFL 1.1 text). OFL §2 allows the notice and license to
+   live in "machine-readable metadata fields within ... binary files", and
+   `strings IANSUI24.PFP` shows it. The pack can never be separated from its
+   license.
+2. **Sidecar:** the converter writes a byte-identical `IANSUOFL.TXT` next to
+   the packs. Release archives and the install instructions include it.
+
+The converter refuses to run without a license file (`--license OFL.txt`).
+The pack counts as an OFL "Modified Version" and stays under OFL 1.1. The
+Iansui notice declares no Reserved Font Name, so the "Iansui" name may be
+kept. The device does not read the license section; `license_len ≥ 1` is the
+only check it applies.
+
+## 9. Converter obligations (R1, R12)
+
+- Pack every code point in the TTF's best cmap (12,666 for Iansui) that is a
+  valid scalar value, including zero-ink glyphs, at `pixel_size`, using the
+  same rasteriser settings as `build.rs` (fontdue, threshold 100).
+- Emit a coverage report on the host: code points in the cmap, code points
+  packed, and code points skipped with the reason for each (invalid scalar,
+  metric overflow). Metric overflow is a hard error. Report the `fallback_cp` too. The default is U+25A1 `□`; Iansui
+  has U+25A1 and U+3013 but **not** U+FFFD.
+- Fail if the fallback glyph is absent or has no ink (no set bit), so a
+  missing glyph is always visible (R4). The device loader does not repeat
+  this check.
+- Self-verify the written file with the device loader itself
+  (`pulp_render::font_pack::FontPack::load`, the §6 sequence), then resolve
+  every packed code point and require the same record metrics and bitmap
+  bytes that were rasterised. Bitmaps carry no checksum, so this round trip
+  is what catches a writer bug that §6 cannot see. Any failure is a hard
+  error and no pack is written.
+
+## 10. Worked example: 1-glyph pack (535 bytes)
+
+The pack has pixel_size 8, line_height 10, ascent 8, and one glyph, U+25A1
+(also the fallback). The glyph is 3×3 with advance 4, offset_x 0,
+offset_y −3 (sits on the baseline). Its bitmap rows are `111`, `101`,
+`111`, giving bytes `E0 A0 E0`. The license is the 4-byte text `"OFL\n"`
+(a real pack embeds the full OFL.txt). Offsets: index 0x200 (len 16),
+bitmap 0x210 (len 3), license 0x213 (len 4), file_len 0x217 = 535.
+`index_crc32 = 0xE2A95D4A`, `header_crc32 = 0xB631F690`.
+
+```
+0000: 50 55 4C 50 46 4F 4E 54 01 00 40 00 08 00 0A 00  "PULPFONT" v1 hlen=64 px=8 lh=10
+0010: 08 00 00 00 01 00 00 00 A1 25 00 00 00 02 00 00  asc=8 rsv n=1 fallback=U+25A1 idx_off=0x200
+0020: 10 00 00 00 10 02 00 00 03 00 00 00 13 02 00 00  idx_len=16 bmp_off=0x210 bmp_len=3 lic_off=0x213
+0030: 04 00 00 00 17 02 00 00 4A 5D A9 E2 90 F6 31 B6  lic_len=4 file_len=535 idx_crc hdr_crc
+0040..01FF: 00 × 448                                     padding
+0200: A1 25 00 00 00 00 00 00 03 03 04 00 FD 00 00 00  cp=U+25A1 off=0 w=3 h=3 adv=4 ox=0 oy=-3 rsv
+0210: E0 A0 E0 4F 46 4C 0A                             bitmap | "OFL\n"
+```
+
+## 11. CrossPoint `.cpfont` reuse decision: **do not reuse** (files or loader); borrow ideas
+
+Sources read (MoveCall/crosspoint-onepage @ `23dec9d`, MIT):
+[fontconvert_sdcard.py](https://github.com/MoveCall/crosspoint-onepage/blob/main/lib/EpdFont/scripts/fontconvert_sdcard.py),
+[SdCardFont.h](https://github.com/MoveCall/crosspoint-onepage/blob/main/lib/EpdFont/SdCardFont.h),
+[SdCardFont.cpp](https://github.com/MoveCall/crosspoint-onepage/blob/main/lib/EpdFont/SdCardFont.cpp),
+[EpdFontData.h](https://github.com/MoveCall/crosspoint-onepage/blob/main/lib/EpdFont/EpdFontData.h),
+[cpfont_version.py](https://github.com/MoveCall/crosspoint-onepage/blob/main/lib/EpdFont/scripts/cpfont_version.py),
+[docs/sd-card-fonts.md](https://github.com/MoveCall/crosspoint-onepage/blob/main/docs/sd-card-fonts.md),
+[CjkUiFontSystem.h](https://github.com/MoveCall/crosspoint-onepage/blob/main/src/CjkUiFontSystem.h).
+Upstream [crosspoint-reader](https://github.com/crosspoint-reader/crosspoint-reader)
+(MIT) has the same `CPFONT_VERSION = 4`.
+
+v4 layout: magic `"CPFONT\0\0"`, u16 version, 32-byte header, 32-byte TOC
+per style (≤4). Per style: dense intervals `{first,last,glyph_index}` (3×u32),
+16-byte glyphs `<BBHhhH2xI>` (u8 w/h, 12.4 advance, i16 left/top, u16 len,
+**u32 offset**), u16-keyed kern classes, kern matrix, ligatures, bitmaps.
+Bitmaps are **always 2-bit** (`flags = 1`), one unaligned 2bpp stream per
+glyph. No integrity checksum (FNV-1a over header+TOC is only a cache ID);
+checks are magic, version, count caps. Paths: `/.fonts|/fonts/<Family>/<Family>_<size>.cpfont`.
+
+Why not: (1) 2bpp vs our 1bpp renderer; downsampling doubles bytes read and
+re-thresholds already-quantised coverage. (2) The loader keeps the whole
+interval table in RAM: Iansui's 5,243 runs are 63 KB on disk, ~31 KB compacted,
+vs 1.6 KB for §6's table on a ~170 KB C3 heap. (3) Long file names that
+embedded-sdmmc cannot open. (4) Unneeded styles/kerning/ligatures, no embedded
+license, and Iansui is not in their catalogue (`sd-fonts.yaml`), so there is no
+Iansui data to reuse anyway. Borrowed: frozen magic+version prefix, u32 bitmap
+offsets, glyph-count cap, one file per size.

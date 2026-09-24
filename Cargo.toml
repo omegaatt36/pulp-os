@@ -1,8 +1,13 @@
 [workspace]
-members = [".", "kernel"]
+members = [".", "kernel", "render", "tools/fontpack"]
 
 [workspace.dependencies]
-esp-hal  = { version = "1.0.0", features = ["esp32c3", "log-04", "unstable"] }
+# The chip feature and `unstable` are the BINARY's choice, not the library's:
+# a library that pins them forces every downstream consumer to that chip. The
+# bare declaration here carries neither, so pulp-kernel can ask for
+# `requires-unstable` (which fails loudly with a good message if a consumer
+# forgets `unstable`) and pulp-os picks `esp32c3` + `unstable` for itself.
+esp-hal  = { version = "1.0.0", default-features = false }
 embassy-executor = "0.9"
 embassy-time     = "0.5"
 embassy-futures  = "0.1"
@@ -13,7 +18,7 @@ embedded-hal-bus   = "0.3.0"
 embedded-graphics-core = "0.4.1"
 embedded-graphics      = "0.8.2"
 embedded-sdmmc = { git = "https://github.com/hansmrtn/embedded-sdmmc-rs", branch = "async", features = ["async"] }
-smol-epub      = { path = "../smol-epub", features = ["async"] }
+smol-epub      = { git = "https://github.com/hansmrtn/smol-epub", rev = "832609d967d4d06452dd49d35b2c9aeb578612de", features = ["async"] }
 critical-section = "1.2.0"
 static_cell      = "2.1.1"
 nb  = "1.1.0"
@@ -35,8 +40,9 @@ path = "./src/bin/main.rs"
 
 [dependencies]
 pulp-kernel = { path = "kernel" }
+pulp-render = { path = "render" }
 
-esp-hal.workspace              = true
+esp-hal = { workspace = true, features = ["esp32c3", "log-04", "unstable"] }
 embassy-executor.workspace     = true
 embassy-time.workspace         = true
 embassy-futures.workspace      = true
@@ -47,17 +53,7 @@ log.workspace                  = true
 esp-alloc.workspace            = true
 smol-epub.workspace            = true
 
-esp-rtos = { version = "0.2.0", features = ["embassy", "esp32c3", "esp-radio", "log-04"] }
-
-# wifi / networking (used by apps/upload.rs)
-esp-radio = { version = "0.17", default-features = false, features = [
-  "esp32c3",
-  "wifi",
-  "log-04",
-  "esp-alloc",
-] }
-embassy-net       = { version = "0.8", features = ["dhcpv4", "medium-ethernet", "tcp", "udp"] }
-embedded-io-async = "0.7"
+esp-rtos = { version = "0.2.0", features = ["embassy", "esp32c3", "log-04"] }
 
 esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3", "log-04"] }
 

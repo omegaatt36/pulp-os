@@ -9,21 +9,19 @@ use crate::apps::home::HomeApp;
 use crate::apps::reader::ReaderApp;
 use crate::apps::settings::SettingsApp;
 use crate::apps::{App, AppContext, AppId, Launcher, PendingSetting, Redraw, Transition};
-use esp_hal::delay::Delay;
 
 use crate::apps::widgets::quick_menu::{MAX_APP_ACTIONS, QuickMenuResult};
 use crate::apps::widgets::{ButtonFeedback, QuickMenu};
 use crate::board::action::{Action, ActionEvent, ButtonMapper};
-use crate::board::{Epd, SCREEN_H, SCREEN_W};
+use crate::board::{SCREEN_H, SCREEN_W};
 use crate::drivers::input::Event;
-use crate::drivers::sdcard::SdStorage;
-use crate::drivers::strip::StripBuffer;
 use crate::fonts;
 use crate::kernel::KernelHandle;
 use crate::kernel::app::AppLayer;
 use crate::kernel::bookmarks::BookmarkCache;
-use crate::kernel::config::{SystemSettings, WifiConfig};
-use crate::ui::Region;
+use crate::kernel::config::SystemSettings;
+use pulp_render::geometry::Region;
+use pulp_render::strip::StripBuffer;
 
 // monomorphized dispatch from AppId to concrete app type
 macro_rules! with_app {
@@ -44,9 +42,6 @@ macro_rules! with_app {
             AppId::Settings => {
                 let $app = &mut *$mgr.settings;
                 $body
-            }
-            AppId::Upload => {
-                unreachable!("Upload mode is handled outside the app dispatch loop");
             }
         }
     };
@@ -71,9 +66,6 @@ macro_rules! with_app_ref {
             AppId::Settings => {
                 let $app = &*$mgr.settings;
                 $body
-            }
-            AppId::Upload => {
-                unreachable!("Upload mode is handled outside the app dispatch loop");
             }
         }
     };
@@ -169,7 +161,7 @@ impl AppManager {
         self.mapper.set_swap(swap);
         if self.bumps.set_swap(swap) {
             // labels changed, need to redraw the button bar
-            self.launcher.ctx.mark_dirty(crate::ui::Region::new(
+            self.launcher.ctx.mark_dirty(Region::new(
                 0,
                 crate::board::SCREEN_H - crate::ui::BUTTON_BAR_H,
                 crate::board::SCREEN_W,
@@ -437,30 +429,26 @@ impl AppManager {
         if let Some(nav) = self.launcher.apply(transition) {
             log::info!("app: {:?} -> {:?}", nav.from, nav.to);
 
-            if nav.from != AppId::Upload {
-                with_app!(nav.from, self, |app| {
-                    app.save_state(k.bookmark_cache_mut());
-                    if nav.suspend {
-                        app.on_suspend();
-                    } else {
-                        app.on_exit();
-                    }
-                });
-            }
+            with_app!(nav.from, self, |app| {
+                app.save_state(k.bookmark_cache_mut());
+                if nav.suspend {
+                    app.on_suspend();
+                } else {
+                    app.on_exit();
+                }
+            });
 
             self.propagate_fonts();
             self.launcher.ctx.clear_loading();
 
-            if nav.to != AppId::Upload {
-                if nav.resume {
-                    with_app!(nav.to, self, |app| {
-                        app.on_resume(&mut self.launcher.ctx, k)
-                    });
-                } else {
-                    with_app!(nav.to, self, |app| {
-                        app.on_enter(&mut self.launcher.ctx, k)
-                    });
-                }
+            if nav.resume {
+                with_app!(nav.to, self, |app| {
+                    app.on_resume(&mut self.launcher.ctx, k)
+                });
+            } else {
+                with_app!(nav.to, self, |app| {
+                    app.on_enter(&mut self.launcher.ctx, k)
+                });
             }
 
             if nav.resume {
@@ -570,11 +558,6 @@ impl AppManager {
         self.settings.is_loaded()
     }
 
-    #[inline]
-    pub fn wifi_config(&self) -> &crate::kernel::config::WifiConfig {
-        self.settings.wifi_config()
-    }
-
     pub fn ghost_clear_every(&self) -> u32 {
         if self.settings.is_loaded() {
             self.settings.system_settings().ghost_clear_every as u32
@@ -640,10 +623,6 @@ impl AppLayer for AppManager {
         AppManager::ghost_clear_every(self)
     }
 
-    fn wifi_config(&self) -> &WifiConfig {
-        self.settings.wifi_config()
-    }
-
     fn load_eager_settings(&mut self, k: &mut KernelHandle<'_>) {
         AppManager::load_eager_settings(self, k);
     }
@@ -666,36 +645,6 @@ impl AppLayer for AppManager {
         k: &mut KernelHandle<'_>,
     ) -> bool {
         AppManager::apply_session(self, session, k)
-    }
-
-    fn needs_special_mode(&self) -> bool {
-        self.launcher.active() == AppId::Upload
-    }
-
-    async fn run_special_mode(
-        &mut self,
-        epd: &mut Epd,
-        strip: &mut StripBuffer,
-        delay: &mut Delay,
-        sd: &SdStorage,
-    ) {
-        // Safety: WIFI is not owned by any other driver.  Upload mode
-        // runs in isolation (the scheduler exits the main dispatch loop
-        // first) and tears down the radio stack before returning.  The
-        // peripheral is not accessed again until the next upload session.
-        let wifi = unsafe { esp_hal::peripherals::WIFI::steal() };
-
-        crate::apps::upload::run_upload_mode(
-            wifi,
-            epd,
-            strip,
-            delay,
-            sd,
-            self.settings.system_settings().ui_font_size_idx,
-            &*self.bumps,
-            self.settings.wifi_config(),
-        )
-        .await;
     }
 
     fn suppress_deferred_input(&self) -> bool {

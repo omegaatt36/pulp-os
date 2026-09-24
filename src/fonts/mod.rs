@@ -11,8 +11,10 @@ pub mod font_data {
     include!(concat!(env!("OUT_DIR"), "/font_data.rs"));
 }
 
-use crate::drivers::strip::StripBuffer;
 use bitmap::BitmapFont;
+use core::convert::Infallible;
+use pulp_render::layout::Measure;
+use pulp_render::strip::StripBuffer;
 
 pub const FONT_SIZE_COUNT: usize = 5;
 
@@ -76,13 +78,7 @@ pub fn heading_font(idx: u8) -> &'static BitmapFont {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Style {
-    Regular,
-    Bold,
-    Italic,
-    Heading,
-}
+pub use pulp_render::layout::Style;
 
 // complete set of four style variants at a single size tier
 // missing weights fall back to regular automatically
@@ -92,6 +88,22 @@ pub struct FontSet {
     bold: &'static BitmapFont,
     italic: &'static BitmapFont,
     heading: &'static BitmapFont,
+}
+
+// measurer for pulp_render::layout: flash-resident tables, so it
+// cannot fail
+impl Measure for FontSet {
+    type Error = Infallible;
+
+    #[inline]
+    fn advance(&mut self, ch: char, style: Style) -> Result<u32, Infallible> {
+        Ok(self.font(style).advance(ch) as u32)
+    }
+
+    #[inline]
+    fn line_height(&self, style: Style) -> u16 {
+        self.font(style).line_height
+    }
 }
 
 impl FontSet {
@@ -222,5 +234,42 @@ impl FontSet {
         baseline: i32,
     ) -> i32 {
         self.font(style).draw_str(strip, text, cx, baseline)
+    }
+
+    /// Draw one laid-out line, resolving the markup markers inside it the
+    /// same way `layout::line_glyphs` does when a pack lays the page out.
+    ///
+    /// This lives here rather than in the reader so that the built-in and
+    /// pack paths share one page-driven interface: the reader picks a
+    /// `BookFont` once and then only hands it lines. The two must agree on
+    /// what a line contains, or a page wrapped by one would be drawn as if it
+    /// had been wrapped by the other.
+    pub fn draw_span(
+        &self,
+        strip: &mut StripBuffer,
+        buf: &[u8],
+        span: pulp_render::layout::LineSpan,
+        markup: pulp_render::layout::Markup,
+        cx: i32,
+        baseline: i32,
+    ) {
+        use pulp_render::layout::Style as LStyle;
+
+        if span.is_image() {
+            return;
+        }
+
+        // walk markup and scalars together with layout's scanner, so the
+        // bytes consumed and the style at each glyph are identical
+        let mut x = cx;
+        for (ch, style) in pulp_render::layout::line_glyphs(buf, &span, markup) {
+            let style = match style {
+                LStyle::Bold => Style::Bold,
+                LStyle::Italic => Style::Italic,
+                LStyle::Heading => Style::Heading,
+                LStyle::Regular => Style::Regular,
+            };
+            x += self.draw_char(strip, ch, style, x, baseline) as i32;
+        }
     }
 }

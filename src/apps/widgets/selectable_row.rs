@@ -10,8 +10,8 @@ use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::PrimitiveStyle;
 
-use crate::drivers::strip::StripBuffer;
-use crate::ui::Region;
+use pulp_render::geometry::Region;
+use pulp_render::strip::StripBuffer;
 
 #[inline]
 pub fn draw_selection(strip: &mut StripBuffer, region: Region, selected: bool) -> BinaryColor {

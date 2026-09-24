@@ -7,11 +7,12 @@
 use core::fmt::Write;
 
 use crate::fonts::bitmap::BitmapFont;
-use crate::ui::{Alignment, BitmapDynLabel, Region};
+use crate::ui::BitmapDynLabel;
+use pulp_render::geometry::{Alignment, Region};
 
 // format and draw a position indicator like "3/15" or "3/15 ..."
 pub fn draw_position_indicator<const N: usize>(
-    strip: &mut crate::drivers::strip::StripBuffer,
+    strip: &mut pulp_render::strip::StripBuffer,
     region: Region,
     current: usize,
     total: usize,

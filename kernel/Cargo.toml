@@ -9,7 +9,12 @@ license      = "MIT"
 repository   = "https://github.com/hansmrtn/pulp-os"
 
 [dependencies]
-esp-hal.workspace             = true
+# `requires-unstable`, not `unstable`: this is a library, so it declares that
+# it needs unstable APIs and lets the binary crate turn them on. `unstable`
+# here would also drag in the chip feature for every consumer.
+esp-hal = { workspace = true, features = ["requires-unstable"] }
+pulp-render = { path = "../render" }
+
 embassy-executor.workspace    = true
 embassy-time.workspace        = true
 embassy-futures.workspace     = true

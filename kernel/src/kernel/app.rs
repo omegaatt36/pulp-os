@@ -14,19 +14,15 @@
 // app-side, but the protocol is kernel-side
 
 use embassy_time::Instant;
-use esp_hal::delay::Delay;
 
-use crate::board::Epd;
 use crate::board::action::ActionEvent;
 use crate::drivers::input::Event;
-use crate::drivers::sdcard::SdStorage;
-#[allow(unused_imports)]
-use crate::drivers::strip::StripBuffer;
-use crate::ui::Region;
+use pulp_render::geometry::Region;
+use pulp_render::strip::StripBuffer;
 
 use super::KernelHandle;
 use super::bookmarks::BookmarkCache;
-use super::config::{SystemSettings, WifiConfig};
+use super::config::SystemSettings;
 
 pub const MAX_APP_ACTIONS: usize = 6;
 
@@ -442,7 +438,6 @@ impl<Id: AppIdType> Launcher<Id> {
 // scheduler is generic over AppLayer without importing any concrete
 // app types
 
-// run_special_mode is genuinely async (wifi radio); the rest is sync
 #[allow(async_fn_in_trait)]
 pub trait AppLayer {
     type Id: AppIdType;
@@ -466,7 +461,6 @@ pub trait AppLayer {
     fn system_settings(&self) -> &SystemSettings;
     fn settings_loaded(&self) -> bool;
     fn ghost_clear_every(&self) -> u32;
-    fn wifi_config(&self) -> &WifiConfig;
 
     // boot-time init: load settings, populate caches, enter first app
     fn load_eager_settings(&mut self, k: &mut KernelHandle<'_>);
@@ -484,25 +478,6 @@ pub trait AppLayer {
         session: &super::rtc_session::RtcSession,
         k: &mut KernelHandle<'_>,
     ) -> bool;
-
-    // true when the active app wants to take over the main loop
-    // (e.g. wifi upload mode bypasses the normal event dispatch)
-    fn needs_special_mode(&self) -> bool {
-        false
-    }
-
-    // run the special mode; scheduler calls this when
-    // needs_special_mode() returns true. hardware resources are
-    // passed from the kernel since special modes drive the EPD
-    // and SD directly (e.g. wifi upload mode).
-    async fn run_special_mode(
-        &mut self,
-        _epd: &mut Epd,
-        _strip: &mut StripBuffer,
-        _delay: &mut Delay,
-        _sd: &SdStorage,
-    ) {
-    }
 
     // true when deferred input during EPD refresh should be
     // suppressed (e.g. quick menu overlay is open)

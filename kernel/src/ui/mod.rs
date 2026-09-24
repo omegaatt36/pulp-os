@@ -1,6 +1,7 @@
 // widget primitives for 1-bit e-paper displays
 //
-// font-independent: Region, Alignment, stack measurement, StackFmt
+// font-independent: stack measurement, StackFmt, statusbar, layout
+// constants (Region and Alignment live in pulp_render::geometry)
 // font-dependent widgets (BitmapLabel, QuickMenu, ButtonFeedback)
 // live in the distro's apps::widgets module
 
@@ -14,8 +15,6 @@ pub use layout::{
 };
 pub use stack_fmt::{StackFmt, stack_fmt};
 pub use statusbar::{BAR_HEIGHT, free_stack_bytes, paint_stack, stack_high_water_mark};
-pub use widget::{
-    Alignment, Region, draw_loading_indicator, draw_progress_bar, wrap_next, wrap_prev,
-};
+pub use widget::{draw_loading_indicator, draw_progress_bar, wrap_next, wrap_prev};
 
 pub use crate::board::{SCREEN_H, SCREEN_W};
