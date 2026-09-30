@@ -1,0 +1,189 @@
+porting progress
+================
+
+where this is, what is proven, and what is not.
+
+Two workstreams are running at once, and they are independent until the
+point where they meet: a CJK reading stack, and a move from the
+XTEink X4's ESP32-C3 to the ESP32-C61 in the MoveCall OnePage.
+
+
+1. done
+--------
+
+local verification loop
+    cargo test runs the hardware-independent `render` crate on the
+    host; `cargo fw` builds the firmware. The split exists because cargo
+    merges .cargo/config.toml from every ancestor directory, so a nested
+    crate cannot shadow the firmware's target and build-std settings --
+    the firmware target is therefore an explicit alias, not a default.
+    190 host tests, all green.
+
+    `cargo host-test` is the gate for every change. It runs in about a
+    second and needs no hardware.
+
+CJK font pipeline
+    .PFP format spec (docs/font-pack.txt), a host TTF -> pack converter
+    (tools/fontpack), a device loader with random access, per-page glyph
+    prewarm, W3C clreq line-breaking, and golden images that were
+    reviewed by eye. Iansui at 24 px is 1,014,874 bytes for 12,666
+    codepoints, converted in 0.29 s.
+
+    The interesting test is sd_pack_path.rs: it reads a real pack file
+    through a 512-byte-per-call reader, the way a FAT short-name file
+    presents itself, and requires the rendered page to come out byte for
+    byte equal to the golden the in-memory path produced. That is what
+    makes the device path trustworthy before there is a device.
+
+device wiring
+    A pack is found by name alone -- one pack carries one pixel size of
+    one face, so the file name is the whole index, and the card-root
+    listing is not consulted because the file browser filters it to book
+    extensions. Reading it is a prepare/draw split: the background pass,
+    which holds a storage handle, issues every read the page needs in one
+    go; the render path then draws from the cache without touching the
+    bus. Built-in and pack fonts sit behind one BookFont enum so the
+    reader writes a page once.
+
+    All five size tiers have packs and a test that proves each one loads,
+    lays out, draws, and actually responds to its pixel size.
+
+ESP32-C61 port
+    esp-hal 1.2.2, esp-rtos 0.4, target riscv32imac. Firmware builds with
+    zero warnings. Pin map, input topology, battery, SD and sleep all
+    moved over. See README.txt for the map and the GPIO27 caveats.
+
+    Memory went from a projected 18 KB deficit to about 175 KB of
+    headroom, by cutting the two heaps (110592 + 64000 -> 48K + 32K) and
+    using no PSRAM. Note that .stack is a residual linker bucket, so its
+    size is not a number to optimise; everything-except-.stack is, and
+    that is now 146,888 against 322,160 usable.
+
+Wi-Fi upload
+    Removed. It was the thing making the port unblocked-by-nothing:
+    esp-radio's C61 support is a beta that pins a different PAC major
+    than every esp-hal 1.2.x, so it would have to be dragged along and
+    re-verified at every step. About 1,000 lines, of which roughly 800
+    (HTTP, multipart, mDNS, filename sanitising) do not touch the radio
+    at all and can be recovered from history when it comes back.
+
+
+2. proven, and how
+-------------------
+
+    "the device path renders the same page as the reviewed golden"
+      -- 512-byte sector reads from a real file, byte-compare
+
+    "a pack that ignores its pixel size would be caught"
+      -- five tiers compared; line count, ink and line height all grow
+
+    "the firmware fits the C61"
+      -- section sizes read out of the linked ELF
+
+    "the C61 has 30 usable GPIOs, and GPIO2 can wake it from deep sleep"
+      -- Espressif soc_caps.h: SOC_GPIO_PIN_COUNT 30, and
+         SOC_GPIO_HP_PERIPH_PD_SLEEP_WAKEABLE_MASK is BIT0..BIT6
+
+    "Iansui is redistributable inside this repo"
+      -- OFL 1.1, no Reserved Font Name declared; the .PFP embeds the
+         licence text as its own final section, so a pack lifted off an
+         SD card is self-licensing. See the fixtures README.
+
+
+3. not verified
+----------------
+
+There is no hardware in this environment, so none of the following has
+been run. Each one is a plausible failure that only silicon will catch.
+
+    the pin map            every signal comes from the vendor BSP and the
+                           schematic, not from a datasheet we read
+    EPD BUSY polarity      high=busy is asserted, never observed
+    the key ladder bands   2400-2800 / 1780-2140 / 1140-1500 / 0-250 mV
+                           are vendor figures; the real resistors decide
+    the 2.5 s boot grace   vendor-guessed; without it a phantom ENTER
+                           fires on boot
+    card detect, charge    both active-low per the schematic
+    deep sleep current     the X4's ~3 uA came from physically cutting
+                           power with a latch MOSFET. The C61 cannot do
+                           that, so the number does not transfer and has
+                           not been measured.
+
+Two behaviours changed because the silicon does, not by choice:
+
+    session state no longer survives sleep. C3 and C6 have RTC FAST
+    memory; the C61 linker script defines only RAM, ROM and dram2_seg, so
+    the old .rtc_fast.persistent static was landing in ordinary DRAM and
+    was silently not persisting. It is removed; state is restored from
+    the SD card and boot falls back to enter_initial. This is a
+    regression in behaviour, from something that was already broken.
+
+    deep sleep instead of power cut. GPIO13 is USB_P on the C61, so the
+    MCU stays asleep and GPIO2 level-low is the wake source.
+
+
+4. the version floor, and why it is not 1.1.0
+----------------------------------------------
+
+esp-hal 1.1.0 does list the C61, and its README at that tag does not --
+the README is behind, it omits C5 and C61 alike. Cargo.toml at that tag
+has the chip feature and the PAC. So 1.1.0 "supports" the C61.
+
+It is not enough. 1.1.0 brought up GPIO, SPI, DMA, PSRAM, UART, I2C,
+RNG and SHA/ECC. ADC (#6130) and sleep (#5800) arrived in 1.2.0. This
+firmware reads its front-key ladder and its battery through ADC1, so
+1.1.0 leaves it with no input device at all. 1.2.2 is the floor.
+
+Two non-optional pins came with it:
+    esp-rom-sys 0.1.5, because 0.1.4 does not declare the
+    encrypted-flash-write symbol esp-storage calls unconditionally, and
+    the C61 build fails to compile. MSRV goes to 1.95 as a result.
+    esp-alloc needs its chip feature named explicitly; its build script
+    cannot infer one.
+
+
+5. next
+--------
+
+In order, roughly by how much each unblocks.
+
+  1. get the hardware and flash it. Everything below is cheaper after
+     the first boot log exists. espflash here is 4.3.0 and needs >= 4.5
+     for the C61; the C61 has USB-Serial-JTAG, so no TinyUSB.
+
+  2. confirm the input, because it is the most exposed part. One ADC
+     ladder replaces two, the bands are unmeasured, and ENTER is a short
+     to ground that reads as a real key during ADC settle.
+
+  3. PSRAM, and CJK end to end on the C61. The pack reader is wired and
+     the cache is bounded, but neither has been run against the C61's
+     memory layout. Static PSRAM placement is not available -- the stock
+     linker script has no extmem region, and a .extmem.bss attribute
+     compiles silently into internal DRAM -- so PSRAM has to be reached
+     through psram_allocator! and the heap, never through statics.
+     Never the stack: it is pinned by PMP and shares the flash bus.
+
+  4. the Wi-Fi upload layer, rebuilt against whatever radio version is
+     current by then. Its protocol half came out of this repo in the
+     meantime; the point of removing it was to stop it from dictating
+     the port's dependency set.
+
+  5. re-add the built-in font set next to the pack path, so a tier with
+     no pack on the card is a real fallback rather than a guess.
+
+
+6. things worth not re-deriving
+--------------------------------
+
+    esp-hal's README is not authoritative for which chips a release
+    supports. Its Cargo.toml and CHANGELOG are.
+
+    a docs page and soc_caps.h can disagree about pin counts; soc_caps.h
+    is what the firmware actually compiles against.
+
+    "light sleep only" in a sleep changelog entry describes the ordinary
+    interrupt path, not every wake route. Check the LP/EXT1 masks before
+    concluding a wake source is impossible.
+
+    .stack is not an allocation. Do not budget against it and do not try
+    to move it.
