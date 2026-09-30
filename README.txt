@@ -1,34 +1,150 @@
-pulp-os -- e-reader firmware for the XTEink X4
+pulp-os -- e-reader firmware for the MoveCall OnePage (ESP32-C61)
 
-bare-metal e-reader operating system for the XTEink X4 board
-(ESP32-C3 + SSD1677 e-paper). written in Rust. no std, no
+bare-metal e-reader operating system for the MoveCall OnePage board
+(ESP32-C61 + SSD1677 e-paper). written in Rust. no std, no
 framebuffer, no dyn dispatch. async runtime via Embassy on
 esp-rtos.
 
+previously targeted the XTEink X4 (ESP32-C3); see "porting to the
+OnePage C61" below for what the move changed.
+
 hardware
-    mcu         ESP32-C3, single-core RISC-V RV32IMC, 160 MHz
-    ram         400 KB DRAM; ~172 KB heap (108 KB main + 64 KB reclaimed)
+    mcu         ESP32-C61, single-core RISC-V RV32IMAC
+    ram         322 KB usable DRAM; ~80 KB heap (48 KB main + 32 KB reclaimed)
+    psram       2 MB present, NOT used yet (see porting notes)
     display     800x480 SSD1677 mono e-paper, DMA-backed SPI, portrait
     storage     microSD over shared SPI bus (400 kHz probe, 20 MHz run)
-    input       2 ADC ladders (GPIO1, GPIO2) + power button (GPIO3 IRQ)
-    battery     li-ion via ADC, 100K/100K divider on GPIO0
+    input       1 ADC ladder (GPIO4) + 3 discrete keys (GPIO2/6/9)
+    battery     li-ion via ADC, 5.1M/5.1M divider on GPIO5
 
     pin map:
-      GPIO0   battery ADC          GPIO6   EPD BUSY
-      GPIO1   button row 1 ADC     GPIO7   SPI MISO
-      GPIO2   button row 2 ADC     GPIO8   SPI SCK
-      GPIO3   power button         GPIO10  SPI MOSI
-      GPIO4   EPD DC               GPIO12  SD CS (raw register GPIO)
-      GPIO5   EPD RST              GPIO21  EPD CS
+      GPIO2   KEY_WAKE / power      GPIO25  EPD CS
+      GPIO4   front-key ladder ADC  GPIO26  SD CS
+      GPIO5   battery ADC           GPIO27  EPD RST + SD/MIC power gate
+      GPIO6   KEY_PREV              GPIO28  SD card detect
+      GPIO8   EPD DC                GPIO29  EPD BUSY (HIGH = busy)
+      GPIO9   KEY_NEXT              GPIO10  charge enable
+      GPIO11  USB detect            GPIO22  SPI SCLK
+      GPIO0/1 32.768 kHz XTAL (unused; ESP_HAL_CONFIG_USE_XTAL32K off)
+      GPIO12/13 USB DM/DP (unused)
 
     EPD and SD share SPI2, arbitrated by CriticalSectionDevice.
+    MISO (GPIO24) is wired for SD only, but it must stay connected:
+    detaching it breaks every SD read.
+
+    the front-key ladder is 4 keys on one node (BACK 2400-2800 mV,
+    LEFT 1780-2140, RIGHT 1140-1500, ENTER 0-250; idle ~3100 mV). the
+    node reads ~0 mV while the ADC settles at boot, which is
+    indistinguishable from ENTER, so the ladder is ignored for the
+    first 2.5 s.
+
+porting to the OnePage C61 (in progress)
+    target: the MoveCall OnePage e-reader, ESP32-C61HR2. Same panel
+    (SSD1677 800x480), so the display driver itself barely changed --
+    only the pins around it, and the BUSY polarity. The C61 has 2 MB
+    PSRAM and 30 GPIOs; the X4's C3 has none and 22.
+
+    pin map:
+      GPIO22  SPI SCK (shared)     GPIO4   front-key ladder (ADC1_CH2)
+      GPIO23  SPI MOSI (shared)    GPIO5   battery sense (ADC1_CH3, x2)
+      GPIO24  SPI MISO (SD only)   GPIO10  charge enable (low = pause)
+      GPIO25  EPD CS               GPIO11  USB detect (low = present)
+      GPIO8   EPD DC               GPIO2   KEY_WAKE (deep-sleep wake)
+      GPIO27  EPD RST + SD/MIC     GPIO6   KEY_PREV
+          power gate               GPIO9   KEY_NEXT
+      GPIO29  EPD BUSY (high)      GPIO28  SD card detect (low = inserted)
+
+    GPIO27 is the sharp edge: it is the EPD reset line AND the power gate
+    for the SD and mic. Its hardware reset pulse must happen once, early,
+    before the card is first mounted -- pulsing it later browns out an
+    already-mounted card and latches it into a state that does not
+    recover. After boot the driver uses the controller's soft reset
+    (0x12) instead.
+
+    wake pin: RESOLVED -- GPIO2 CAN wake the chip from deep sleep.
+    This was the open question, and it is answered. esp-hal 1.2.2
+    GPIO2. esp-hal 1.2.2
+    defines the C61's low-power pads in
+    esp-metadata-generated-0.5.3/src/_generated_esp32c61.rs, in
+    `for_each_lp_function!`: the LP pads are exactly GPIO0..GPIO6,
+    with LP_GPIO2 present. esp-hal's
+    src/gpio/lp_io/low_level/v4.rs then implements `LpPin` for
+    GPIO2 with lp_number() == 2. IDF's own soc_caps.h for the C61
+    agrees (components/soc/esp32c61/include/soc/soc_caps.h):
+
+        // GPIO0~6 on ESP32C61 can support chip HP peripheral
+        // powerdown-ed sleep wakeup
+        #define SOC_GPIO_SUPPORT_HP_PERIPH_PD_SLEEP_WAKEUP   (1)
+        #define SOC_GPIO_HP_PERIPH_PD_SLEEP_WAKEABLE_MASK \
+            (0ULL | BIT0 | BIT1 | BIT2 | BIT3 | BIT4 | BIT5 | BIT6)
+        #define SOC_RTCIO_PIN_COUNT                 7
+
+    The same header also settles the pad count, which is worth writing
+    down because a docs page and soc_caps.h disagree: soc_caps.h gives
+    SOC_GPIO_PIN_COUNT 30 and SOC_GPIO_IN_RANGE_MAX 29, so all 30 pads
+    are general-purpose digital I/O and the pin map below is sound.
+
+    So the "LIGHT SLEEP ONLY" note in the changelog refers to the
+    ordinary GPIO interrupt path only; the LP path is what deep sleep
+    uses, and the C61 has one. Deep sleep is therefore viable, and
+    the firmware arms GPIO2 with
+    `apply_wakeup_config(&WakeupConfig::default().with_low_power_path(true))`
+    before `LowPower::sleep_deep`. No board change is needed, and
+    nothing has to be reordered before hardware is ordered.
+
+    Still open: the deep-sleep current figure. The X4's ~3 uA below
+    came from physically cutting power; the C61 stays in deep sleep
+    instead, and that path has not been measured. Treat the C61
+    figure as UNMEASURED until it is measured on the board.
+
+    session persistence across sleep DOES NOT WORK on the C61, and
+    the firmware no longer pretends otherwise. The C3 had 8 KB of
+    RTC FAST memory, and the old code put the session struct in
+    `.rtc_fast.persistent`. The C61's esp-hal linker script
+    (ld/esp32c61/memory.x) defines only RAM, ROM and dram2_seg --
+    there is no RTC region at all, unlike the C3 and C6. A static
+    with that link_section is therefore placed by the linker in
+    ordinary DRAM, where a deep-sleep wake (a full reset, powering
+    down every memory group) does not preserve it. The attribute has
+    been removed and restore comes from the SD card instead. See the
+    header of kernel/src/kernel/rtc_session.rs.
+
+    version floor: esp-hal 1.1.0 does list the C61, but only half of it.
+    1.1.0 brought up GPIO, SPI, DMA, PSRAM, UART, I2C, RNG and SHA/ECC;
+    ADC (#6130) and sleep (#5800) only arrived in 1.2.0. This firmware
+    reads both its front-key ladder and its battery voltage through ADC1,
+    so 1.1.0 leaves it with no input device at all. 1.2.2 is the floor.
+
+    esp-rom-sys must be 0.1.5, not the 0.1.4 that resolves by
+    default. 0.1.4 does not declare `esp_rom_spiflash_write_encrypted`
+    in its Rust bindings, which esp-storage 0.10.0 calls unconditionally,
+    so the C61 build fails to compile. 0.1.5 declares it (the symbol is
+    at 0x40000124 in the C61 ROM). That in turn sets the MSRV at 1.95,
+    which is why the workspace rust-version moved from 1.88.
+
+    PSRAM is present but unused. The C61's stock esp-hal linker script
+    has no `extmem` region, so PSRAM statics cannot be placed
+    statically at all; wiring that up is a later phase, not part of
+    this port.
+
+    Wi-Fi was deliberately removed from this project. It was the
+    thing blocking the port: the C61 is a different radio subsystem
+    and nothing in an offline e-reader needs it. So `esp-radio` and
+    `embassy-net` are NOT dependencies and must not be added back
+    without a reason. There is no network stack in this firmware.
 
 building
-    requires stable Rust >= 1.88 and the riscv32imc-unknown-none-elf
-    target. rust-toolchain.toml handles both automatically.
+    requires stable Rust >= 1.95 and the riscv32imac-unknown-none-elf
+    target. rust-toolchain.toml handles both automatically. (the
+    firmware build itself needs nightly, because `cargo fw` passes
+    -Zbuild-std; run cargo as RUSTUP_TOOLCHAIN=nightly.)
 
         cargo build --release
-        espflash flash --monitor --chip esp32c3 target/...
+        espflash flash --monitor --chip esp32c61 target/...
+
+    NOTE: the espflash in the dev environment is 4.3.0 and does not
+    know the C61 (needs >= 4.5). Building is unaffected; only
+    flashing is.
 
     or:
 
@@ -125,11 +241,14 @@ features
     display         partial DU refresh (~400 ms page turn), periodic
                     full GC refresh (configurable interval)
     quick menu      per-app actions + screen refresh + go home,
-                    triggered by power button
+                    triggered by the WAKE/power key
     settings        sleep timeout, ghost clear interval,
                     book font size, UI font size
     sleep           idle timeout + power long-press; EPD deep sleep
-                    (~3 uA) + ESP32-C3 deep sleep (~5 uA); GPIO3 wake
+                    + ESP32-C61 deep sleep, woken by a level-low on
+                    GPIO2 via the LP path. The C3-era current figures
+                    do not carry over: the X4 cut power outright, this
+                    board does not. UNMEASURED on the C61.
 
 controls
     Prev / Next         scroll or turn page

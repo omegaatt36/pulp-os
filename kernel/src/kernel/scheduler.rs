@@ -54,18 +54,17 @@ impl super::Kernel {
 
         self.bm_cache.ensure_loaded(&self.sd);
 
-        // check for valid RTC session before loading settings
-        // (session may contain cached settings to skip SD reads)
+        // check for a valid in-RAM session before loading settings.
+        // on the C61 this is always None across a sleep: there is no
+        // RTC-retained memory to keep it in (see rtc_session.rs), so
+        // restore comes from the SD card below.
         let has_rtc_session = rtc_session::is_valid_session();
         let rtc_session_data = if has_rtc_session {
             let session = rtc_session::load();
-            info!(
-                "boot: RTC session valid (wake count {})",
-                session.wake_count()
-            );
+            info!("boot: session valid (wake count {})", session.wake_count());
             Some(session)
         } else {
-            info!("boot: no RTC session (power-on or first boot)");
+            info!("boot: no retained session (power-on, or no RTC memory)");
             None
         };
 
@@ -79,7 +78,7 @@ impl super::Kernel {
         tasks::set_idle_timeout(app_mgr.system_settings().sleep_timeout);
         self.log_stats();
 
-        // try to restore session from RTC memory
+        // restore the app stack, if a session survived the wake
         let restored = if let Some(session) = rtc_session_data {
             app_mgr.apply_session(&session, &mut self.handle())
         } else {
@@ -460,17 +459,18 @@ impl super::Kernel {
     // flush bookmarks, render sleep screen, enter MCU deep sleep;
     // on real hardware this never returns (wake = full MCU reset)
     //
-    // uses a custom sleep config that keeps RTC FAST memory powered
-    // so session state survives the sleep cycle (~1-2µA extra)
+    // OnePage has no power-latch MOSFET (the C3 physically cut power, this
+    // board keeps the MCU in deep sleep), so there is no session-preserving
+    // sleep config to build: the wake is a level-low on GPIO2 and the reset
+    // is a full MCU reset. Session state is restored from the SD card.
     async fn enter_sleep(&mut self, reason: &str) {
         use embedded_graphics::mono_font::MonoTextStyle;
         use embedded_graphics::mono_font::ascii::FONT_9X18;
         use embedded_graphics::pixelcolor::BinaryColor;
         use embedded_graphics::prelude::*;
         use embedded_graphics::text::Text;
-        use esp_hal::gpio::RtcPinWithResistors;
-        use esp_hal::rtc_cntl::Rtc;
-        use esp_hal::rtc_cntl::sleep::{RtcSleepConfig, RtcioWakeupSource, WakeupLevel};
+        use esp_hal::rtc_cntl::WakeLock;
+        use esp_hal::rtc_cntl::sleep::{LowPower, RtcSleepConfig};
 
         info!("{}: entering sleep...", reason);
 
@@ -491,24 +491,32 @@ impl super::Kernel {
         self.epd.enter_deep_sleep();
         info!("display: deep sleep mode 1");
 
-        // safety: deep sleep never returns, the MCU resets on wake, so
-        // these stolen peripherals cannot alias with their original
-        // owners. LPWR is not used elsewhere; GPIO3 was previously
-        // cloned into InputHw but we are about to halt the CPU
-        let mut rtc = Rtc::new(unsafe { esp_hal::peripherals::LPWR::steal() });
-        let mut gpio3 = unsafe { esp_hal::peripherals::GPIO3::steal() };
-        let wakeup_pins: &mut [(&mut dyn RtcPinWithResistors, WakeupLevel)] =
-            &mut [(&mut gpio3, WakeupLevel::Low)];
-        let rtcio = RtcioWakeupSource::new(wakeup_pins);
+        // GPIO27 gates the EPD reset line and the SD/MIC rail. Hold its
+        // level across the sleep so the net does not float while the digital
+        // domain is powered down. Safety: only touched here, after all
+        // display and SD I/O has stopped and before the MCU halts.
+        critical_section::with(|cs| {
+            if let Some(pin) = crate::board::EPD_RST_REF.borrow_ref_mut(cs).as_mut() {
+                pin.set_pad_hold(true);
+            }
+        });
 
-        // custom sleep config: keep RTC FAST memory powered for session
-        // persistence. this adds ~1-2µA to deep sleep current but enables
-        // instant wake restoration without SD card I/O.
-        let mut sleep_config = RtcSleepConfig::deep();
-        sleep_config.set_rtc_fastmem_pd_en(false); // keep RTC FAST powered
+        // The wake source was armed in Board::init_input: GPIO2 listens for
+        // LowLevel and requested the low-power (ext1) path, which is the only
+        // path that survives deep sleep powering the GPIO peripheral down.
+        //
+        // Safety: deep sleep never returns, the MCU resets on wake, so the
+        // stolen LPWR cannot alias with any live owner. LPWR is not used
+        // anywhere else in this firmware.
+        let lpwr = unsafe { esp_hal::peripherals::LPWR::steal() };
+        let mut low_power = LowPower::new(lpwr);
 
-        info!("mcu: entering deep sleep (power button to wake, RTC FAST retained)");
-        rtc.sleep(&sleep_config, &[&rtcio]);
+        // Hold a wake lock so the idle hook cannot put the chip into a light
+        // sleep before the deep-sleep call completes.
+        let _lock = WakeLock::new();
+
+        info!("mcu: deep sleep (wake on GPIO2 low level, LP path)");
+        low_power.sleep_deep(RtcSleepConfig::default());
 
         // deep sleep resets the MCU; backstop if sleep returns
         #[allow(unreachable_code)]
@@ -521,8 +529,6 @@ impl super::Kernel {
     // reduces sd current from ~150 µa to ~10 µa during deep sleep.
     // call after all sd i/o is done and before epd sleep-screen render
     fn sd_card_sleep(&self) {
-        use embedded_hal::digital::OutputPin;
-
         self.sd.flush_and_close();
 
         critical_section::with(|cs| {

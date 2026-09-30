@@ -5,22 +5,23 @@
 #
 # Consequences:
 #   cargo test          -> host (x86_64-unknown-linux-gnu), no build-std
-#   cargo fw            -> riscv32imc-unknown-none-elf + build-std, release
+#   cargo fw            -> riscv32imac-unknown-none-elf + build-std, release
 
-[target.riscv32imc-unknown-none-elf]
-runner = "espflash flash --monitor --chip esp32c3"
+[target.riscv32imac-unknown-none-elf]
+# NOTE: the espflash in this environment is 4.3.0, which does not know the
+# C61 (needs >= 4.5). This only affects `cargo run`/flashing, not the build.
+runner = "espflash flash --monitor --chip esp32c61"
 
 [env]
 ESP_LOG = "info"
 
-# NOTE: `.stack` is a residual linker bucket -- it absorbs whatever internal
-# DRAM is left after every static is placed -- so overflowing it does not fail
-# the build, it silently corrupts memory at run time. esp-hal gained
-# `ESP_HAL_CONFIG_ENSURE_MAIN_STACK_MINIMUM` to turn that into a link error,
-# but that option does not exist in the 1.0.0 pinned here (it arrives with the
-# 1.1.x upgrade). Until then `paint_stack()` in src/bin/main.rs is the guard:
-# it paints the stack and reports the high-water mark every 5 s.
-# ADD ESP_HAL_CONFIG_ENSURE_MAIN_STACK_MINIMUM = "24576" HERE AT THE UPGRADE.
+# `.stack` is a residual linker bucket -- it absorbs whatever internal DRAM is
+# left after every static is placed -- so overflowing it does not fail the
+# build, it silently corrupts memory at run time. esp-hal's
+# ESP_HAL_CONFIG_ENSURE_MAIN_STACK_MINIMUM (1.2.0, #6139) turns that into a link
+# error, so the value is set here. `paint_stack()` in src/bin/main.rs is still
+# the run-time guard: it reports the high-water mark every 5 s.
+ESP_HAL_CONFIG_ENSURE_MAIN_STACK_MINIMUM = "24576"
 
 [build]
 rustflags = [
@@ -35,7 +36,7 @@ git-fetch-with-cli = true
 [alias]
 # firmware build/flash. -Zbuild-std lives here rather than in [unstable] so it
 # only applies when explicitly building for the embedded target.
-fw        = "build --release --target riscv32imc-unknown-none-elf -Zbuild-std=core,alloc"
+fw        = "build --release --target riscv32imac-unknown-none-elf -Zbuild-std=core,alloc"
 # Only the host-buildable crates. pulp-os and pulp-kernel are firmware-only
 # (esp-hal, portable-atomic, ... do not build for a host target) and are
 # covered by `cargo fw` instead.

@@ -272,7 +272,9 @@ where
 
         let deadline = Instant::now() + Duration::from_millis(timeout_ms as u64);
         loop {
-            if self.busy.is_low().unwrap_or(true) {
+            // BUSY is HIGH while the controller is working (the X4/C3 wired
+            // it the other way round), so idle is a low level.
+            if self.busy.is_low().unwrap_or(false) {
                 return;
             }
             if Instant::now() >= deadline {
@@ -415,6 +417,7 @@ where
 
     #[inline]
     pub fn is_busy(&mut self) -> bool {
+        // BUSY is active-high on this board; see wait_busy().
         self.busy.is_high().unwrap_or(false)
     }
 
@@ -504,6 +507,8 @@ where
     }
 
     async fn wait_busy_async(&mut self) {
+        // BUSY is active-high on this board; the async path waits for idle,
+        // which is the low level.
         let _ = self.busy.wait_for_low().await;
     }
 

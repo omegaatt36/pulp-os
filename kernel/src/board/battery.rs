@@ -1,8 +1,8 @@
-// battery calibration for the XTEink X4
-// GPIO0 reads through 100K/100K divider (2:1); ADC 11dB attenuation
-// gives 0..2500 mV; multiply by 2 for actual cell voltage
+// battery calibration for the MoveCall OnePage
+// GPIO5 (ADC1_CH3) reads through a 5.1M/5.1M divider (1:1); ADC 11dB
+// attenuation gives 0..2500 mV; multiply by 2 for the actual cell voltage
 
-// voltage divider multiplier (100K/100K resistive divider)
+// voltage divider multiplier (5.1M/5.1M resistive divider)
 pub const DIVIDER_MULT: u32 = 2;
 
 // piecewise-linear li-ion discharge curve, sorted descending by mV

@@ -1,4 +1,4 @@
-// pulp-os - e-reader firmware for the XTEink X4
+// pulp-os - e-reader firmware for the MoveCall OnePage (ESP32-C61)
 
 #![no_std]
 

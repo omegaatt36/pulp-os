@@ -106,9 +106,18 @@ impl SdStorage {
     // sync SdCard auto-initialises on first method call; we call
     // num_bytes() to force init and verify the card responds
     //
+    // The GPIO28 card-detect switch is consulted first: if it reads "no card"
+    // there is no point burning 5 probe attempts on the bus, and it keeps a
+    // removed card from leaving the caller with a half-initialised device.
+    //
     // pub so Board::init can run this before other SPI peripherals
     // touch the bus - SD spec requires a clean 400 kHz bus for CMD0
     pub fn init_card(spi_device: SdSpiDevice) -> Option<SyncSdCard> {
+        if !crate::board::sd_card_inserted() {
+            info!("SD card: card detect reads empty, skipping probe");
+            return None;
+        }
+
         let sd = SdCard::new(spi_device, esp_hal::delay::Delay::new());
 
         for attempt in 1..=5 {

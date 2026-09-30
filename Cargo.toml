@@ -6,12 +6,15 @@ members = [".", "kernel", "render", "tools/fontpack"]
 # a library that pins them forces every downstream consumer to that chip. The
 # bare declaration here carries neither, so pulp-kernel can ask for
 # `requires-unstable` (which fails loudly with a good message if a consumer
-# forgets `unstable`) and pulp-os picks `esp32c3` + `unstable` for itself.
-esp-hal  = { version = "1.0.0", default-features = false }
-embassy-executor = "0.9"
+# forgets `unstable`) and pulp-os picks `esp32c61` + `unstable` for itself.
+#
+# 1.2.2 is the floor: 1.1.0 lists the C61 but omits ADC (added in 1.2.0, #6130),
+# and this firmware reads both the key ladder and the battery through ADC1.
+esp-hal  = { version = "1.2.2", default-features = false }
+embassy-executor = "0.10"
 embassy-time     = "0.5"
 embassy-futures  = "0.1"
-embassy-sync     = "0.7"
+embassy-sync     = "0.8"
 embedded-hal       = "1.0.0"
 embedded-hal-async = "1.0.0"
 embedded-hal-bus   = "0.3.0"
@@ -23,12 +26,16 @@ critical-section = "1.2.0"
 static_cell      = "2.1.1"
 nb  = "1.1.0"
 log = "0.4.27"
-esp-alloc = { version = "0.9.0", features = ["internal-heap-stats"] }
+# Unlike esp-hal, esp-alloc cannot infer the chip: its build script errors
+# out unless exactly one chip feature is on. There is no chip-agnostic form
+# to declare, so the binary's chip is named here.
+esp-alloc = { version = "0.11.0", features = ["esp32c61", "internal-heap-stats"] }
 
 [package]
 edition      = "2024"
 name         = "pulp-os"
-rust-version = "1.88"
+# 1.95 is what the esp-* stack requires (esp-storage / esp-rom-sys declare it).
+rust-version = "1.95"
 version      = "0.1.0"
 authors      = ["Hans Martin <https://github.com/hansmrtn>"]
 repository   = "https://github.com/hansmrtn/pulp-os"
@@ -42,7 +49,7 @@ path = "./src/bin/main.rs"
 pulp-kernel = { path = "kernel" }
 pulp-render = { path = "render" }
 
-esp-hal = { workspace = true, features = ["esp32c3", "log-04", "unstable"] }
+esp-hal = { workspace = true, features = ["esp32c61", "log-04", "unstable"] }
 embassy-executor.workspace     = true
 embassy-time.workspace         = true
 embassy-futures.workspace      = true
@@ -53,16 +60,16 @@ log.workspace                  = true
 esp-alloc.workspace            = true
 smol-epub.workspace            = true
 
-esp-rtos = { version = "0.2.0", features = ["embassy", "esp32c3", "log-04"] }
+esp-rtos = { version = "0.4.0", features = ["embassy", "esp32c61", "log-04"] }
 
-esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3", "log-04"] }
+esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32c61", "log-04"] }
 
-esp-backtrace = { version = "0.18.1", features = [
-  "esp32c3",
+esp-backtrace = { version = "0.20.0", features = [
+  "esp32c61",
   "panic-handler",
   "println",
 ] }
-esp-println = { version = "0.16.1", features = ["esp32c3", "log-04"] }
+esp-println = { version = "0.18.0", features = ["esp32c61", "log-04"] }
 
 [build-dependencies]
 fontdue = "0.9"

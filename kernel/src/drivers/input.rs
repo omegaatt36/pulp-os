@@ -1,12 +1,22 @@
-// debounced input from ADC ladders and power button
-// one button at a time (ladder hw limitation)
-// ADC reads oversampled to reject noise (~40 us per channel)
+// debounced input from the front-key ADC ladder and three discrete keys
+//
+// OnePage input model:
+//   - 4 front keys share ONE resistor ladder on GPIO4 (ADC1_CH2)
+//   - 3 discrete active-low keys: GPIO6 PREV, GPIO9 NEXT, GPIO2 WAKE/power
+//
+// The ladder node reads ~0 mV (= ENTER) while the ADC is still settling after
+// power-on. Without a grace window that fires a phantom ENTER on boot, so the
+// ladder is ignored for the first 2.5 s -- the same window both vendor
+// implementations use.
 
 use esp_hal::time::{Duration, Instant};
 
-use crate::board::InputHw;
-use crate::board::button::{Button, ROW1_THRESHOLDS, ROW2_THRESHOLDS, decode_ladder};
+use crate::board::button::{Button, KEY_LADDER_BANDS, decode_ladder};
+use crate::board::{InputHw, wake_key_is_low};
 use crate::kernel::timing;
+
+/// The ladder is meaningless until the ADC has settled after power-on.
+const LADDER_GRACE: Duration = Duration::from_millis(2500);
 
 macro_rules! read_averaged {
     ($adc:expr, $pin:expr) => {{
@@ -60,6 +70,7 @@ impl EventQueue {
 
 pub struct InputDriver {
     hw: InputHw,
+    started_at: Instant,
     stable: Option<Button>,
     candidate: Option<Button>,
     candidate_since: Instant,
@@ -75,6 +86,7 @@ impl InputDriver {
         let now = Instant::now();
         Self {
             hw,
+            started_at: now,
             stable: None,
             candidate: None,
             candidate_since: now,
@@ -156,23 +168,29 @@ impl InputDriver {
     }
 
     fn read_raw(&mut self) -> Option<Button> {
-        let power_low = crate::board::power_button_is_low();
-        if power_low {
+        // Discrete keys first: they are real logic levels and cost nothing to
+        // read. The ladder is only consulted when none of them is held,
+        // because the ladder can only report one key at a time.
+        if wake_key_is_low() {
             return Some(Button::Power);
         }
+        if crate::board::prev_key_is_low() {
+            return Some(Button::VolUp);
+        }
+        if crate::board::next_key_is_low() {
+            return Some(Button::VolDown);
+        }
 
-        let mv1 = self.read_averaged_row1();
-        let mv2 = self.read_averaged_row2();
+        // The ladder floats to ENTER while the ADC settles after boot.
+        if Instant::now() < self.started_at + LADDER_GRACE {
+            return None;
+        }
 
-        decode_ladder(mv1, ROW1_THRESHOLDS).or_else(|| decode_ladder(mv2, ROW2_THRESHOLDS))
+        decode_ladder(self.read_averaged_ladder(), KEY_LADDER_BANDS)
     }
 
-    fn read_averaged_row1(&mut self) -> u16 {
-        read_averaged!(self.hw.adc, &mut self.hw.row1)
-    }
-
-    fn read_averaged_row2(&mut self) -> u16 {
-        read_averaged!(self.hw.adc, &mut self.hw.row2)
+    fn read_averaged_ladder(&mut self) -> u16 {
+        read_averaged!(self.hw.adc, &mut self.hw.ladder)
     }
 
     pub fn read_battery_mv(&mut self) -> u16 {

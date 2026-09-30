@@ -1,12 +1,21 @@
-// RTC FAST memory session persistence
+// Session persistence across deep sleep.
 //
-// stores session state in RTC FAST memory (8KB on ESP32-C3) which
-// survives deep sleep but is zeroed on power-on reset. this enables
-// instant wake restoration without SD card I/O.
+// IMPORTANT (C61 / OnePage): the ESP32-C61 has no RTC-retained SRAM. Its
+// esp-hal 1.2.2 linker script (ld/esp32c61/memory.x) defines only RAM, ROM
+// and dram2_seg -- there is no RTC_FAST or rtc_slow region, unlike the C3 and
+// C6. So there is nowhere to put a static that a deep-sleep wake preserves,
+// and the deep-sleep wake is a full reset that powers down every memory group
+// in the PowerDownFlags list.
 //
-// the session struct is placed in .rtc_fast.persistent via link_section;
-// esp-hal's linker scripts ensure this memory is only zeroed on power-on,
-// not on deep sleep wake.
+// The link_section attribute below is therefore removed: on the C61 the
+// linker silently places `.rtc_fast.persistent` in ordinary DRAM, which looks
+// like it works and restores nothing. Session state is restored from the
+// settings/bookmark files on the SD card instead, so the app layer's
+// collect/restore contract is unchanged -- only the storage location moved.
+//
+// If a C61 RTC region is ever added to esp-hal, restoring the attribute (and
+// the wakeup-visible `#[esp_hal::ram(persistent)]` on the sleep path) is the
+// only change needed to bring instant wake-restore back.
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -110,16 +119,15 @@ impl RtcSession {
     }
 }
 
-// RTC FAST persistent storage
+// Session storage.
 //
-// This static is placed in .rtc_fast.persistent section which:
-// - Survives deep sleep (RTC domain stays powered)
-// - Is zeroed only on power-on reset (not deep sleep wake)
-// - Requires RTC FAST memory to remain powered during sleep
+// This lives in ordinary .bss: see the note at the top of the file. It is
+// still written before sleep so the data path is exercised, but a deep-sleep
+// wake (a full reset) will not find it, and `is_valid_session()` returns
+// false. Restore therefore comes from the SD card.
 //
 // Safety: Access is through save()/load() which use volatile operations
 // and are only called from single-threaded boot/sleep contexts.
-#[unsafe(link_section = ".rtc_fast.persistent")]
 static mut RTC_SESSION: RtcSession = RtcSession::zeroed();
 
 // Atomic flag to track if we've detected a valid session this boot

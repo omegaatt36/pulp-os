@@ -8,7 +8,6 @@ extern crate alloc;
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::delay::Delay;
-use esp_hal::interrupt::software::SoftwareInterruptControl;
 use esp_hal::ram;
 use esp_hal::timer::timg::TimerGroup;
 use log::info;
@@ -60,30 +59,34 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
     paint_stack();
-    // 108 KB main DRAM heap; leaves ~56 KB for stack
-    esp_alloc::heap_allocator!(size: 110_592);
-    // reclaim ~64 KB from 2nd-stage bootloader; net heap ~172 KB
-    esp_alloc::heap_allocator!(#[ram(reclaimed)] size: 64_000);
+    // C61 usable DRAM is RAM 0x3EA70 (256,624) + dram2_seg 0x10000 (65,536)
+    // = 322,160 bytes. That is ~18 KB less than the C3 had, so the heaps are
+    // sized down here rather than moving the stack to PSRAM (the C61's stock
+    // linker script has no extmem region, so PSRAM statics cannot be placed).
+    // The reclaimed bootloader heap is the first thing to give up: it is the
+    // cheapest 32 KB on the board.
+    esp_alloc::heap_allocator!(size: 48 * 1024);
+    esp_alloc::heap_allocator!(#[ram(reclaimed)] size: 32 * 1024);
 
     let mut console = alloc::boxed::Box::new(BootConsole::new());
     console.push("pulp-os 0.1.0");
-    console.push("esp32c3 rv32imc 160mhz");
-    console.push("heap: 172K (108K + 64K reclaimed)");
+    console.push("esp32c61 rv32imac");
+    console.push("heap: 80K (48K + 32K reclaimed)");
 
     info!("booting...");
 
-    // Safety: TIMG0 and SW_INTERRUPT are cloned here and consumed by
+    // Safety: TIMG0 and FROM_CPU_INTR0 are cloned here and consumed by
     // esp_rtos::start. They are never used again after this point.
     // Board::init (which takes ownership of `peripherals`) does not
-    // touch TIMG0 or SW_INTERRUPT, see the pin ownership table in
+    // touch TIMG0 or FROM_CPU_INTR0, see the pin ownership table in
     // board/mod.rs for the full split.
     let timg0 = TimerGroup::new(unsafe { peripherals.TIMG0.clone_unchecked() });
-    let sw_ints =
-        SoftwareInterruptControl::new(unsafe { peripherals.SW_INTERRUPT.clone_unchecked() });
-    esp_rtos::start(timg0.timer0, sw_ints.software_interrupt0);
+    esp_rtos::start(timg0.timer0, unsafe {
+        peripherals.FROM_CPU_INTR0.clone_unchecked()
+    });
 
     // Peripherals move into Board::init, which splits them across
-    // init_input (ADC pins, GPIO3, IO_MUX) and init_spi_peripherals
+    // init_input (ADC pins, discrete keys, IO_MUX) and init_spi_peripherals
     // (SPI2, DMA, display + SD GPIOs). each peripheral is used in
     // exactly one place, see the ownership table in board/mod.rs.
     let board = Board::init(peripherals);
@@ -103,7 +106,13 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
             SdStorage::mount(card).await
         }
         None => {
-            console.push("sd: not found");
+            // say which case this is. "not found" is ambiguous between an
+            // empty slot and a card that would not answer on the bus.
+            if pulp_os::board::sd_card_inserted() {
+                console.push("sd: card present, no response");
+            } else {
+                console.push("sd: no card in slot");
+            }
             SdStorage::empty()
         }
     };
@@ -164,18 +173,13 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         })
     });
 
-    spawner
-        .spawn(tasks::input_task(input))
-        .expect("spawn input_task");
-    spawner
-        .spawn(tasks::housekeeping_task())
-        .expect("spawn housekeeping_task");
-    spawner
-        .spawn(tasks::idle_timeout_task())
-        .expect("spawn idle_timeout_task");
-    spawner
-        .spawn(work_queue::worker_task())
-        .expect("spawn worker_task");
+    // embassy-executor 0.10: `#[task]` now yields `Result<SpawnToken, SpawnError>`
+    // and `spawn` is infallible, so the token is unwrapped here and `spawn`
+    // takes it bare.
+    spawner.spawn(tasks::input_task(input).expect("spawn input_task"));
+    spawner.spawn(tasks::housekeeping_task().expect("spawn housekeeping_task"));
+    spawner.spawn(tasks::idle_timeout_task().expect("spawn idle_timeout_task"));
+    spawner.spawn(work_queue::worker_task().expect("spawn worker_task"));
     info!("kernel ready.");
 
     kernel.run(&mut app_mgr).await
