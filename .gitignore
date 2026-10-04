@@ -11,3 +11,7 @@ target/
 **/.DS_Store
 
 *.md
+
+# Keep agent handoff specifications in version control.
+!specs/changes/**/*.md
+!specs/references/**/*.md

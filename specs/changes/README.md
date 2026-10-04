@@ -1,0 +1,31 @@
+# OnePage agent handoff
+
+目標順序：OnePage C61 離線閱讀 → 繁體中文／Iansui → Wi-Fi 與其他功能。這些是待實作的 proposals；沒有實機，hardware acceptance 均待驗。只使用目前 checkout，不引用其他分支或既有 spike。
+
+| Change | Tasks | 接手條件 |
+|---|---:|---|
+| [onepage-c61-port](onepage-c61-port/proposal.md) | 14 | 第一個執行 |
+| [onepage-host-validation](onepage-host-validation/proposal.md) | 7 | C61 軟體候選版完成；不必等機器 |
+| [onepage-cjk-iansui](onepage-cjk-iansui/proposal.md) | 10 | C61 軟體驗收完成，host-validation 完成 |
+| [onepage-wifi-upload](onepage-wifi-upload/proposal.md) | 7 | 延後；至少 C61 軟體驗收完成，預設排在 CJK 後 |
+
+「獨立 session」指接手時無須前一段對話；各 task 仍有明列依賴。C61 實機 bring-up 與 host 測試可在軟體基線完成後分開進行。不同 session 不可同時修改同一 worktree 的共用檔案。
+
+## 每個新 session 的入口
+
+1. 讀本文件、指定 change 的 `proposal.md`／`spec.md`／`tasks.md`，及它列出的 reference。
+2. 只接手依賴已完成的 task；使用目前整合後的程式碼，不從舊分支拼接實作。
+3. 回報改動、實際驗證指令／結果和未驗的實機項目；只有交付條件已成立才勾選 task。
+4. `/spec-apply <change-name>` 執行該 change；也可指定只完成某一個已就緒的 T 編號。不要把「編譯／mock 通過」記成實機通過。
+
+## 固定的研究起點
+
+分析時 checkout：Pulp `445755fe`、BSP `57fbdb5`、OnePage hardware `9d7977d`、CrossPoint `23dec9d`、smol-epub `832609d`。來源路徑以 repo 根目錄為基準：`../bsp_onepage_c61`、`../onepage-reader`、`../crosspoint-onepage`、`../smol-epub`。這些是 reference，不要求重設 checkout。
+
+- 板子：ESP32-C61HR2／16 MB flash／2 MB PSRAM；初始 flash40 MHz、PSRAM40 MHz。GPIO27 是 EPD reset **兼 SD/MIC power**，SD 初始化後不能再掉電。
+- BSP 是 ESP-IDF C，使用它的 pin map／操作順序，不引入 IDF runtime。BSP USB detect 文件與實作極性矛盾，以 schematic／實測定案；CrossPoint SDK submodule 目前未初始化。
+- Pulp 原 X4 release build 已通過隔離驗證。C61 的 HAL／RTOS／PSRAM 最小程式，以及 Wi-Fi／DHCP／TCP／UDP 最小程式可連結；完整 Pulp 尚未移植。
+- [Wi-Fi 支援與版本證據](../references/onepage-wifi-support.md)：原 radio0.17／RTOS0.2 沒有 C61 feature；HAL1.2 對應候選 radio1.0.0-beta.1，舊 upload API 需遷移。
+- 本地 stable compiler1.99.0 與 RISC-V core1.98.1 不一致。分析用重建 core／alloc 繞過；T1 必須建立正式可重現工具鏈，不能依賴此 workaround 或 `/tmp` 產物。
+- `smol-epub` 現有 test suite 是 0 unit tests／4 ignored doctests，需新增具體功能驗收。path dependency 的 Git revision 不由 Cargo.lock 固定。
+- 本地 `Iansui-Regular.ttf` 是未追蹤輸入；後續 agent 以 font-path 使用，不假設它會隨 clone 出現。
