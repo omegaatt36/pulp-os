@@ -6,8 +6,9 @@
 //   [12..14) generation u16    [14] name_len u8  [15] pad
 //   [16..48) filename [u8;32]
 
+use crate::drivers::dir_entry::TITLE_CAP;
 use crate::drivers::sdcard::SdStorage;
-use crate::drivers::storage::{self, TITLE_CAP};
+use crate::drivers::storage;
 // FNV-1a hash with ASCII case folding, used for bookmark filename lookups.
 pub fn fnv1a_icase(data: &[u8]) -> u32 {
     let mut h: u32 = 0x811c_9dc5;

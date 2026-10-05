@@ -46,6 +46,12 @@ pub fn decode_utf8_char(buf: &[u8], pos: usize) -> (char, usize) {
         cp = (cp << 6) | (cont as u32 & 0x3F);
     }
 
+    // RFC 3629: the shortest form only (rejects C0/C1 leads, E0 80..9F, F0 80..8F)
+    let min = [0, 0, 0x80, 0x800, 0x1_0000][expected];
+    if cp < min {
+        return ('\u{FFFD}', expected);
+    }
+
     let ch = char::from_u32(cp).unwrap_or('\u{FFFD}');
     (ch, expected)
 }

@@ -75,6 +75,7 @@ use pulp_kernel::board_c61::sleep::{
 };
 use pulp_kernel::board_c61::spi::{self, SpiPins};
 use pulp_kernel::board_c61::usb::{self, UsbPort};
+use pulp_kernel::drivers::dir_entry::DirEntry;
 use pulp_kernel::drivers::{sdcard::SdStorage, storage};
 use pulp_kernel::take_c61_pins;
 
@@ -418,7 +419,7 @@ fn log_decision(when: &str, d: &BootDecision) {
 /// card this returns `Error(NoCard)` (the error the Files app displays)
 /// instead of panicking.
 fn report_storage(storage: &SdStorage, health: &mut StorageHealth) {
-    let mut entries = [storage::DirEntry::EMPTY; 8];
+    let mut entries = [DirEntry::EMPTY; 8];
     let r = storage::list_root_files(storage, &mut entries);
     sd::observe_storage_result(health, &r);
     match r {

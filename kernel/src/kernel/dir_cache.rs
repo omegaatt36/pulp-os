@@ -1,9 +1,10 @@
 // directory listing cache: sorted entries with title resolution
 // loaded lazily from SD, held in RAM, invalidated on demand
 
+use crate::drivers::dir_entry::DirEntry;
 use crate::drivers::sdcard::SdStorage;
 use crate::drivers::storage::{
-    DirEntry, DirPage, PULP_DIR, TITLES_FILE, list_root_files, read_file_start_in_dir,
+    DirPage, PULP_DIR, TITLES_FILE, list_root_files, read_file_start_in_dir,
 };
 use crate::error::Result;
 

@@ -11,8 +11,8 @@ use crate::kernel::BufClass;
 use crate::kernel::KernelHandle;
 
 use super::{
-    DEFAULT_IMG_H, INDENT_PX, LINES_PER_PAGE, LineSpan, MAX_PAGES, NO_PREFETCH, PAGE_BUF,
-    ReaderApp, State, decode_utf8_char,
+    INDENT_PX, LINES_PER_PAGE, LineSpan, MAX_PAGES, NO_PREFETCH, PAGE_BUF, ReaderApp, State,
+    decode_utf8_char, inline_img_max_h,
 };
 
 impl ReaderApp {
@@ -20,7 +20,6 @@ impl ReaderApp {
         let fonts_copy = self.fonts;
 
         if let Some(fs) = fonts_copy {
-            let heights = &self.img_heights[..self.img_height_count as usize];
             let (c, count) = wrap_proportional(
                 &self.pg.buf,
                 n,
@@ -28,7 +27,7 @@ impl ReaderApp {
                 &mut self.pg.lines,
                 self.max_lines as usize,
                 self.text_w,
-                heights,
+                inline_img_max_h(self.text_area_h),
             );
             self.pg.line_count = count;
             c
@@ -119,7 +118,6 @@ impl ReaderApp {
             self.pg.buf_len = n;
             self.pg.prefetch_page = NO_PREFETCH;
             self.pg.prefetch_len = 0;
-            self.prescan_image_heights(k, n);
             self.wrap_lines_counted(n);
             self.decode_page_images(k);
             return Ok(());
@@ -160,7 +158,6 @@ impl ReaderApp {
             self.pg.buf_len = n;
         }
 
-        self.prescan_image_heights(k, self.pg.buf_len);
         let consumed = self.wrap_lines_counted(self.pg.buf_len);
         let next_offset = self.pg.offsets[self.pg.page] + consumed as u32;
 
@@ -385,7 +382,7 @@ pub(super) fn wrap_proportional(
     lines: &mut [LineSpan],
     max_lines: usize,
     max_width_px: u32,
-    img_heights: &[u16],
+    img_h: u16,
 ) -> (usize, usize) {
     let max_l = max_lines.min(lines.len());
     let base_max_w = max_width_px;
@@ -400,7 +397,6 @@ pub(super) fn wrap_proportional(
     let mut heading = false;
     let mut indent: u8 = 0;
     let mut max_w = base_max_w;
-    let mut img_idx: usize = 0;
 
     #[inline]
     fn current_style(bold: bool, italic: bool, heading: bool) -> fonts::Style {
@@ -447,13 +443,9 @@ pub(super) fn wrap_proportional(
                     }
 
                     let line_h = fonts.line_height(fonts::Style::Regular);
-                    // use pre-scanned height if available, else default
-                    let img_h = if img_idx < img_heights.len() && img_heights[img_idx] > 0 {
-                        img_heights[img_idx]
-                    } else {
-                        DEFAULT_IMG_H
-                    };
-                    img_idx += 1;
+                    // every image reserves the same height, so a chapter's
+                    // pages depend on its text and the settings only: not on
+                    // the image files, their compression or the image cache
                     // ceiling division: ensure reserved lines fully cover image height
                     let img_lines = img_h.div_ceil(line_h).max(1) as usize;
 

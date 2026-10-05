@@ -10,7 +10,7 @@ use embedded_graphics::primitives::PrimitiveStyle;
 use crate::apps::{App, AppContext, AppId, Transition};
 use crate::board::action::{Action, ActionEvent};
 use crate::board::{SCREEN_H, SCREEN_W};
-use crate::drivers::storage::DirEntry;
+use crate::drivers::dir_entry::DirEntry;
 use crate::drivers::strip::StripBuffer;
 use crate::error::{Error, ErrorKind};
 use crate::fonts;

@@ -74,18 +74,15 @@ pub(super) const EOCD_TAIL: usize = 512;
 
 pub(super) const INDENT_PX: u32 = 24;
 
-// max inline images tracked per page buffer for dimension pre-scan
-pub(super) const MAX_IMAGES_PER_PAGE: usize = 8;
-
-// default image height budget (half text area) used when actual
-// dimensions are unavailable (e.g. uncached deflated images, or
-// during preindex_all_pages where no pre-scan runs)
-pub(super) const DEFAULT_IMG_H: u16 = 350;
-
 // inline images are capped at this fraction of the text area height.
 // keeps illustrations proportional to surrounding text, similar to
 // Kindle / Apple Books.  fullscreen images (sole content on a page)
 // are not affected — they use the full text_area_h budget.
+// the pager reserves exactly this height for every inline image, whatever
+// its size: the page layout of a chapter must not depend on the image files
+// (a deflated image's size is unknown without decoding) or on whether they
+// are cached yet, or the page table (built once per chapter) and the pages
+// shown later would disagree.
 pub(super) const INLINE_IMG_MAX_PCT: u16 = 40;
 
 #[inline]
@@ -360,12 +357,6 @@ pub struct ReaderApp {
     pub(super) text_area_h: u16, // height of text area (SCREEN_H - text_y - bottom_pad)
     pub(super) reading_theme_idx: u8,
 
-    // pre-scanned image heights for the current page buffer;
-    // populated before wrapping so the pager can reserve the exact
-    // number of lines each image needs at its natural aspect ratio
-    pub(super) img_heights: [u16; MAX_IMAGES_PER_PAGE],
-    pub(super) img_height_count: u8,
-
     pub(super) book_font_size_idx: u8,
     pub(super) applied_font_idx: u8,
 
@@ -409,9 +400,6 @@ impl ReaderApp {
             text_w: TEXT_W,
             text_area_h: TEXT_AREA_H,
             reading_theme_idx: 0,
-
-            img_heights: [0u16; MAX_IMAGES_PER_PAGE],
-            img_height_count: 0,
 
             book_font_size_idx: 0,
             applied_font_idx: 0,

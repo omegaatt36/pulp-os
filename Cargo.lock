@@ -524,6 +524,7 @@ dependencies = [
  "critical-section",
  "document-features",
  "embassy-time-driver",
+ "embassy-time-queue-utils",
  "embedded-hal 0.2.7",
  "embedded-hal 1.0.0",
  "embedded-hal-async",
@@ -1671,6 +1672,23 @@ dependencies = [
 [[package]]
 name = "pulp-board-logic"
 version = "0.1.0"
+
+[[package]]
+name = "pulp-host"
+version = "0.1.0"
+dependencies = [
+ "critical-section",
+ "embassy-executor",
+ "embassy-sync 0.7.2",
+ "embassy-time",
+ "embedded-graphics",
+ "embedded-graphics-core",
+ "fontdue",
+ "log",
+ "miniz_oxide",
+ "pulp-board-logic",
+ "smol-epub",
+]
 
 [[package]]
 name = "pulp-kernel"

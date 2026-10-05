@@ -1,0 +1,39 @@
+[package]
+name         = "pulp-host"
+edition      = "2024"
+rust-version = "1.95"
+version      = "0.1.0"
+description  = "Host-side validation entry: paging / rendering / storage tests over the production sources"
+license      = "MIT"
+publish      = false
+build        = "build.rs"
+
+# Host-only crate: no esp-* dependency and no embedded linker script, so the
+# host triple builds and `cargo test` runs. Production logic is reached by
+# `#[path]`-including the firmware's own source files (never a copy); only
+# the hardware edge (SD card, display, Kernel struct) is a host stand-in.
+# Host test command: `scripts/host-test.sh`.
+[features]
+default = ["board-x4"]
+# Declared so the production files' cfg(feature = "board-x4") arms select the
+# heap-backed BigBuf and the RTC session type (the C61 arms need esp-alloc /
+# PSRAM). Never changes paging, wrapping or bookmark logic.
+board-x4 = []
+# declared only so the production files' cfg(feature = "board-onepage-c61")
+# arms are known; never enabled
+board-onepage-c61 = []
+
+[dependencies]
+pulp-board-logic = { path = "../board-logic" }
+smol-epub.workspace = true
+embassy-time = { workspace = true, features = ["std"] }
+embassy-sync.workspace = true
+embassy-executor.workspace = true
+critical-section = { workspace = true, features = ["std"] }
+embedded-graphics.workspace = true
+embedded-graphics-core.workspace = true
+log.workspace = true
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
+
+[build-dependencies]
+fontdue = "0.9"

@@ -1,0 +1,395 @@
+
+--- NEW FILE host/src/bin/host-preview.rs ---
+use std::path::PathBuf;
+
+use pulp_host::fixtures::{standard, standard_card};
+use pulp_host::fonts::FONT_SIZE_COUNT;
+use pulp_host::kernel::config::{DEFAULT_FONT_SIZE_IDX, DEFAULT_READING_THEME, NUM_READING_THEMES};
+use pulp_host::reader::{Action, Phase, Rig};
+use pulp_host::render::{render_full, render_stitched};
+
+struct Options {
+    output: PathBuf,
+    fixture: Option<String>,
+    page: usize,
+    font: u8,
+    theme: u8,
+}
+
+fn number(value: &str, option: &str) -> Result<usize, String> {
+    if value.is_empty() || !value.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(format!("{option} requires a nonnegative integer: {value}"));
+    }
+    value.parse().map_err(|_| format!("{option} value is too large: {value}"))
+}
+
+fn options() -> Result<Option<Options>, String> {
+    let mut args = std::env::args().skip(1);
+    let mut output = None;
+    let mut fixture = None;
+    let mut page = 0;
+    let mut font = DEFAULT_FONT_SIZE_IDX as usize;
+    let mut theme = DEFAULT_READING_THEME as usize;
+    while let Some(arg) = args.next() {
+        if arg == "--help" {
+            println!("Usage: scripts/host-preview.sh --output-dir DIR [--fixture NAME] [--page N] [--font N] [--theme N]\n\nDefaults: all standard fixtures, page 0, font {DEFAULT_FONT_SIZE_IDX}, theme {DEFAULT_READING_THEME}.\n--page is a zero-based ordinal across EPUB chapters.\n--font accepts 0..{}; --theme accepts 0..{}.\nArtifacts: 480x800 binary P4 PBM.\nFixtures: {}", FONT_SIZE_COUNT - 1, NUM_READING_THEMES - 1, standard().iter().map(|f| f.name).collect::<Vec<_>>().join(", "));
+            return Ok(None);
+        }
+        if !matches!(arg.as_str(), "--output-dir" | "--fixture" | "--page" | "--font" | "--theme") {
+            return Err(format!("unknown argument: {arg}; use --help"));
+        }
+        let value = args.next().filter(|v| !v.starts_with("--") && !v.is_empty())
+            .ok_or_else(|| format!("missing value for {arg}"))?;
+        match arg.as_str() {
+            "--output-dir" => output = Some(PathBuf::from(value)),
+            "--fixture" => fixture = Some(value),
+            "--page" => page = number(&value, &arg)?,
+            "--font" => font = number(&value, &arg)?,
+            "--theme" => theme = number(&value, &arg)?,
+            _ => unreachable!(),
+        }
+    }
+    if font >= FONT_SIZE_COUNT { return Err(format!("--font must be below {FONT_SIZE_COUNT}")); }
+    if theme >= NUM_READING_THEMES as usize { return Err(format!("--theme must be below {NUM_READING_THEMES}")); }
+    Ok(Some(Options {
+        output: output.ok_or("--output-dir is required; use --help")?,
+        fixture, page, font: font as u8, theme: theme as u8,
+    }))
+}
+
+fn ready(rig: &mut Rig, name: &str) -> Result<(), String> {
+    for _ in 0..4000 {
+        if rig.phase() != Phase::Ready {
+            return Err(format!("{name}: reader phase {:?}, error {:?}", rig.phase(), rig.error_kind()));
+        }
+        if !rig.has_bg_work() { return Ok(()); }
+        rig.idle(1);
+    }
+    Err(format!("{name}: background work did not finish in 4000 ticks"))
+}
+
+fn run(o: Options) -> Result<(), String> {
+    let fixtures = standard();
+    if let Some(name) = &o.fixture {
+        if !fixtures.iter().any(|f| f.name == name) {
+            return Err(format!("unknown fixture: {name}; use --help"));
+        }
+    }
+    std::fs::create_dir_all(&o.output).map_err(|e| format!("{}: {e}", o.output.display()))?;
+    for f in fixtures.iter().filter(|f| o.fixture.as_ref().is_none_or(|name| name == f.name)) {
+        let mut rig = Rig::new(standard_card());
+        rig.configure(o.font, o.theme);
+        rig.open(f.name);
+        ready(&mut rig, f.name)?;
+        for ordinal in 0..o.page {
+            let before = (rig.chapter(), rig.page());
+            rig.press(Action::Next);
+            ready(&mut rig, f.name)?;
+            if before == (rig.chapter(), rig.page()) {
+                return Err(format!("{}: --page {} is out of range (last ordinal {ordinal})", f.name, o.page));
+            }
+        }
+        let full = render_full(&|strip| rig.draw(strip)).frame;
+        let stitched = render_stitched(&|strip| rig.draw(strip)).frame;
+        if full.to_pbm() != stitched.to_pbm() {
+            return Err(format!("{}: full/stitched pixels differ", f.name));
+        }
+        let path = o.output.join(format!("{}-page{}-font{}-theme{}.pbm", f.name, o.page, o.font, o.theme));
+        full.write_pbm(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        println!("{}", path.display());
+    }
+    Ok(())
+}
+
+fn main() {
+    let result = options().and_then(|o| o.map_or(Ok(()), run));
+    if let Err(error) = result {
+        eprintln!("host-preview: {error}");
+        std::process::exit(1);
+    }
+}
+
+--- NEW FILE scripts/host-preview.sh ---
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+host="$(rustc -vV | sed -n 's/^host: //p')"
+exec cargo run --locked -p pulp-host --bin host-preview --target "$host" \
+  --config 'unstable.build-std=["std","test"]' -- "$@"
+
+--- NEW FILE scripts/check-host-preview.sh ---
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+cli=scripts/host-preview.sh
+if [[ ! -x "$cli" ]]; then
+    echo "FAIL preview entrypoint missing or not executable: $cli" >&2
+    exit 1
+fi
+work=$(mktemp -d "${TMPDIR:-/tmp}/pulp-preview-check.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+count=0
+pass() { count=$((count + 1)); echo "ok $*"; }
+fail() { echo "FAIL $*" >&2; exit 1; }
+run() {
+    "$cli" "$@" >"$work/command.log" 2>&1 || {
+        cat "$work/command.log" >&2
+        fail "preview command: $*"
+    }
+}
+validate() {
+    python3 - "$1" "$2" <<'PY'
+import pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+files = sorted(root.glob('*.pbm'))
+assert len(files) == int(sys.argv[2]), (root, 'artifact count', len(files))
+for path in files:
+    data = path.read_bytes()
+    # Read the three header tokens without treating binary raster as whitespace.
+    pos = 0
+    tokens = []
+    while len(tokens) < 3:
+        while pos < len(data) and data[pos] in b' \t\r\n':
+            pos += 1
+        if pos < len(data) and data[pos] == 35:
+            pos = data.index(b'\n', pos) + 1
+            continue
+        start = pos
+        while pos < len(data) and data[pos] not in b' \t\r\n':
+            pos += 1
+        tokens.append(data[start:pos])
+    assert tokens == [b'P4', b'480', b'800'], (path, tokens)
+    assert pos < len(data) and data[pos] in b' \t\r\n', (path, 'header terminator')
+    pos += 2 if data[pos:pos + 2] == b'\r\n' else 1
+    raster = data[pos:]
+    assert len(raster) == 480 * 800 // 8, (path, 'complete raster', len(raster))
+    assert any(raster) and any(byte != 255 for byte in raster), (path, 'blank frame')
+PY
+}
+compare() {
+    python3 - "$1" "$2" <<'PY'
+import pathlib, sys
+roots = [pathlib.Path(p) for p in sys.argv[1:]]
+sets = [{p.name: p.read_bytes() for p in root.glob('*.pbm')} for root in roots]
+assert sets[0] and sets[0] == sets[1], 'PBM names or bytes differ'
+PY
+}
+reject() {
+    if "$cli" "$@" >"$work/error.log" 2>&1; then
+        fail "invalid arguments accepted: $*"
+    fi
+    [[ -s "$work/error.log" ]] || fail "invalid arguments lack diagnostic: $*"
+    pass "reject $*"
+}
+run --help
+for option in output-dir fixture page font theme; do
+    grep -q -- "--$option" "$work/command.log" || fail "help lacks --$option"
+done
+pass "CLI help"
+run --output-dir "$work/all-a"
+validate "$work/all-a" 11
+pass "eleven complete first-page PBMs"
+run --output-dir "$work/all-b"
+validate "$work/all-b" 11
+compare "$work/all-a" "$work/all-b"
+pass "directory-independent deterministic PBMs"
+run --output-dir "$work/default" --fixture PLAINLF.TXT
+run --output-dir "$work/explicit" --fixture PLAINLF.TXT --page 0 --font 2 --theme 1
+validate "$work/default" 1
+validate "$work/explicit" 1
+compare "$work/default" "$work/explicit"
+pass "documented defaults page 0 font 2 theme 1"
+for option in page font theme; do
+    value=0
+    [[ "$option" != page ]] || value=1
+    run --output-dir "$work/effect-$option" --fixture PLAINLF.TXT "--$option" "$value"
+    validate "$work/effect-$option" 1
+    python3 - "$work/default" "$work/effect-$option" <<'PY'
+import pathlib, sys
+frames = [next(pathlib.Path(p).glob('*.pbm')).read_bytes() for p in sys.argv[1:]]
+# Compare rasters alone so changing filenames/header comments cannot pass.
+assert frames[0][-48000:] != frames[1][-48000:], 'option ignored: identical pixels'
+PY
+    pass "independent $option pixel effect"
+done
+for fixture in PLAINLF.TXT E2STORED.EPU E3STORED.EPU; do
+    run --output-dir "$work/$fixture-a" --fixture "$fixture" --page 1 --font 0 --theme 0
+    run --output-dir "$work/$fixture-b" --fixture "$fixture" --page 1 --font 0 --theme 0
+    validate "$work/$fixture-a" 1
+    validate "$work/$fixture-b" 1
+    compare "$work/$fixture-a" "$work/$fixture-b"
+    pass "selected nondefault page/config $fixture"
+done
+reject
+reject --unknown
+reject --output-dir
+reject --output-dir "$work/bad" --fixture UNKNOWN.TXT
+for option in page font theme; do
+    reject --output-dir "$work/bad" --fixture PLAINLF.TXT "--$option" -1
+    reject --output-dir "$work/bad" --fixture PLAINLF.TXT "--$option" abc
+    reject --output-dir "$work/bad" --fixture PLAINLF.TXT "--$option"
+done
+reject --output-dir "$work/bad" --fixture TINY.TXT --page 999999
+font_count=$(sed -n 's/^pub const FONT_SIZE_COUNT: usize = \([0-9]*\);/\1/p' src/fonts/mod.rs)
+theme_count=$(sed -n 's/^pub const NUM_READING_THEMES: u8 = \([0-9]*\);/\1/p' kernel/src/kernel/config.rs)
+[[ -n "$font_count" && -n "$theme_count" ]] || fail "exported option bounds unavailable"
+reject --output-dir "$work/bad" --fixture PLAINLF.TXT --font "$font_count"
+reject --output-dir "$work/bad" --fixture PLAINLF.TXT --theme "$theme_count"
+echo "PASS preview CLI ($count gates)"
+
+--- NEW FILE host/README.md ---
+# Host reader validation
+
+Run these commands from the pulp-os repository root. The pinned toolchain is
+`nightly-2026-09-22`; install its `rust-src` component for Cargo build-std.
+The wrappers derive rustc's host triple and override the workspace's embedded
+build-std configuration with `std,test`. No hardware or external renderer is
+required. Cargo dependencies must already be cached for offline execution;
+`--locked` does not itself disable network access.
+
+The workspace uses the sibling path dependency `../smol-epub`. Cargo.lock does
+not pin a path checkout: the validated HEAD is
+`832609d967d4d06452dd49d35b2c9aeb578612de`. Preserve that checkout and the
+font inputs in `assets/fonts`; host/build.rs calls the production font generator.
+The verified host is aarch64-apple-darwin, rustc 1.100.0-nightly (1303417c4).
+
+```bash
+rustup component add rust-src --toolchain nightly-2026-09-22
+scripts/host-test.sh --locked
+scripts/check-host-preview.sh
+scripts/check-host-boundary.sh
+scripts/check-reader-regression.sh both
+scripts/report-c61-memory.sh
+```
+
+The boundary gate checks the host dependency/build graph and builds both
+firmwares with `cargo build-x4 --locked` and `cargo build-c61 --locked`.
+Use `scripts/check-host-boundary.sh --skip-firmware` for the host boundary alone.
+Firmware compilation and memory budgets do not validate physical hardware.
+
+## PBM previews
+
+```bash
+scripts/host-preview.sh --help
+scripts/host-preview.sh --output-dir /tmp/pulp-preview-a
+scripts/host-preview.sh --output-dir /tmp/pulp-preview-b
+python3 - <<'PY'
+from pathlib import Path
+roots = [Path('/tmp/pulp-preview-a'), Path('/tmp/pulp-preview-b')]
+artifacts = [{p.name: p.read_bytes() for p in r.glob('*.pbm')} for r in roots]
+assert len(artifacts[0]) == 11 and artifacts[0] == artifacts[1]
+print('eleven PBMs match exactly')
+PY
+scripts/host-preview.sh --output-dir /tmp/pulp-selected --fixture PLAINLF.TXT --page 1 --font 0 --theme 0
+```
+
+Use fresh output directories when counting artifacts; the CLI overwrites its
+own deterministic filenames but does not delete other files. Without
+`--fixture`, it renders all eleven synthetic standard books (five TXT and six
+EPUB2/3 compression variants). `--help` lists canonical, case-sensitive names.
+Defaults are page 0, font 2, theme 1. Font indices are 0–4 and theme indices
+0–3, validated against production exports. `--page` is a zero-based ordinal
+from the beginning of each book; EPUB navigation crosses chapters through
+production `Action::Next`. Out-of-range values fail instead of clamping.
+
+Artifacts are named `NAME-pageN-fontN-themeN.pbm`: binary P4, 480×800,
+MSB-first monochrome pixels, 1 = black, with a 48000-byte raster and no
+clock or metadata. Production `Rig::draw` renders the page after bounded
+background completion; the full-band and firmware-strip results must match
+before a file is written. Errors exit nonzero with diagnostics. An error after
+one book succeeds can leave its PBM in the output directory.
+
+Exact repeatability is verified for the same pinned toolchain, dependencies,
+inputs and host target. Cross-platform compressor/font rasterization identity
+has not been established.
+
+## Storage and coverage
+
+The preview uses generated `standard_card()` memory storage. Tests also exercise
+`VirtualStorage::host_dir(root)`, where an existing host directory acts as an SD
+root and survives drop. Both backends expose read counters/logs and deterministic
+short-read/error injection. Host filesystem permissions, case handling and I/O
+errors are not complete FAT/SD emulation.
+
+See [coverage.md](../specs/changes/onepage-host-validation/coverage.md) for
+requirement evidence, limitations and final boundary verification.
+The earlier `scripts/reader-regression` harness remains intentionally available
+for HEAD/tree comparison and golden acceptance; its duplicated host shims have
+not been consolidated.
+
+--- NEW FILE specs/changes/onepage-host-validation/coverage.md ---
+# Host validation coverage
+
+Evidence is for this uncommitted change on the pinned toolchain described in
+[host/README.md](../../../host/README.md). Requirement IDs belong in this report,
+not runtime code. Test-author red proofs, expectation origins and weakening
+reports remain in `tmp-briefs/` for a future `/spec-archive` audit.
+
+| Requirement | Evidence / replay command | Limit |
+|---|---|---|
+| R1 host boundary | `scripts/check-host-boundary.sh --skip-firmware`; dependency graph, verbose host linker/build checks | Final root boundary passed: 81-package graph, host236 and both firmwares |
+| R2 production algorithms | `scripts/host-test.sh --locked`; path-included ReaderApp, paging, glyph rendering, StripBuffer and smol-epub; preview uses Rig::draw and Action::Next | Hardware edges are shims |
+| R3 firmware builds | Root X4/C61 `--locked` builds exit 0, `/tmp/hv-final-{x4,c61}.log`; `scripts/check-host-boundary.sh` repeats both | Compilation does not validate hardware |
+| R4 storage | `scripts/host-test.sh --test storage`: memory/host-file semantics, counters and read logs | Host filesystem differs from FAT |
+| R5 injection | storage + reader_failures tests; required-page Error/ReadFailed/reopen and best-effort prefetch recovery; bookmark/settings dirty retry | Injection limitations below |
+| R6 portrait artifact | render + reader_screens tests; `scripts/check-host-preview.sh`: P4 480×800 and complete nonblank raster | Portrait configuration only |
+| R7 strip equality | render tests and CLI compare full-band with stitched firmware strips before writing | Full-frame interpretation below |
+| R8 fixtures/regressions | fixtures, paging, utf8, reader_epub, reader_settings, reader_bookmarks, reader_failures, reader_screens tests; root reader regression head83/tree90, golden3105-line SHA matches pin | Codec/hardware/image gaps below |
+| R9 reproducibility | `scripts/check-host-preview.sh`: eleven artifacts, exact second-directory match, selection/options/defaults/errors; README gives copy-paste commands | Same pinned inputs/target; no cross-platform identity proof |
+| R10 uncovered behavior | This report and progress ledger record scope/observations | No hardware acceptance conclusion |
+
+Root evidence before T7: all 236 host tests passed; both firmware builds passed;
+reader regression head83/tree90 passed with golden SHA256
+`8cb6e31a70a32cdc05d30fab45ee0c7983da8cde6a55ba8bb45a0540f8d3f454`;
+C61 memory-budget checks passed (`/tmp/hv-final-c61-memory.log`). Final root boundary verification passed (host236, graph81, both firmware
+builds); C61 memory checks also passed. T7 final focused CLI gate passed 26 assertions, including page/font/theme
+option effects (`/tmp/t7-preview-final.log`); implementation full
+host rerun passed all 236 tests (no skips/ignored), recorded in `tmp-briefs/t7-impl-report.md`.
+
+## Known gaps
+
+- Host defaults to board-x4 and heap BigBuf. It does not validate C61 PSRAM
+  budget/runtime allocation, RTC session restoration, swap_buttons, physical
+  buttons, SD timing, display refresh/ghosting, power or wake behavior. Memory
+  budget checks are static evidence only. Partial-refresh/screen configurations
+  beyond the tested portrait paths are not covered.
+- Memory and host-file storage share deterministic semantics, not complete FAT
+  emulation. Legacy FakeFs compares names without case sensitivity while virtual
+  memory storage is case-sensitive; host-directory behavior depends on its
+  filesystem. Permissions and natural filesystem errors are not an exhaustive
+  error matrix. Write/append map host errors to OpenFile while firmware may use
+  WriteFailed. Short injection length at least the normal length acts as success;
+  simultaneous due injections trigger one; natural failure takes precedence over
+  short injection. Missing-file creation and offset overflow in write_at_in_pulp
+  follow production but lack tests. The historic PULP_DIR duplication gap is no
+  longer applicable: host storage imports the production dir_entry constant.
+- The full-frame reference means production StripBuffer rendered in different
+  full-width bands, not an independent renderer or firmware full-page buffer.
+  Equality establishes independence from tile shape. Its 64-row band size is a
+  host scheduling choice. Pixel copying depends on documented strip byte layout;
+  no public StripCore pixel accessor exists. A Deg270 mutation was detected by
+  bounds panic, a weaker oracle than direct pixel mismatch. Interpretation of R7
+  remains a recorded review question.
+- OPF creator/title and NCX/nav TOC title entities remain undecoded by smol-epub
+  (characterization test pins this behavior). Cover declaration is tested but no
+  production cover-viewer API exists. TOC fragments and non-spine entries are not
+  covered; parse_opf's trailing slash convention is exercised by real Rig opening.
+- JPEG fixtures cover baseline single-component DC-only 8×8 flat blocks: no AC
+  detail/IDCT stress, color, progressive/restart/EXIF or non-8-multiple dimensions.
+  PNG covers filter 0, one IDAT and gray1/gray8/palette8; no general codec matrix.
+  Thumbnail scaling covers 2× only. ZIP omits ZIP64, data descriptors, extras,
+  non-ASCII filenames, archive comments and large archives. Text formatting after
+  markup stripping includes characterization measurements rather than an
+  independent typography oracle.
+- Image behavior still has two observed production limitations: images near the
+  page bottom can be clipped rather than moved/shrunk; reopening an image-bearing
+  first page with preceding text can leave page_image None until navigation away
+  and back. Cache progress/has_bg_work has no independent observation point.
+  Preview drains bounded work but does not claim to repair those limitations.
+- Legacy reader-regression Rig/probe/Kernel/storage forwarding remains duplicated;
+  retaining HEAD comparison and run-software-acceptance usage is deliberate.
+  Four existing unrelated import-format changes in sibling smol-epub
+  src/{cache,jpeg,png,zip}.rs remain untouched.
+- CLI black-box checks do not independently prove internal algorithm reuse or
+  cross-chapter ordinal navigation. Source review and reader_epub tests supply
+  that evidence; there is no implementation-derived pixel hash oracle.

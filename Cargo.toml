@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "kernel", "board-logic"]
+members = [".", "kernel", "board-logic", "host"]
 
 [workspace.dependencies]
 # chip selection (esp32c3 / esp32c61) is NOT set here; it comes from the

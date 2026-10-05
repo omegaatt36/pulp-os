@@ -11,104 +11,13 @@ use core::ops::ControlFlow;
 
 use embedded_sdmmc::Mode;
 
+use crate::drivers::dir_entry::{DirEntry, TITLE_CAP, is_listed_name, title_line};
+pub use crate::drivers::dir_entry::{DirPage, PULP_DIR, TITLES_FILE};
 use crate::drivers::sdcard::{SdStorage, SdStorageInner, poll_once};
 use crate::error::{Error, ErrorKind};
 
-pub const PULP_DIR: &str = "_PULP";
-pub const TITLES_FILE: &str = "TITLES.BIN";
-pub const TITLE_CAP: usize = 64;
-
 // backward-compatible alias
 pub type StorageError = Error;
-
-#[derive(Clone, Copy)]
-pub struct DirEntry {
-    pub name: [u8; 13],
-    pub name_len: u8,
-    pub is_dir: bool,
-    pub size: u32,
-    pub title: [u8; TITLE_CAP],
-    pub title_len: u8,
-}
-
-impl DirEntry {
-    pub const EMPTY: Self = Self {
-        name: [0u8; 13],
-        name_len: 0,
-        is_dir: false,
-        size: 0,
-        title: [0u8; TITLE_CAP],
-        title_len: 0,
-    };
-
-    pub fn name_str(&self) -> &str {
-        core::str::from_utf8(&self.name[..self.name_len as usize]).unwrap_or("?")
-    }
-
-    pub fn display_name(&self) -> &str {
-        let len = (self.title_len & 0x7F) as usize;
-        if len > 0 {
-            core::str::from_utf8(&self.title[..len]).unwrap_or(self.name_str())
-        } else {
-            self.name_str()
-        }
-    }
-
-    pub fn has_real_title(&self) -> bool {
-        self.title_len > 0 && self.title_len & 0x80 == 0
-    }
-
-    pub fn set_title(&mut self, s: &[u8]) {
-        let n = s.len().min(TITLE_CAP);
-        self.title[..n].copy_from_slice(&s[..n]);
-        self.title_len = n as u8;
-    }
-
-    // write a humanized SFN into the title buffer as a soft fallback;
-    // does not prevent the title scanner from resolving a real title
-    pub fn humanize_sfn(&mut self) {
-        let nlen = self.name_len as usize;
-        if nlen == 0 || self.has_real_title() {
-            return;
-        }
-        let src = &self.name[..nlen];
-        // check if name is all-uppercase (typical 8.3 SFN)
-        let all_upper = src.iter().all(|&b| !b.is_ascii_lowercase());
-        if !all_upper {
-            return; // mixed case: user-supplied LFN, leave as-is
-        }
-        let n = nlen.min(TITLE_CAP);
-        let dot_pos = src.iter().position(|&b| b == b'.').unwrap_or(n);
-        for i in 0..n {
-            if i == 0 {
-                self.title[i] = src[i]; // keep first char uppercase
-            } else if i > dot_pos {
-                self.title[i] = src[i].to_ascii_lowercase(); // lowercase ext
-            } else {
-                self.title[i] = src[i].to_ascii_lowercase();
-            }
-        }
-        self.title_len = 0x80 | n as u8;
-    }
-}
-
-pub struct DirPage {
-    pub total: usize,
-    pub count: usize,
-}
-
-fn ext_eq(name: &[u8], target: &[u8]) -> bool {
-    let dot = match name.iter().rposition(|&b| b == b'.') {
-        Some(p) => p,
-        None => return false,
-    };
-    let ext = &name[dot + 1..];
-    ext.len() == target.len() && ext.eq_ignore_ascii_case(target)
-}
-
-fn has_supported_ext(name: &[u8]) -> bool {
-    ext_eq(name, b"TXT") || ext_eq(name, b"EPUB") || ext_eq(name, b"EPU") || ext_eq(name, b"MD")
-}
 
 // build "NAME.EXT" bytes from a ShortFileName
 
@@ -369,10 +278,7 @@ pub fn list_root_files(sd: &SdStorage, buf: &mut [DirEntry]) -> crate::error::Re
                 let name_len = sfn_to_bytes(&entry.name, &mut name_buf);
                 let sfn = &name_buf[..name_len as usize];
 
-                if sfn.is_empty() || sfn[0] == b'.' || sfn[0] == b'_' {
-                    return ControlFlow::Continue(());
-                }
-                if !has_supported_ext(sfn) {
+                if !is_listed_name(sfn) {
                     return ControlFlow::Continue(());
                 }
 
@@ -704,22 +610,13 @@ pub fn write_at_in_pulp(
 
 // append a title line to _PULP/TITLES.BIN
 pub fn save_title(sd: &SdStorage, filename: &str, title: &str) -> crate::error::Result<()> {
-    let name_bytes = filename.as_bytes();
-    let title_bytes = title.as_bytes();
-    let title_len = title_bytes.len().min(TITLE_CAP);
-    let line_len = name_bytes.len() + 1 + title_len + 1; // name + \t + title + \n
-    if line_len > 128 {
+    let mut line = [0u8; 128];
+    let Some(line_len) = title_line(filename, title, &mut line) else {
         return Err(Error::new(
             ErrorKind::WriteFailed,
             "save_title: line too long",
         ));
-    }
-    let mut line = [0u8; 128];
-    line[..name_bytes.len()].copy_from_slice(name_bytes);
-    line[name_bytes.len()] = b'\t';
-    line[name_bytes.len() + 1..name_bytes.len() + 1 + title_len]
-        .copy_from_slice(&title_bytes[..title_len]);
-    line[name_bytes.len() + 1 + title_len] = b'\n';
+    };
 
     append_file_in_dir(sd, PULP_DIR, TITLES_FILE, &line[..line_len])
 }

@@ -7,7 +7,8 @@
 // underlying caches directly via bookmark_cache() / dir_cache_mut()
 // rather than through dedicated handle methods
 
-use crate::drivers::storage::{self, DirEntry, DirPage};
+use crate::drivers::dir_entry::DirEntry;
+use crate::drivers::storage::{self, DirPage};
 use crate::error::{Error, Result};
 use crate::kernel::bookmarks::BookmarkCache;
 use crate::kernel::dir_cache::DirCache;

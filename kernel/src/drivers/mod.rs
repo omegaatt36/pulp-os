@@ -7,6 +7,7 @@
 // can use `drivers::input::Event` / `drivers::battery::*` on both boards.
 #[cfg(feature = "board-x4")]
 pub mod battery;
+pub mod dir_entry;
 #[cfg(feature = "board-x4")]
 pub mod input;
 pub mod sdcard;

@@ -1,6 +1,15 @@
 fn main() {
-    linker_be_nice();
-    println!("cargo:rustc-link-arg=-Tlinkall.x");
+    // the linker calls this binary back as its --error-handling-script
+    linker_error_script();
+    // esp-hal's linker scripts belong to the firmware targets only; pulp-host
+    // shares generate_bitmap_fonts below and links as an ordinary host binary
+    if std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() == Ok("riscv32") {
+        println!(
+            "cargo:rustc-link-arg=--error-handling-script={}",
+            std::env::current_exe().unwrap().display()
+        );
+        println!("cargo:rustc-link-arg=-Tlinkall.x");
+    }
     generate_bitmap_fonts();
 }
 
@@ -10,7 +19,7 @@ fn hint(msg: &str) {
     eprintln!();
 }
 
-fn linker_be_nice() {
+fn linker_error_script() {
     let args: Vec<String> = std::env::args().collect();
     // --error-handling-script passes two args: kind and symbol
     if args.len() >= 3 {
@@ -48,11 +57,6 @@ fn linker_be_nice() {
 
         std::process::exit(0);
     }
-
-    println!(
-        "cargo:rustc-link-arg=--error-handling-script={}",
-        std::env::current_exe().unwrap().display()
-    );
 }
 
 // build-time font rasterisation: scan assets/fonts/ for TTFs, classify
@@ -311,12 +315,15 @@ fn find_ttf(dir: &Path, keywords: &[&str]) -> Option<PathBuf> {
     None
 }
 
-fn generate_bitmap_fonts() {
+pub fn generate_bitmap_fonts() {
+    generate_bitmap_fonts_in(Path::new("assets/fonts"));
+}
+
+// `font_dir` is relative to the package being built (pulp-host: ../assets/fonts)
+pub fn generate_bitmap_fonts_in(font_dir: &Path) {
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let dest = Path::new(&out_dir).join("font_data.rs");
     let mut out = fs::File::create(&dest).unwrap();
-
-    let font_dir = Path::new("assets/fonts");
 
     // discover TTFs and classify by style
     let regular = find_ttf(font_dir, &["Regular"]);
@@ -333,7 +340,7 @@ fn generate_bitmap_fonts() {
     if let Some(ref p) = italic {
         println!("cargo:rerun-if-changed={}", p.display());
     }
-    println!("cargo:rerun-if-changed=assets/fonts");
+    println!("cargo:rerun-if-changed={}", font_dir.display());
 
     let ext_codepoints = extended_codepoints();
 

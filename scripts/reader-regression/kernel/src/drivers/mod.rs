@@ -1,5 +1,6 @@
 // host stand-in for kernel/src/drivers/mod.rs: strip is the real file; sdcard and
 // storage are the in-memory SD shim; input only provides the event type.
+pub mod dir_entry;
 pub mod sdcard;
 pub mod storage;
 

@@ -17,6 +17,7 @@ use log::info;
 
 use crate::board::action::{Action, ActionEvent, ButtonMapper};
 use crate::board::{Epd, SCREEN_H, SCREEN_W};
+use crate::drivers::dir_entry::DirEntry;
 use crate::drivers::sdcard::SdStorage;
 use crate::drivers::storage;
 use crate::drivers::strip::StripBuffer;
@@ -396,7 +397,7 @@ where
     if is_get && path == b"/files" {
         let _ = socket.write_all(HTTP_200_JSON).await;
 
-        let mut entries = [storage::DirEntry::EMPTY; DIR_LIST_MAX];
+        let mut entries = [DirEntry::EMPTY; DIR_LIST_MAX];
         let count = match storage::list_root_files(sd, &mut entries) {
             Ok(n) => n,
             Err(_) => {
