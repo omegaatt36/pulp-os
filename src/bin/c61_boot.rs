@@ -142,18 +142,12 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
     let (mut key_input, mut battery_mon) =
         match adc::init(peripherals.ADC1, pins.front_adc, pins.battery_adc) {
             Ok(set) => {
-                let k = keys::new(
-                    set.adc,
-                    set.front,
-                    pins.key_wake,
-                    pins.key_prev,
-                    pins.key_next,
-                );
+                let k = keys::new(set.adc, pins.key_wake, pins.key_prev, pins.key_next);
                 info!(
                     "keys: ladder GPIO4 + GPIO2/6/9 ready, startup grace {} ms",
                     keys::STARTUP_GRACE_US / 1000
                 );
-                let b = battery::new(pins.charge_enable, set.adc, set.battery);
+                let b = battery::new(pins.charge_enable, set.adc);
                 info!("battery: GPIO5 + charge control GPIO10 ready (charging enabled)");
                 (Some(k), Some(b))
             }

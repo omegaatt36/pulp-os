@@ -23,7 +23,7 @@ use pulp_board_logic::keys::AdcSample;
 
 pub use pulp_board_logic::battery::{BatteryError, BatteryReading};
 
-use super::adc::{BatteryPin, SharedAdc};
+use super::adc::SharedAdc;
 use super::power::HalDelay;
 
 /// GPIO10 charge enable (high = charging allowed, low = paused).
@@ -39,19 +39,18 @@ impl ChargePin for Gpio10Charge {
 /// Battery node: the shared ADC1 + GPIO5.
 pub struct BatteryAdc {
     adc: SharedAdc,
-    pin: BatteryPin,
 }
 
 impl AdcSample for BatteryAdc {
     fn sample_mv(&mut self) -> Option<u16> {
-        self.adc.read_mv(&mut self.pin)
+        self.adc.read_battery_mv()
     }
 }
 
 pub type C61Battery = BatteryMonitor<Gpio10Charge, BatteryAdc, HalDelay>;
 
 /// Build the battery monitor. GPIO10 starts HIGH (no pause glitch at boot).
-pub fn new(gpio10: GPIO10<'static>, adc: SharedAdc, pin: BatteryPin) -> C61Battery {
+pub fn new(gpio10: GPIO10<'static>, adc: SharedAdc) -> C61Battery {
     let charge = Gpio10Charge(Output::new(gpio10, Level::High, OutputConfig::default()));
-    BatteryMonitor::new(charge, BatteryAdc { adc, pin }, HalDelay::new())
+    BatteryMonitor::new(charge, BatteryAdc { adc }, HalDelay::new())
 }

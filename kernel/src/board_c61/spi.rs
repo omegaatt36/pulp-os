@@ -163,6 +163,8 @@ pub enum SpiInitError {
     DmaBuffers,
     /// Bus cell busy while changing the clock.
     Busy,
+    /// SD startup clocks could not be transmitted or flushed.
+    Bus,
 }
 
 /// Switch the bus clock (init 400 kHz -> operating 10 MHz).
@@ -171,7 +173,44 @@ pub struct SpiControl {
     shared: &'static Shared,
 }
 
+fn prepare_sd_probe(shared: &'static Shared) -> Result<(), SpiInitError> {
+    critical_section::with(|cs| {
+        let mut guard = shared
+            .borrow(cs)
+            .try_borrow_mut()
+            .map_err(|_| SpiInitError::Busy)?;
+        let SharedSpi { bus, arbiter } = &mut *guard;
+        if arbiter.owner().is_some() {
+            return Err(SpiInitError::Busy);
+        }
+        let cfg = spi::master::Config::default().with_frequency(Rate::from_khz(SPI_INIT_KHZ));
+        bus.apply_config(&cfg).map_err(|_| SpiInitError::Config)?;
+        arbiter
+            .deselected(|| {
+                let sent = embedded_hal::spi::SpiBus::write(bus, &[0xFF; SD_PRELUDE_BYTES]);
+                let flushed = embedded_hal::spi::SpiBus::flush(bus);
+                sent.and(flushed).map_err(|_| SpiInitError::Bus)
+            })
+            .map_err(|e| match e {
+                BusError::Busy(_) => SpiInitError::Busy,
+                BusError::Transfer(e) => e,
+            })
+    })
+}
+
+impl ArbitratedSpiDevice {
+    /// Prepare the shared bus before each SD initialization attempt.
+    pub fn prepare_sd_probe(&self) -> Result<(), SpiInitError> {
+        prepare_sd_probe(self.shared)
+    }
+}
+
 impl SpiControl {
+    /// Restore the probe clock and transmit 80 clocks with both selects high.
+    pub fn prepare_sd_probe(&self) -> Result<(), SpiInitError> {
+        prepare_sd_probe(self.shared)
+    }
+
     /// Call after SD init (needs 400 kHz) and before the first EPD frame.
     pub fn speed_up(&self) -> Result<(), SpiInitError> {
         self.set_khz(SPI_OPERATING_KHZ, SPI_INIT_KHZ)
@@ -248,16 +287,11 @@ pub fn init(
     let sd_cs = Output::new(pins.sd_cs, Level::High, OutputConfig::default());
 
     let slow = spi::master::Config::default().with_frequency(Rate::from_khz(SPI_INIT_KHZ));
-    let mut raw = spi::master::Spi::new(spi2, slow)
+    let raw = spi::master::Spi::new(spi2, slow)
         .map_err(|_| SpiInitError::Config)?
         .with_sck(pins.sck)
         .with_mosi(pins.mosi)
         .with_miso(pins.miso);
-
-    // SD spec: >= 74 clocks with CS high before CMD0 (BSP gets this from the
-    // IDF sdspi host). Same trick as the X4 port, before the DMA conversion.
-    // A failure here is not fatal: the SD init retry loop recovers.
-    let _ = raw.write(&[0xFF; SD_PRELUDE_BYTES]);
 
     let rx = esp_hal::dma_rx_buffer!(SPI_DMA_BUF_BYTES).map_err(|_| SpiInitError::DmaBuffers)?;
     let tx = esp_hal::dma_tx_buffer!(SPI_DMA_BUF_BYTES).map_err(|_| SpiInitError::DmaBuffers)?;

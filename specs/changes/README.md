@@ -1,10 +1,10 @@
 # OnePage agent handoff
 
-目標順序：OnePage C61 離線閱讀 → 繁體中文／Iansui → Wi-Fi 與其他功能。這些是待實作的 proposals；沒有實機，hardware acceptance 均待驗。只使用目前 checkout，不引用其他分支或既有 spike。
+目標順序：OnePage C61 離線閱讀 → 繁體中文／Iansui → Wi-Fi 與其他功能。C61 port 已完成軟體候選版並封存；其他 changes 是待實作的 proposals。沒有實機，hardware acceptance 均待驗。只使用目前 checkout，不引用其他分支或既有 spike。
 
 | Change | Tasks | 接手條件 |
 |---|---:|---|
-| [onepage-c61-port](onepage-c61-port/proposal.md) | 14 | 第一個執行 |
+| [onepage-c61-port](archive/onepage-c61-port/proposal.md) | 14＋3 項修正 | 已封存；軟體驗收通過，歷史證據缺失依使用者授權保留，硬體未驗 |
 | [onepage-host-validation](onepage-host-validation/proposal.md) | 7 | C61 軟體候選版完成；不必等機器 |
 | [onepage-cjk-iansui](onepage-cjk-iansui/proposal.md) | 10 | C61 軟體驗收完成，host-validation 完成 |
 | [onepage-wifi-upload](onepage-wifi-upload/proposal.md) | 7 | 延後；至少 C61 軟體驗收完成，預設排在 CJK 後 |

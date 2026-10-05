@@ -283,9 +283,6 @@ impl super::Kernel {
             }
             Some(CardEvent::Inserted) => {
                 if self.hw.card.health.on_card_event(CardEvent::Inserted) {
-                    if self.hw.card.control.slow_down().is_err() {
-                        warn!("sd: could not restore the 400 kHz probe clock");
-                    }
                     let up = sd::bring_up(
                         &mut self.hw.power,
                         self.hw.card.pin.state(),

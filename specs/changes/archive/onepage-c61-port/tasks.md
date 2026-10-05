@@ -16,3 +16,9 @@
 - [x] T12: 整合完整離線 main／tasks／app lifecycle，完成 C61 與 X4 離線 release link — satisfies R1, R2, R3, R21；依賴 T6, T7, T8, T11。
 - [x] T13: 驗收英文 TXT／EPUB 的分頁／導航／設定／書籤回歸與完整 build／memory matrix — satisfies R21, R22, R23；依賴 T12；使用正式邏輯的最小 host seam 完成軟體回歸；不依賴後續 host-validation change。
 - [x] T14: 交付實機 bring-up 指令與驗收記錄模板，列 boot／PSRAM／SD／ADC／EPD／USB／sleep／電流的未驗狀態 — satisfies R22, R23；依賴 T13；交付文件即可完成此 task，實測是後續 gate。
+
+## 驗收修正（2026-10-05）
+
+- [x] 保留 SD session 的閱讀位置，避免 Reader 初始化／舊書籤覆蓋；補無書籤、舊書籤、章節起點、一次性恢復與暫停 Reader 再睡眠回歸 — satisfies R20；12 個 session tests 通過，獨立 review APPROVE。
+- [x] 每次 SD probe 都完成 400 kHz／CS high／至少 74 clocks，涵蓋正式韌體與 bring-up 熱插卡，傳遞 preparation failure — satisfies R8, R9；實際 SPI adapter host trace／write failure 通過，CardProbe 每次 probe 接線 source review，C61 release link 通過。
+- [x] ADC 超時後在切換通道前處理 pending conversion；補延遲完成、持續卡住與正確通道值回歸 — satisfies R12, R16；實際 ADC adapter＋stateful HAL seam 通過，C61 release link 通過。

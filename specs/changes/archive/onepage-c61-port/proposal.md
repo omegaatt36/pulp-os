@@ -8,7 +8,7 @@
 
 - In：可重現工具鏈、board selection、C61 HAL API、SPI／SD／EPD、按鍵、PSRAM、電池／USB、休眠與持久化、英文閱讀回歸。
 - Out：CJK、Wi-Fi 上傳實作、BLE、音訊、OTA；partial refresh 波形調校留待實機後另定。
-- 前置：讀 [handoff](../README.md) 與 [Wi-Fi check](../../references/onepage-wifi-support.md)，不使用其他分支。
+- 前置：讀 [handoff](../../README.md) 與 [Wi-Fi check](../../../references/onepage-wifi-support.md)，不使用其他分支。
 
 ## Impact
 

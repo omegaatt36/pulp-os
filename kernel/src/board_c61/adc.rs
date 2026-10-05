@@ -14,7 +14,7 @@
 // that says "GPIO5 = ADC1_CH2" is a typo for GPIO4.)
 //
 // Sharing: `SharedAdc` is a copyable handle to a critical-section mutex around
-// the `Adc`. A conversion (start + wait for done, tens of microseconds) runs
+// the `Adc` and both pins. A conversion (start + bounded wait) runs
 // inside ONE critical section, so a key poll and a battery measurement from
 // different tasks can never interleave on the converter.
 //
@@ -27,7 +27,7 @@ use core::cell::RefCell;
 use critical_section::Mutex;
 use esp_hal::{
     Blocking,
-    analog::adc::{Adc, AdcCalCurve, AdcCalScheme, AdcChannel, AdcConfig, AdcPin, Attenuation},
+    analog::adc::{Adc, AdcCalCurve, AdcChannel, AdcConfig, AdcPin, Attenuation},
     peripherals::{ADC1, GPIO4, GPIO5},
 };
 use pulp_board_logic::battery::BATTERY_ADC_CHANNEL;
@@ -38,10 +38,55 @@ use static_cell::StaticCell;
 /// microseconds; this only prevents an endless wait if it never completes).
 const ADC_SPIN_LIMIT: u32 = 20_000;
 
-pub type FrontPin = AdcPin<GPIO4<'static>, ADC1<'static>, AdcCalCurve<ADC1<'static>>>;
-pub type BatteryPin = AdcPin<GPIO5<'static>, ADC1<'static>, AdcCalCurve<ADC1<'static>>>;
+type FrontPin = AdcPin<GPIO4<'static>, ADC1<'static>, AdcCalCurve<ADC1<'static>>>;
+type BatteryPin = AdcPin<GPIO5<'static>, ADC1<'static>, AdcCalCurve<ADC1<'static>>>;
 
-type AdcCell = Mutex<RefCell<Adc<'static, ADC1<'static>, Blocking>>>;
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum Channel {
+    Front,
+    Battery,
+}
+
+struct Converter {
+    adc: Adc<'static, ADC1<'static>, Blocking>,
+    front: FrontPin,
+    battery: BatteryPin,
+    pending: Option<Channel>,
+}
+
+impl Converter {
+    fn finish(&mut self, channel: Channel) -> Option<u16> {
+        self.pending = Some(channel);
+        for _ in 0..ADC_SPIN_LIMIT {
+            let result = match channel {
+                Channel::Front => self.adc.read_oneshot(&mut self.front),
+                Channel::Battery => self.adc.read_oneshot(&mut self.battery),
+            };
+            match result {
+                Ok(mv) => {
+                    self.pending = None;
+                    return Some(mv);
+                }
+                Err(nb::Error::WouldBlock) => continue,
+                // Retain the channel until a successful read confirms that the
+                // HAL released it. A failed conversion is never reported as zero.
+                Err(nb::Error::Other(())) => return None,
+            }
+        }
+        None
+    }
+
+    fn read(&mut self, channel: Channel) -> Option<u16> {
+        if let Some(pending) = self.pending {
+            // The timed-out sample may predate the current measurement window.
+            // Complete it to release the HAL channel, then take a fresh sample.
+            self.finish(pending)?;
+        }
+        self.finish(channel)
+    }
+}
+
+type AdcCell = Mutex<RefCell<Converter>>;
 static ADC1_CELL: StaticCell<AdcCell> = StaticCell::new();
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -58,32 +103,20 @@ pub enum AdcError {
 pub struct SharedAdc(&'static AdcCell);
 
 impl SharedAdc {
-    /// One calibrated reading in mV, `None` if the conversion failed or did not
-    /// finish within the spin limit. Never reports a failure as 0 mV.
-    pub fn read_mv<PIN, CS>(&self, pin: &mut AdcPin<PIN, ADC1<'static>, CS>) -> Option<u16>
-    where
-        PIN: AdcChannel,
-        CS: AdcCalScheme<ADC1<'static>>,
-    {
-        critical_section::with(|cs| {
-            let mut adc = self.0.borrow_ref_mut(cs);
-            for _ in 0..ADC_SPIN_LIMIT {
-                match adc.read_oneshot(pin) {
-                    Ok(mv) => return Some(mv),
-                    Err(nb::Error::WouldBlock) => continue,
-                    Err(nb::Error::Other(())) => return None,
-                }
-            }
-            None
-        })
+    /// Read the front ladder, first completing any timed-out battery conversion.
+    pub fn read_front_mv(&self) -> Option<u16> {
+        critical_section::with(|cs| self.0.borrow_ref_mut(cs).read(Channel::Front))
+    }
+
+    /// Read the battery, first completing any timed-out ladder conversion.
+    pub fn read_battery_mv(&self) -> Option<u16> {
+        critical_section::with(|cs| self.0.borrow_ref_mut(cs).read(Channel::Battery))
     }
 }
 
-/// Everything `init` hands out: the shared converter and the two enabled pins.
+/// Shared handle; the converter keeps both enabled pins for timeout recovery.
 pub struct AdcSet {
     pub adc: SharedAdc,
-    pub front: FrontPin,
-    pub battery: BatteryPin,
 }
 
 /// ADC1 channels esp-hal assigns to GPIO4 (front ladder) and GPIO5 (battery),
@@ -118,11 +151,14 @@ pub fn init(
     let battery = cfg.enable_pin_with_cal::<_, AdcCalCurve<ADC1>>(battery, Attenuation::_11dB);
     let adc = Adc::new(adc1, cfg);
     let cell = ADC1_CELL
-        .try_init(Mutex::new(RefCell::new(adc)))
+        .try_init(Mutex::new(RefCell::new(Converter {
+            adc,
+            front,
+            battery,
+            pending: None,
+        })))
         .ok_or(AdcError::AlreadyInitialised)?;
     Ok(AdcSet {
         adc: SharedAdc(cell),
-        front,
-        battery,
     })
 }

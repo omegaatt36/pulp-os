@@ -65,6 +65,7 @@ matrix_sizes() {
 }
 
 stage "host tests (pulp-board-logic)" scripts/test-board-logic.sh
+stage "C61 shared ADC and SD probe adapters" bash scripts/check-c61-adapter-regression.sh
 stage "reader regression, head vs tree (R21)" scripts/check-reader-regression.sh both
 [ "$WITH_MUTANTS" = 1 ] && stage "reader mutants" scripts/check-reader-mutants.sh
 
@@ -102,7 +103,7 @@ UNVERIFIED  battery sampling and USB detect polarity (BSP code vs README conflic
 UNVERIFIED  deep sleep, GPIO2 wake (arm-before-poweroff differs from BSP), GPIO27/GPIO10 pad state
 UNVERIFIED  sleep/active current, session restore across a real power cycle
 UNVERIFIED  X4 on hardware (ported to HAL 1.2: SPI, sleep, startup)
-Procedure and record template: see specs/changes/onepage-c61-port/ (T14).
+Procedure and record template: see specs/changes/archive/onepage-c61-port/ (T14).
 EOF
 
 exit "$fail"

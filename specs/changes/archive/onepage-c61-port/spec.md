@@ -68,3 +68,12 @@ WHEN 軟體候選版交付 THE SYSTEM SHALL 提供實際 build／host-test 結�
 
 ### R23: 硬體驗收狀態
 IF 尚未在 OnePage 執行 THEN THE SYSTEM SHALL 將硬體驗收結果標為未驗。
+
+## 驗收審查補充情境（2026-10-05）
+
+本節補上審查找到的契約缺口；不替原始需求補寫無法追溯的 provenance。
+
+- R8／R9：冷啟動、初始化重試及熱插卡，每次 probe 前均需以 400 kHz、SD CS high 提供至少 74 clocks 並完成傳輸；preparation 失敗不得繼續送卡片命令。來源：鎖定的 embedded-sdmmc `0bf1254/src/sdcard/spi.rs` caller contract。
+- R12／R16：共享 ADC 某通道超時後，下次量測須先處理原 pending conversion，才開始新 conversion；不得將電池結果當成按鍵值。持續 stall 仍須有等待上限。來源：鎖定的 esp-hal 1.2.0 active_channel 契約與語意按鍵／電池量測要求。
+- R20：有效 session 的 TXT／EPUB 位置須優先於舊書籤；無書籤及章節起點 offset 0 亦須恢復。session 位置只套用一次，正常重新開書仍走既有書籤流程。
+- R20：Reader 還原後暫停於 Settings、尚未載入第一頁時，若再次睡眠，收集 session 仍須保留待恢復的章節／byte offset。變更字型後回 Reader 須完成正常 EPUB 初始化，再依 byte offset 定位。

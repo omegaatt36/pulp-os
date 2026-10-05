@@ -12,7 +12,7 @@
 // The ADC1 instance is created in `board_c61::adc` (T9), which enables GPIO4
 // (this ladder) and GPIO5 (battery) in ONE `AdcConfig` and checks esp-hal's pin
 // table (`ADC1_CH2 = GPIO4`, `ADC1_CH3 = GPIO5`) against the BSP's. This module
-// only receives the already-enabled front pin and the shared handle (the BSP
+// only receives the shared handle; the converter owns both pins (the BSP
 // shares one adc_oneshot handle too, board_keys.c:119-121).
 //
 // Not verified on hardware: real ladder voltages vs the BSP windows, ADC
@@ -27,7 +27,7 @@ use esp_hal::{
 use pulp_board_logic::input::InputTiming;
 use pulp_board_logic::keys::{AdcSample, Clock, KeyInput, KeyPin};
 
-use super::adc::{FrontPin, SharedAdc};
+use super::adc::SharedAdc;
 
 pub use pulp_board_logic::input::Event;
 pub use pulp_board_logic::keys::{Key, STARTUP_GRACE_US, map_event};
@@ -35,12 +35,11 @@ pub use pulp_board_logic::keys::{Key, STARTUP_GRACE_US, map_event};
 /// Front-ladder node: the shared ADC1 + GPIO4.
 pub struct FrontLadder {
     adc: SharedAdc,
-    pin: FrontPin,
 }
 
 impl AdcSample for FrontLadder {
     fn sample_mv(&mut self) -> Option<u16> {
-        self.adc.read_mv(&mut self.pin)
+        self.adc.read_front_mv()
     }
 }
 
@@ -71,13 +70,12 @@ fn key_pin(pin: impl esp_hal::gpio::InputPin + 'static) -> GpioKey {
 /// window (2.5 s) starts now, like the BSP's `board_keys_init`.
 pub fn new(
     adc: SharedAdc,
-    front: FrontPin,
     key_wake: GPIO2<'static>,
     key_prev: GPIO6<'static>,
     key_next: GPIO9<'static>,
 ) -> C61Input {
     KeyInput::new(
-        FrontLadder { adc, pin: front },
+        FrontLadder { adc },
         [key_pin(key_wake), key_pin(key_prev), key_pin(key_next)],
         HalClock,
         InputTiming::PULP,

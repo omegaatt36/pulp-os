@@ -116,14 +116,8 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let (key_input, battery_mon) =
         match adc::init(peripherals.ADC1, pins.front_adc, pins.battery_adc) {
             Ok(set) => {
-                let k = keys::new(
-                    set.adc,
-                    set.front,
-                    pins.key_wake,
-                    pins.key_prev,
-                    pins.key_next,
-                );
-                let b = battery::new(pins.charge_enable, set.adc, set.battery);
+                let k = keys::new(set.adc, pins.key_wake, pins.key_prev, pins.key_next);
+                let b = battery::new(pins.charge_enable, set.adc);
                 (k, b)
             }
             Err(e) => {

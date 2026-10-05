@@ -95,6 +95,19 @@ impl<E: ChipSelect, S: ChipSelect> SpiArbiter<E, S> {
         Ok(())
     }
 
+    /// Run bus preparation with both devices deselected.
+    pub fn deselected<R, Er>(
+        &mut self,
+        f: impl FnOnce() -> Result<R, Er>,
+    ) -> Result<R, BusError<Er>> {
+        if let Some(owner) = self.owner {
+            return Err(BusError::Busy(owner));
+        }
+        self.epd_cs.release();
+        self.sd_cs.release();
+        f().map_err(BusError::Transfer)
+    }
+
     /// Run `f` (bus operations) with `dev` selected: assert CS, run, release
     /// CS. `f` must not call back into the arbiter (the kernel holds the bus
     /// mutex across the whole call); if it does, the inner call is refused

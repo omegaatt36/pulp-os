@@ -1,6 +1,6 @@
 # onepage-c61-port — Progress Ledger
 
-分支：`onepage`。每個 task 由獨立 subagent 執行；完成後在 `tasks.md` 勾選並在此記錄。所有改動目前為 working tree（未 commit）。
+分支：`onepage`。原移植已於 `d17a282`、`3007dc6` commit；下表的「未 commit」是各 task 當時的歷史紀錄。本次 2026-10-05 驗收修正留在 working tree，尚未 commit。
 
 | Task | 狀態 | Commit | 備註 |
 |------|------|--------|------|
@@ -20,9 +20,10 @@
 | T13 | done | (未 commit) | host 回歸 harness（`scripts/reader-regression/`，直接 include 真實 `src/apps/reader`／settings／bookmarks 原始碼，只 shim 硬體邊緣）：head（`3bb911af`）83 項／tree 84 項全過，兩邊 golden trace（3105 行）sha256 皆 `8cb6e31a…`＝R21 行為等價；mutant 16 個全擊殺（初次 4 個存活：R2／R17 為等價並移出清單、R4 mutant 無效已修、R16 為真缺口已補 UTF-8 邊界測試）；`scripts/run-software-acceptance.sh [--with-mutants]` 一鍵 15 stage 全 ok（host 測試 321、build matrix、邊界／等價檢查、C61 記憶體預算 statics 178,080 B／headroom 29,392 B、fmt、R23 未驗表）；在 macOS 重跑，為此新增 `scripts/lib/tools.sh`（llvm-tools＋gawk，Linux／macOS 自動偵測，`rust-toolchain.toml` 加 `llvm-tools`）、`scripts/test-board-logic.sh`（取代寫死 x86_64-linux 的 alias）；驗收腳本第一版有假綠燈（size stage）已修；text 比 T12 多 362／228 B 原因未驗證（推測路徑字串）；Linux 重跑未做；詳見 baseline.md §43–44 |
 | T14 | done | (未 commit) | 交付文件，未做任何實機操作：`bringup.md`（前置、A boot 映像 A1–A7、B 完整韌體 B1–B5、C X4 回歸、D 失敗時改哪裡速查；log 字串與常數位置已對原始碼逐一核對）與 `bringup-record.md`（驗收記錄模板，**全部預設「未驗」**，含待使用者確認的 5 項決定；T9／T11 必查項已納入）。沒有來源依據的數值門檻（睡眠電流、BUSY 時間、手感）刻意不訂，只記量測值 |
 
-## 接手說明（2026-10-04 checkpoint）
-- T1–T14 全部完成；T13／T14 改動在 working tree，**未 commit**（T1–T12 已於 753a2b5）。
-- 下一步：`/spec-archive onepage-c61-port`。
+## 接手說明（2026-10-05 checkpoint）
+- T1–T14 原移植與三項驗收修正已完成；修正的獨立 test-author red-proof／implementation／weakening gate／review 見 `corrective-validation.md`。
+- session（包含暫停在 Settings 再睡眠）12 tests 通過；ADC／SD 實際 adapter 2 tests 通過；C61 full／boot release link 通過；獨立 review APPROVE。完整 `scripts/run-software-acceptance.sh --with-mutants` exit 0，16 stages 全通過：321 board tests／2 adapter tests／90 reader tests／16 mutants killed；最終結果見 `evidence.md`。
+- spec-archive 已完成移動至 `specs/changes/archive/onepage-c61-port/`：使用者明確授權保留 23 項原需求缺 provenance／原始實作前 red-proof 的例外封存。缺失與五項待確認決定仍保留於 `evidence.md`，沒有補造歷史或宣告硬體通過。
 - T12 的 5 項「待使用者確認的決定」見 baseline.md §42（睡眠只靠 idle timeout、Reader 長按 ENTER 開 quick menu 且 Files 刪除不映射、restore 成功不刪 session、無 uninit 版本、無 boot console／一律 full refresh）。
 
 ## bring-up 必查（T14 須納入）

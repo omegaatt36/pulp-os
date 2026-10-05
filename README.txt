@@ -26,7 +26,7 @@ hardware
 building
     requires the nightly pinned in rust-toolchain.toml (build-std needs
     nightly; rust-src and the riscv32imc/imac targets are installed
-    automatically by rustup). see specs/changes/onepage-c61-port/baseline.md.
+    automatically by rustup). see specs/changes/archive/onepage-c61-port/baseline.md.
 
     exactly one board must be selected (a bare `cargo build` fails with
     a "no board selected" error on purpose):
@@ -70,7 +70,7 @@ building
     plus the minimal bring-up image (src/bin/c61_boot.rs). both link;
     neither has been run on hardware. every c61 refresh is a full
     refresh (no partial refresh yet); see
-    specs/changes/onepage-c61-port/baseline.md (T12) for the key
+    specs/changes/archive/onepage-c61-port/baseline.md (T12) for the key
     mapping (no Menu key: long-press ENTER in the reader opens the quick
     menu) and the decisions awaiting confirmation.
 

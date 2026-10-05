@@ -1,4 +1,4 @@
-// R21 / R20 seam: reader position -> C61 session record (real pulp-board-logic
+// Reader position -> C61 session record (real pulp-board-logic
 // save/restore, real lifecycle decisions) -> reader reopened on the rebooted card.
 // Also the "bookmarks and session do not interfere" contract.
 use pulp_board_logic::lifecycle::{PostRestore, RestoreEnv, RestoreReject, check_restorable, post_restore};
@@ -99,7 +99,11 @@ fn collect(r: &Rig, name: &str) -> SessionState {
 
 // the sleep sequence: bookmark flush, then session save while the SD rail is up
 fn sleep(r: &mut Rig, name: &str) -> FakeFs {
+    // Keep the pre-port X4 baseline unchanged; this defect concerns C61 SD sessions.
+    #[cfg(not(feature = "tree"))]
     r.save_position();
+    // Firmware flushes only already-dirty bookmarks before saving the session.
+    // It does not call ReaderApp::save_position here.
     r.k.bookmarks_flush();
     let power = sd_active();
     let state = collect(r, name);
@@ -164,11 +168,144 @@ fn epub_session_restores_chapter_page_and_text() {
     assert_eq!(r2.render_hash(), r.render_hash());
 }
 
+#[cfg(feature = "tree")]
+#[test]
+fn txt_session_position_takes_precedence_over_an_older_bookmark() {
+    let name = "BOOK.TXT";
+    let mut r = reading(name, &[Action::Next; 2]);
+    r.save_position();
+    r.k.bookmarks_flush();
+    let older = r.pos();
+    for _ in 0..5 {
+        r.press(Action::Next);
+    }
+    let want = r.pos();
+    assert_eq!(older.page, 2);
+    assert_eq!(want.page, 7);
+    let card = sleep(&mut r, name);
+    let (r2, post, _) = wake(card, name);
+    assert_eq!(post, Some(PostRestore::Keep));
+    assert_eq!(r2.pos(), want, "the valid session is newer than the bookmark");
+    assert_eq!(r2.render_hash(), r.render_hash());
+}
+
+#[cfg(feature = "tree")]
+#[test]
+fn epub_session_position_takes_precedence_over_an_older_bookmark() {
+    let name = "BOOK.EPUB";
+    let mut r = reading(name, &[Action::Next; 2]);
+    r.save_position();
+    r.k.bookmarks_flush();
+    let older = r.pos();
+    for a in [Action::NextJump, Action::NextJump, Action::Next, Action::Next, Action::Next] {
+        r.press(a);
+    }
+    let want = r.pos();
+    assert_eq!((older.chapter, older.page), (0, 2));
+    assert_eq!((want.chapter, want.page), (2, 3));
+    let card = sleep(&mut r, name);
+    let (r2, post, _) = wake(card, name);
+    assert_eq!(post, Some(PostRestore::Keep));
+    assert_eq!(r2.pos(), want, "the valid session is newer than the bookmark");
+    assert_eq!(r2.render_hash(), r.render_hash());
+}
+
+#[cfg(feature = "tree")]
+#[test]
+fn epub_session_at_chapter_start_overrides_a_later_bookmark() {
+    let name = "BOOK.EPUB";
+    let mut r = reading(name, &[Action::NextJump, Action::NextJump, Action::Next, Action::Next, Action::Next]);
+    r.save_position();
+    r.k.bookmarks_flush();
+    r.press(Action::PrevJump);
+    r.press(Action::NextJump);
+    let want = r.pos();
+    assert_eq!((want.chapter, want.page, want.offset), (2, 0, 0));
+    let card = sleep(&mut r, name);
+    let (r2, post, _) = wake(card, name);
+    assert_eq!(post, Some(PostRestore::Keep));
+    assert_eq!(r2.pos(), want);
+    assert_eq!(r2.render_hash(), r.render_hash());
+}
+
+#[cfg(feature = "tree")]
+#[test]
+fn restored_session_is_consumed_before_a_normal_reopen() {
+    let name = "BOOK.TXT";
+    let mut r = reading(name, &[Action::Next; 2]);
+    let bookmark = r.pos();
+    r.save_position();
+    r.k.bookmarks_flush();
+    for _ in 0..5 {
+        r.press(Action::Next);
+    }
+    let restored = r.pos();
+    assert_eq!(restored.page, 7);
+    let card = sleep(&mut r, name);
+    let (mut r2, post, _) = wake(card, name);
+    assert_eq!(post, Some(PostRestore::Keep));
+    assert_eq!(r2.pos(), restored);
+    // A normal reopen has no session to apply. It must use the existing bookmark.
+    // Rig::exit invokes the actual ReaderApp lifecycle, without saving a new bookmark.
+    r2.exit();
+    r2.open(name);
+    assert_eq!(r2.pos(), bookmark);
+}
+
+#[cfg(feature = "tree")]
+#[test]
+fn suspended_restored_reader_retains_position_before_background_loading() {
+    use pulp_os_host::apps::App;
+    let name = "BOOK.EPUB";
+    let r = reading(name, &[Action::NextJump, Action::NextJump, Action::Next, Action::Next, Action::Next]);
+    let want = r.pos();
+    assert_eq!((want.chapter, want.page), (2, 3));
+    assert!(want.offset > 0);
+    let mut restored = Rig::new(r.k.sd().snapshot().unwrap());
+    restored.configure(FONT, THEME);
+    restored.app.restore_state(name.as_bytes(), true, want.chapter, want.page, want.offset, FONT);
+    restored.ctx.set_message(name.as_bytes());
+    restored.app.on_enter(&mut restored.ctx, &mut restored.k.handle());
+    restored.app.on_suspend();
+    // AppManager::collect_session reads these accessors even with Settings active.
+    assert_eq!(restored.app.chapter(), want.chapter);
+    assert_eq!(restored.app.byte_offset(), want.offset);
+}
+
+#[cfg(feature = "tree")]
+#[test]
+fn suspended_restored_epub_initializes_when_font_changes_before_resume() {
+    use pulp_os_host::apps::{App, probe};
+    let name = "BOOK.EPUB";
+    let r = reading(name, &[Action::NextJump, Action::NextJump, Action::Next, Action::Next, Action::Next]);
+    let want = r.pos();
+    assert_eq!((want.chapter, want.page), (2, 3));
+    let mut restored = Rig::new(r.k.sd().snapshot().unwrap());
+    restored.configure(FONT, THEME);
+    restored.app.restore_state(name.as_bytes(), true, want.chapter, want.page, want.offset, FONT);
+    restored.ctx.set_message(name.as_bytes());
+    restored.app.on_enter(&mut restored.ctx, &mut restored.k.handle());
+    restored.app.on_suspend();
+    restored.app.set_book_font_size(3);
+    restored.resume();
+    assert_eq!(probe::phase(&restored.app), probe::Phase::Ready);
+    assert_eq!(restored.app.chapter(), want.chapter);
+    // Repagination may shift page boundaries, but must retain the page containing
+    // the persisted byte rather than opening the first page or skipping EPUB init.
+    let offsets = probe::offsets(&restored.app);
+    let page = restored.app.page();
+    assert!(offsets[page] <= want.offset);
+    assert!(offsets.get(page + 1).is_none_or(|next| *next > want.offset));
+    assert!(restored.app.byte_offset() > 0);
+}
+
 #[test]
 fn corrupt_session_boots_normally_and_the_book_resumes_from_its_bookmark() {
     let name = "BOOK.TXT";
     let mut r = reading(name, &[Action::Next; 5]);
     let want = r.pos();
+    // The normal-boot fallback must have an independently saved bookmark.
+    r.save_position();
     let mut card = sleep(&mut r, name);
     // damage both slots (flip a byte in each)
     for f in [SLOT_A_FILE, SLOT_B_FILE] {
@@ -213,6 +350,7 @@ fn corrupt_session_and_no_bookmark_starts_from_page_one() {
 fn a_session_for_a_missing_book_is_cleared_and_leaves_bookmarks_alone() {
     let name = "BOOK.TXT";
     let mut r = reading(name, &[Action::Next; 3]);
+    r.save_position();
     let mut card = sleep(&mut r, name);
     card.remove("", name); // the book is no longer on the card
     let bm_before = card.get("_PULP", BOOKMARK_FILE).cloned();

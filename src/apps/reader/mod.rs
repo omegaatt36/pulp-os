@@ -342,6 +342,7 @@ pub struct ReaderApp {
     pub(super) is_epub: bool,
     pub(super) goto_last_page: bool,
     pub(super) restore_offset: Option<u32>,
+    session_position: Option<(u16, u32)>,
 
     pub(super) page_img: Option<DecodedImage>,
     pub(super) fullscreen_img: bool,
@@ -392,6 +393,7 @@ impl ReaderApp {
             is_epub: false,
             goto_last_page: false,
             restore_offset: None,
+            session_position: None,
 
             page_img: None,
             fullscreen_img: false,
@@ -633,7 +635,15 @@ impl ReaderApp {
 
     #[inline]
     pub fn byte_offset(&self) -> u32 {
-        if self.pg.page < self.pg.total_pages {
+        // A restored reader can remain suspended before its first page loads.
+        // Keep that position available if another sleep collects the session.
+        if let Some(offset) = self
+            .session_position
+            .map(|(_, offset)| offset)
+            .or(self.restore_offset)
+        {
+            offset
+        } else if self.pg.page < self.pg.total_pages {
             self.pg.offsets[self.pg.page]
         } else {
             0
@@ -664,11 +674,7 @@ impl ReaderApp {
         self.filename_len = len;
         self.is_epub = is_epub;
         self.epub.chapter = chapter;
-        self.restore_offset = if byte_offset > 0 {
-            Some(byte_offset)
-        } else {
-            None
-        };
+        self.session_position = Some((chapter, byte_offset));
         self.book_font_size_idx = font_size;
 
         log::info!(
@@ -822,6 +828,12 @@ impl App<AppId> for ReaderApp {
     fn on_enter(&mut self, ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {
         let msg = ctx.message();
         let len = msg.len().min(32);
+        // Consume a restored session only for its book. A later normal open
+        // must use the bookmark, including when the session offset was zero.
+        let session_position = self
+            .session_position
+            .take()
+            .filter(|_| self.filename[..self.filename_len] == msg[..len]);
         self.filename[..len].copy_from_slice(&msg[..len]);
         self.filename_len = len;
 
@@ -844,12 +856,12 @@ impl App<AppId> for ReaderApp {
         self.reset_paging();
         self.epub.ch_cache = BigBuf::empty();
         self.file_size = 0;
-        self.epub.chapter = 0;
+        self.epub.chapter = session_position.map_or(0, |(chapter, _)| chapter);
         self.error = None;
         self.show_position = false;
         self.defer_image_decode = true;
         self.goto_last_page = false;
-        self.restore_offset = None;
+        self.restore_offset = session_position.map(|(_, offset)| offset);
 
         self.apply_font_metrics();
 
@@ -874,6 +886,7 @@ impl App<AppId> for ReaderApp {
         self.pg.prefetch_page = NO_PREFETCH;
         self.pg.prefetch_len = 0;
         self.restore_offset = None;
+        self.session_position = None;
         self.show_position = false;
         self.epub.ch_cache = BigBuf::empty();
         self.page_img = None;
@@ -917,7 +930,9 @@ impl App<AppId> for ReaderApp {
         loop {
             match self.state {
                 State::NeedBookmark => {
-                    self.bookmark_load(k.bookmark_cache());
+                    if self.restore_offset.is_none() {
+                        self.bookmark_load(k.bookmark_cache());
+                    }
 
                     let _ = k.write_app_data(RECENT_FILE, &self.filename[..self.filename_len]);
 

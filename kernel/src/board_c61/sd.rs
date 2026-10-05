@@ -64,11 +64,18 @@ impl CardDetectPin {
 /// embedded-sdmmc `SdCard` seen through the HAL-free `SdProbe` trait. Init is
 /// lazy in embedded-sdmmc, so `num_bytes()` forces and verifies it (same as the
 /// X4 `SdStorage::init_card`).
-struct CardProbe<'a>(&'a SyncSdCard);
+struct CardProbe<'a> {
+    card: &'a SyncSdCard,
+    spi: SdSpiDevice,
+}
 
 impl SdProbe for CardProbe<'_> {
     fn probe(&mut self) -> Option<u64> {
-        match self.0.num_bytes() {
+        if let Err(e) = self.spi.prepare_sd_probe() {
+            warn!("sd: probe preparation failed: {:?}", e);
+            return None;
+        }
+        match self.card.num_bytes() {
             Ok(size) => Some(size),
             Err(e) => {
                 info!("sd: probe failed: {:?}", e);
@@ -78,7 +85,7 @@ impl SdProbe for CardProbe<'_> {
     }
 
     fn mark_uninit(&mut self) {
-        self.0.mark_card_uninit();
+        self.card.mark_card_uninit();
     }
 }
 
@@ -91,11 +98,11 @@ pub fn init(
     card_detect: CardState,
     spi: SdSpiDevice,
 ) -> Result<(SyncSdCard, SdInitReport), SdFault> {
-    let card = SyncSdCard::new(spi, Delay::new());
+    let card = SyncSdCard::new(spi.clone(), Delay::new());
     let report = init_sd(
         power,
         card_detect,
-        &mut CardProbe(&card),
+        &mut CardProbe { card: &card, spi },
         &mut HalDelay::new(),
     )?;
     info!(

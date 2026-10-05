@@ -358,12 +358,13 @@ impl AppManager {
                     }
                 }
                 AppId::Reader => {
-                    if is_active {
-                        // set message for reader to know filename
-                        let filename =
-                            &session.reader_filename[..session.reader_filename_len as usize];
-                        self.launcher.ctx.set_message(filename);
-                        self.reader.on_enter(&mut self.launcher.ctx, k);
+                    // Initialize the book even when Settings is on top, so
+                    // resuming Reader follows its normal loading lifecycle.
+                    let filename = &session.reader_filename[..session.reader_filename_len as usize];
+                    self.launcher.ctx.set_message(filename);
+                    self.reader.on_enter(&mut self.launcher.ctx, k);
+                    if !is_active {
+                        self.reader.on_suspend();
                     }
                 }
                 AppId::Settings => {
