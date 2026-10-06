@@ -3,8 +3,9 @@
 // Extracted from the X4 `kernel/src/drivers/input.rs` so that the OnePage C61
 // and the X4 run the same code. The X4 driver is now a thin wrapper that
 // supplies `RawSource` (ADC ladders + power button); its event stream is locked
-// by `scripts/check-x4-input-trace.sh` (real input.rs compiled on the host and
-// hashed against the pre-extraction output). The logic is deliberately a
+// by the board-harness `x4_input_trace` test (real input.rs compiled on the
+// host and compared byte-for-byte with the committed pre-extraction golden).
+// The logic is deliberately a
 // line-for-line move: same comparison operators (`>=`), same hold-timer
 // restart when the raw reading deviates from the stable key, same event queue,
 // same order of operations (raw is read only when the queue is empty, and the

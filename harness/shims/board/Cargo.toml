@@ -1,0 +1,11 @@
+[package]
+name         = "board-hal-shim"
+edition      = "2024"
+version      = "0.0.0"
+description  = "host stand-in for esp-hal behind board-harness; unique package name so board-harness can rename it esp-hal (non-esp-* name: board-harness is host-only and must not read as an Espressif crate in the host build)"
+license      = "MIT"
+publish      = false
+
+[dependencies]
+nb.workspace          = true
+embedded-hal.workspace = true

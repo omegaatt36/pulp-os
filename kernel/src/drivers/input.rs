@@ -6,7 +6,7 @@
 // pulp_board_logic::input::InputCore (shared with the OnePage C61); this file
 // is only the X4 hardware side: two ADC ladders + the power button, in the
 // same priority order as before (power, row 1, row 2). The event stream is
-// locked by scripts/check-x4-input-trace.sh.
+// locked by the board-harness `x4_input_trace` test.
 
 use esp_hal::time::Instant;
 use pulp_board_logic::input::{InputCore, InputTiming, RawSource};

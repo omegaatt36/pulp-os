@@ -2,8 +2,10 @@
 # Host validation tests: pulp-host (paging / rendering / storage logic that runs
 # the firmware's own source files on the host, with no esp-* crate and no
 # embedded linker script), pulp-fontpack (SD font pack format: reader and
-# writer, tested with its `builder` feature on) and pulp-fontconv (host TTF ->
-# font pack converter).
+# writer, tested with its `builder` feature on), pulp-fontconv (host TTF ->
+# font pack converter) and board-harness (the real C61 shared-ADC / SD-probe
+# adapters and the real X4 EPD-driver / input sources host-compiled against
+# an esp-hal seam, locking the golden wire traces).
 #
 # Same shape as test-board-logic.sh: the repo's default target is bare-metal
 # RISC-V, so rustc's host triple is passed explicitly, and build-std is
@@ -31,5 +33,7 @@ cargo test -p pulp-host --target "$host" \
 cargo test -p pulp-fontpack --features builder --target "$host" \
   --config "$build_std" "$@" || status=$?
 cargo test -p pulp-fontconv --target "$host" \
+  --config "$build_std" "$@" || status=$?
+cargo test -p board-harness --target "$host" \
   --config "$build_std" "$@" || status=$?
 exit "$status"

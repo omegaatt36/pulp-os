@@ -45,9 +45,12 @@ building
         cargo run-c61-boot           same for the bring-up image
         scripts/test-board-logic.sh  host tests of the HAL-free board logic
                                      (board-logic/, host target)
-        scripts/check-x4-driver-trace.sh
-                                     x4 epd driver wire trace must match
-                                     the pinned pre-c61-port trace
+        harness/tests (board-harness)
+                                     the real c61 adapters + x4 epd-driver /
+                                     input sources host-compiled against an
+                                     esp-hal shim; wire traces locked by
+                                     committed goldens, run via
+                                     scripts/host-test.sh
 
     the aliases live in .cargo/config.toml and pass --target and
     --features board-x4 / board-onepage-c61 explicitly. the chip crates

@@ -6,12 +6,14 @@
 # Stages (each prints `ok`/`FAIL`; any FAIL gives a non-zero exit, but every stage runs):
 #   1. host tests of the HAL-free board logic      scripts/test-board-logic.sh
 #   2. host tests of the shared reader logic       scripts/host-test.sh
+#      (pulp-host, fontpack, fontconv, board-harness: the C61 shared-ADC /
+#      SD-probe adapters and the X4 EPD-driver / input wire traces)
 #   3. English TXT/EPUB regression                 check-reader-regression.sh both
 #        pre-port HEAD and the work tree run the same tests and must produce the
 #        same golden trace sha256
 #   4. build matrix                                X4 offline, X4 + wifi, C61 (both images)
 #   5. boundary / equivalence checks (board selection, host boundary,
-#      offline radio, C61 raw-GPIO, X4 traces)
+#      offline radio, C61 raw-GPIO)
 #   6. C61 ELF memory budget                       report-c61-memory.sh
 #   7. cargo fmt --check
 # Finally prints the hardware acceptance status: what has NOT been verified on hardware.
@@ -59,8 +61,7 @@ matrix_sizes() {
 }
 
 stage "host tests (pulp-board-logic)" scripts/test-board-logic.sh
-stage "host tests (pulp-host, fontpack, fontconv)" scripts/host-test.sh --locked
-stage "C61 shared ADC and SD probe adapters" bash scripts/check-c61-adapter-regression.sh
+stage "host tests (pulp-host, fontpack, fontconv, board-harness)" scripts/host-test.sh --locked
 stage "reader regression, head vs tree" scripts/check-reader-regression.sh both
 
 stage "build X4 offline"     env CARGO_TARGET_DIR="$root/x4"     cargo build-x4 --locked
@@ -73,8 +74,6 @@ stage "board selection errors"        scripts/check-board-selection.sh
 stage "host boundary probes"          env ACCEPT_TARGET_ROOT="$root" scripts/check-host-boundary.sh --skip-firmware
 stage "offline radio boundary"        env OFFLINE_CHECK_TARGET_ROOT="$root" scripts/check-offline-boundary.sh
 stage "C61 free of C3 raw GPIO"       env C61_TARGET_DIR="$c61_dir" X4_ELF="$x4_elf" scripts/check-c61-no-c3-raw-gpio.sh
-stage "X4 input trace equivalence"    scripts/check-x4-input-trace.sh
-stage "X4 driver trace equivalence"   scripts/check-x4-driver-trace.sh
 stage "C61 ELF memory budget"         env C61_ELF="$c61_elf" scripts/report-c61-memory.sh
 # -p, not --all: --all also checks path dependencies (../smol-epub is another repo)
 stage "cargo fmt --check"             cargo fmt -p pulp-os -p pulp-kernel -p pulp-board-logic -- --check

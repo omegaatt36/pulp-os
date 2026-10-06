@@ -1,9 +1,0 @@
-[package]
-name = "esp-hal"
-version = "0.0.0"
-edition = "2024"
-[lib]
-path = "lib.rs"
-[dependencies]
-nb = "1"
-embedded-hal = "1"

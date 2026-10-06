@@ -115,6 +115,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-hal-shim"
+version = "0.0.0"
+dependencies = [
+ "embedded-hal 1.0.0",
+ "nb 1.1.0",
+]
+
+[[package]]
+name = "board-harness"
+version = "0.1.0"
+dependencies = [
+ "board-hal-shim",
+ "critical-section",
+ "embedded-graphics-core",
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
+ "log",
+ "nb 1.1.0",
+ "pulp-board-logic",
+ "static_cell",
+]
+
+[[package]]
 name = "bytemuck"
 version = "1.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

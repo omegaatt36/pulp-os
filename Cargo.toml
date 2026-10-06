@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "kernel", "board-logic", "host", "fontpack", "fontconv"]
+members = [".", "kernel", "board-logic", "host", "fontpack", "fontconv", "harness"]
 
 [workspace.dependencies]
 # chip selection (esp32c3 / esp32c61) is NOT set here; it comes from the
@@ -21,6 +21,7 @@ static_cell      = "2.1.1"
 nb  = "1.1.0"
 log = "0.4.27"
 esp-alloc = { version = "=0.11.0", features = ["internal-heap-stats"] }
+pulp-board-logic = { path = "board-logic" }
 
 [package]
 edition      = "2024"
