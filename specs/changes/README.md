@@ -6,7 +6,7 @@
 |---|---:|---|
 | [onepage-c61-port](archive/onepage-c61-port/proposal.md) | 14＋3 項修正 | 已封存；軟體驗收通過，歷史證據缺失依使用者授權保留，硬體未驗 |
 | [onepage-host-validation](archive/onepage-host-validation/proposal.md) | 7 | 已封存；host 測試／preview 通過（見 evidence.md），R1 linker 掃描器、R7 詮釋、provenance 待補，硬體未驗 |
-| [onepage-cjk-iansui](onepage-cjk-iansui/proposal.md) | 10 | C61 軟體驗收完成，host-validation 完成 |
+| [onepage-cjk-iansui](archive/onepage-cjk-iansui/proposal.md) | 10 | 已封存；host 測試 719 通過，R1–R14／R16 untagged、R14 限縮、R8／R16 無完整 red-proof 經使用者接受，硬體未驗 |
 | [onepage-wifi-upload](onepage-wifi-upload/proposal.md) | 7 | 延後；至少 C61 軟體驗收完成，預設排在 CJK 後 |
 
 「獨立 session」指接手時無須前一段對話；各 task 仍有明列依賴。C61 實機 bring-up 與 host 測試可在軟體基線完成後分開進行。不同 session 不可同時修改同一 worktree 的共用檔案。

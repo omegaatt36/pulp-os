@@ -1,25 +1,29 @@
 # Acceptance evidence
 
-This table records executed evidence, not a completion claim. Final gate results and artifacts are recorded below; whole-branch independent review remains separate.
+驗證環境：branch `onepage` @f1c6539、toolchain 見 `rust-toolchain`、aarch64-apple-darwin。Replay 指令皆從 repo 根目錄執行。`/spec-archive` 重跑基準：`CARGO_NET_OFFLINE=true scripts/host-test.sh` exit 0、**719 passed／0 failed／0 ignored／0 SKIPPED**（真字型在場）；`(cd target/accept-iansui && shasum -a 256 -c SHA256SUMS)` 全 OK。
 
-| Requirement | Evidence | Status |
-| --- | --- | --- |
-| R1 host conversion | fontconv tests; converter provenance/license contracts in tmp-briefs/t2-contract.md | Verified; nine real generated packs, PROV/OFL/COVERAGE and install.md |
-| R2 Unicode/large offsets | fontpack golden/lookup/reader tests, converter roundtrip | Verified before integration |
-| R3 malformed pack | fontpack corrupt/reader_faults; real reader corrupt/error tests | Verified; final boundary results below |
-| R4 explicit missing glyph | fontpack missing tests; cjk_reader absent-scalar/optional-pack boxes | Verified under disclosed compatibility policy |
-| R5 size consistency | literal five body/five heading pack metrics+pixels in cjk_reader | Verified |
-| R6 prepare visible glyphs | page_cache focused8; reader literal bitmap assertions | Verified core+reader+widgets (cjk_surfaces, cjk_surface_fixes); Files/Home/Settings source-inspected only |
-| R7 draw zero SD reads | cjk_reader/error/metadata draw read counts+full/stitched equality | Verified reader+title/TOC+widgets (draw read counts, full/stitched equality; cjk_surface_fixes memoization); other apps source-inspected only; real full/stitched artifacts below |
-| R8 memory bounds | page_cache reserved capacity accounting; board font_memory3; bounded BigBuf class source review | Budget arithmetic + compile-time asserts: FontGlyphs worst case 224 KiB ≤ 256 KiB C61 PSRAM class, inventory updated; internal-heap metadata ~80–96 KiB unmeasured; X4 BigBuf unbudgeted; C61 degraded 16 KiB ⇒ recoverable OutOfMemory for dense CJK |
-| R9 recoverable failure | page_cache capacity/I/O retries; reader corrupt/read/metadata errors and reopen | Verified layers incl. reader title failure clears loading and requests redraw (cjk_surface_fixes T-A, during-load case only); final matrix below |
-| R10 kinsoku | narrow mixed literal fixtures+text conservation; long inseparable group recoverable error | Verified reader |
-| R11 same raw position | reader page/back/bookmark and heading carry | Verified; cjk_identity 4 GREEN and chapter identity checks |
-| R12 scalar boundaries | utf8 targets; smol targets; UI label tests | Reader/parser verified; BitmapDynLabel set_text/write_str verified (cjk_surfaces) |
-| R13 malformed policy | maximal-subpart decoder/reader tests; numeric entity parser tests | Verified; policy in spec/proposal |
-| R14 body/heading/TOC/title/UI | T7 reader coverage; frozen cjk_surfaces7 + production path inspection contract | T8 done: runtime evidence for reader title/TOC/widgets; Files/Home/Settings/manager/schedulers via source inspection + `cargo check-x4`/`check-c61` only (no link, no hardware); independent review APPROVE-WITH-FIXES, fixes verified |
-| R15 incompatible layout cache | frozen cjk_identity4: actual3RED +1bookmark control PASS | Verified all-text policy [human]; frozen English anchor acceptance GREEN; unused-bank3 GREEN; full regression head83/tree90 PASS |
-| R16 acceptance artifacts | Nine real packs; 20 full/stitched PBM + 20 PNG; fixture coverage, source/pack hashes, logical read counts and installation docs | Artifacts verified; gate results below |
+`H` = `CARGO_NET_OFFLINE=true scripts/host-test.sh`（可加 `--test <name>` 縮小）；`F` = `-p pulp-fontpack --features builder`；`C` = `-p pulp-fontconv`。Provenance 欄：`spec.md` 只有 R15 policy 標 `[human]`，其餘 requirement 從未標 tag，故為 **untagged**（見 Open items 1）。
+
+| R-ID | Provenance | Test layer | Test path / name | Replay command | Red-proof |
+|---|---|---|---|---|---|
+| R1 host 轉換 | untagged | integration（真字型＋獨立 fontdue oracle） | `fontconv/tests/{provenance,reproducible,coverage_report,real_font,sizes,font_id,pack_content,cli_args,errors}.rs` | `IANSUI_REQUIRED=1 scripts/host-test.sh`（C 段） | T2：author 先在 workspace 缺 crate 時編譯失敗（progress T2 列）；`target/accept-iansui/packs/{PROV,OFL,COVERAGE}.TXT` 為產物 |
+| R2 Unicode／大 offset | untagged | unit／golden／property | `fontpack/tests/{golden,lookup,corrupt,fuzz,header_record}.rs`；`fontconv/tests/roundtrip.rs` | `cargo test F`／`H` | T1：src 不存在時 4 個測試檔編譯失敗；mutation「`Pack::glyph` offset `& 0xFFFF`」→ 4 測試紅（progress T1 列） |
+| R3 字庫 failure | untagged | unit／fault injection | `fontpack/tests/{corrupt,reader_faults}.rs`；`host/tests/cjk_reader.rs`（required_pack_failures） | `cargo test F`／`H --test cjk_reader` | T3：`PackReader`／`FontError` 等未解析 → 3 個 test target 編譯失敗（progress T3 段） |
+| R4 缺字 fallback | untagged（policy 為 **暫定**，見 Open items 2） | unit＋integration | `fontpack/tests/missing_glyph.rs`；`host/tests/cjk_reader.rs`（absent_scalar、uninstalled_pack）；`host/tests/cjk_metadata_failure.rs` | `H --test cjk_reader --test cjk_metadata_failure` | T3 同上；no-pack policy：`tmp-briefs/no-pack-policy-tests-report.md`；metadata：`t7-metadata-tests-report.md` actual RED（Ready≠Error） |
+| R5 字級一致 | untagged | integration（5 body＋5 heading 字級逐字級 literal） | `host/tests/cjk_reader.rs`；`fontconv/tests/sizes.rs` | `H --test cjk_reader` | T7：`tmp-briefs/t7-tests-report.md`（authored 先於 implementer，未修 production 紅燈） |
+| R6 page preparation | untagged | unit＋integration | `fontpack/tests/page_cache.rs`（focused 8）；`host/tests/{cjk_reader,cjk_surfaces,cjk_surface_fixes}.rs` | `cargo test F --test page_cache`／`H --test cjk_surfaces` | T6：cache API 4 個 export 缺 → E0432、exit 101（progress T6）；T8 fixes：`t8-fixes-tests-report.md` RED |
+| R7 draw 零 SD read | untagged | integration（read 計數＋full==stitched） | `host/tests/{cjk_reader,cjk_surfaces,cjk_surface_fixes,cjk_lifecycle}.rs`；`target/accept-iansui/snapshots/`（20 PBM＋20 PNG） | `H`；匯出見下方 Snapshot reproduction | lifecycle：`cjk_lifecycle::suspended_toc_resume_back_restores_original_body_glyphs_and_pixels` actual RED "literal 8x3 glyph missing at x=8 in line 2"；T8：`t8-tests-report.md` |
+| R8 cache 預算 | untagged | 編譯期 assert＋算術 | `fontpack/tests/page_cache.rs`（capacity）；`board-logic/tests/font_memory.rs`（3） | `scripts/test-board-logic.sh`；`cargo test F --test page_cache` | **無獨立 red-proof 記錄**：board `font_memory` 與 compile-time assert 為算術；page_cache capacity 隨 T6 一併 RED。**未量測**：內部 heap metadata ~80–96 KiB、X4 BigBuf 未預算（見 Open items 4） |
+| R9 recoverable failure | untagged | unit＋integration | `fontpack/tests/page_cache.rs`（metadata_capacity_failure、bitmap_capacity_failure、lookup_and_bitmap_io_failures）；`host/tests/{cjk_reader,cjk_surface_fixes}.rs` | `H --test cjk_surface_fixes --test cjk_reader` | `t6-impl-report.md` actual GREEN；`t8-fixes-tests-report.md`（T-A 標題載入失敗：loading 未清、未 redraw）RED |
+| R10 禁則 | untagged（boundary policy 為 [human] 選項 1，spec 內文未標） | integration（literal 窄行 fixture＋內容守恆） | `host/tests/{cjk_reader,cjk_heading_pages,cjk_nested_styles,cjk_long_group,cjk_heading_latin_tail}.rs` | `H --test cjk_heading_latin_tail --test cjk_long_group --test cjk_nested_styles --test cjk_heading_pages` | `cjk_heading_latin_tail` 3 RED（heading capacity 2 vs 4）；closing-marker line 2 RED（`tmp-briefs/final-heading-tests-report.md`、`final-fix2-report.md`）；long group／nested：`t7-*-tests-report.md` |
+| R11 文字位置 | untagged | integration | `host/tests/{cjk_identity,cjk_chapter_identity,reader_bookmarks}.rs` | `H --test cjk_identity --test cjk_chapter_identity` | T9：`cjk_identity` actual RED exit 101（3 行為失敗＋1 bookmark control PASS）；chapter：RED chapter(1,6) vs expected(1,0)（`t9-chapter-tests-report.md`） |
+| R12 UTF-8 邊界 | untagged | boundary／oracle（`from_utf8_lossy`） | `host/tests/utf8_{boundary,title,measure,residue,epub}.rs`、`smol_{stream,toc,gaps}.rs`；`host/tests/cjk_surfaces.rs`（BitmapDynLabel） | `H --test utf8_boundary --test smol_toc` | T4：未修 production 上 26 紅；T5：46 測試 19 紅（progress T4／T5 列） |
+| R13 malformed policy | untagged（maximal-subpart policy 為使用者於 T4 決定，spec 內文未標） | oracle＋偽隨機全比對 | `host/tests/{utf8_decoder,utf8_malformed,smol_entity,smol_malformed}.rs` | `H --test utf8_decoder --test smol_entity` | 同 R12（T4 26 紅、T5 19 紅） |
+| R14 適用範圍 | untagged | integration（reader 標題／TOC／widgets）＋**source inspection** | `host/tests/{cjk_surfaces,cjk_surface_fixes,cjk_lifecycle}.rs`；Files／Home／Settings／manager／schedulers **僅 source inspection＋`cargo check-x4`／`check-c61`** | `H --test cjk_surfaces`；`cargo check-x4 && cargo check-c61` | T8：`t8-tests-report.md`；lifecycle RED 同 R7。**Files／Home／Settings 無測試、無 red-proof**（Open items 3） |
+| R15 分頁失效 | **[human]** | integration（anchor containment＋全文守恆）＋golden | `host/tests/{cjk_identity,cjk_unused_bank}.rs`；`scripts/reader-regression/os/tests/pagination.rs`（head／tree 兩版）；`scripts/check-reader-regression.sh`（head83／tree90、golden 3105 行 sha `8cb6e31a…`） | `CARGO_NET_OFFLINE=true scripts/check-reader-regression.sh both` | `cjk_identity` actual RED（見 R11）；tree 新 oracle 於現行 production 實際 RED（`english-anchor-tests-report.md`）；`cjk_unused_bank` RED（`unused-bank-tests-report.md`） |
+| R16 驗收證據 | untagged | artifact＋script | `target/accept-iansui/{packs/COVERAGE.TXT,fixture-coverage.json,snapshots/}`；`install.md` | `cargo run -p pulp-host --bin iansui-acceptance …`（見 Snapshot reproduction）＋`(cd target/accept-iansui && shasum -a 256 -c SHA256SUMS)` | **N/A（性質上不適用）**：artifact 非行為；使用者需明確接受（Open items 5） |
+
+Firmware gate（R3／R8／R14 共用）：`IANSUI_REQUIRED=1 CARGO_NET_OFFLINE=true scripts/check-host-boundary.sh`（X4＋C61 firmware link；歷史 log `target/final-boundary2.log` exit 0）。**本次 archive session 未重跑此 gate**，只重跑 host 測試與 artifact hash。
 
 Red-proof and weakening reports live in tmp-briefs and progress.md. Historical
 mutants remain evidence only; 70 cancelled mutants were not executed or counted
@@ -163,3 +167,15 @@ Final gates after round 2 (controller re-run): `IANSUI_REQUIRED=1 scripts/check-
 Weakening gate: one assertion inverted by user-approved spec decision. `oracle_latin_heading_is_consistent_across_pages` (pure-Latin heading keeps heading style across pages) became `pure_latin_heading_resets_style_at_page_start`, because it contradicts the original English golden pin; spec R10 boundary policy was scoped to chapters that have staged fallback glyphs. No skip, tolerance, case-table or mock change otherwise.
 
 Known residuals (not claims): the quote-indent of the closing-marker line in a carried `Q` block is stamped at emit time, not line start (reviewer-executed probe; indent is outside the scoped R10 style policy; same behaviour already exists in fallback windows and the pinned English path); carry latches on any fallback-staged scalar (Cyrillic, symbols), at window granularity, declared in spec R10; pure-Latin pages before the chapter's first fallback window keep English per-page reset; bit 7 can appear in a first line's `LineSpan.flags` (draw masks it).
+
+## Open items 處置（使用者決定，2026-10-06）
+
+1. Provenance：**不補標**，以 untagged 歸檔（R15 保留 `[human]`）。
+2. R4：**維持合成方框 policy**（未安裝 pack 仍開書；已安裝但損壞才報 font failure）。由使用者確認，spec 本文不改。
+3. R14：**接受限縮**——runtime 證據只涵蓋 reader 正文／heading／書名／TOC 與 widgets；Files／Home／Settings／manager／schedulers 僅 source inspection＋`cargo check-x4`／`check-c61`。
+4. R8：**不處理**。無獨立 red-proof；internal-heap metadata 未量測、X4 BigBuf 未預算、無實機量測，維持現狀。
+5. R16：red-proof 性質上不適用，**接受**。
+
+仍有效的備註：本次 archive session 未重跑 firmware link gate（引用 `target/final-*2.log`）；T1–T5 的 weakening 快照 `/tmp/cjk-snap` 可能已不存在；`iansui.zip` 已追蹤並隨資料夾歸檔。
+
+N verified / M open：16 條 R 皆列測試路徑與 replay；R8、R14（部分）、R16 無完整 red-proof，皆經使用者明確接受歸檔；0 條未決。
