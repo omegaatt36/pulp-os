@@ -1,4 +1,4 @@
-// GPIO27 peripheral-power / EPD-reset contract (R6, R7).
+// GPIO27 peripheral-power / EPD-reset contract.
 //
 // On the OnePage C61, GPIO27 is the EPD RST line AND the SD/MIC power enable
 // (high = powered; ../bsp_onepage_c61/board_c61.c:41, 332). Consequences:
@@ -62,7 +62,7 @@ pub enum DisplayReset {
 }
 
 /// Proof that the power-cycle completed. Only `begin_sd_init` mints one (SD
-/// init code, T5, must require it); it is not `Clone`/`Copy` and is consumed
+/// init code must require it); it is not `Clone`/`Copy` and is consumed
 /// by `finish_sd_init`.
 #[must_use = "pass the permit to finish_sd_init after the SD init attempt"]
 #[derive(Debug)]
@@ -97,7 +97,7 @@ impl<P: RailPin> PeripheralPower<P> {
 
     /// Boot power-cycle: low, delay, high, delay. Allowed exactly once, from
     /// `Unpowered`. Anywhere else it is rejected WITHOUT touching the pin, so
-    /// a stray call can never drop SD power (R7).
+    /// a stray call can never drop SD power.
     pub fn power_cycle<D: DelayMs>(&mut self, delay: &mut D) -> Result<(), PowerError> {
         if self.state != RailState::Unpowered {
             return Err(PowerError::InvalidState(self.state));
@@ -130,9 +130,9 @@ impl<P: RailPin> PeripheralPower<P> {
         };
     }
 
-    /// The card was removed (card-detect, T5). Returns `SdActive` to
+    /// The card was removed (card-detect). Returns `SdActive` to
     /// `PowerCycled` so a re-inserted card can be initialised again through a
-    /// fresh `SdInitPermit`. The rail is NOT touched (R7: GPIO27 stays high
+    /// fresh `SdInitPermit`. The rail is NOT touched (GPIO27 stays high
     /// while the system runs). No-op in `PowerCycled`; rejected elsewhere.
     pub fn card_removed(&mut self) -> Result<(), PowerError> {
         match self.state {
@@ -238,7 +238,7 @@ mod tests {
         )
     }
 
-    // stand-in for the T5 SD init: it can only run with a permit
+    // stand-in for the SD init: it can only run with a permit
     fn fake_sd_init(_permit: &SdInitPermit, log: &Log) {
         log.borrow_mut().push(Ev::SdInit);
     }

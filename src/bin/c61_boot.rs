@@ -1,45 +1,45 @@
-// OnePage C61 minimal boot image (task T2): esp-hal init, esp-rtos +
+// OnePage C61 minimal boot image: esp-hal init, esp-rtos +
 // embassy executor, heap, logging, app descriptor. Link-only milestone;
-// no keys/sleep/PSRAM yet (T7-T11), and no radio (T3).
+// no keys/sleep/PSRAM yet, and no radio.
 //
-// T4: takes the board pins (single ownership, GPIO27 inside PeripheralPower)
+// Takes the board pins (single ownership, GPIO27 inside PeripheralPower)
 // and runs the boot GPIO27 power-cycle that must precede any SD access. The
 // state machine is pulp_board_logic::power, the code the host tests cover.
 //
-// T5: brings up SPI2 + DMA (EPD and SD handles, arbitrated), then SD init via
+// Brings up SPI2 + DMA (EPD and SD handles, arbitrated), then SD init via
 // the GPIO27 SdInitPermit, mount and storage-error status. A missing or bad
 // card is logged as a recoverable storage error, never a panic.
 //
-// T6: after SD, runs the EPD path once: software-reset init (display_reset()
+// After SD, runs the EPD path once: software-reset init (display_reset()
 // contract, GPIO27 untouched) and one full refresh of the orientation card
 // with bounded BUSY handling. A display failure is logged, never a panic.
 //
-// T7: creates the key driver (front ADC ladder GPIO4 + side keys GPIO2/6/9;
+// Creates the key driver (front ADC ladder GPIO4 + side keys GPIO2/6/9;
 // 2.5 s startup grace from creation) and polls it every 10 ms in the main
 // loop; events are logged with their semantic Action. Card detect is sampled
 // every CD_SAMPLE_INTERVAL_MS (a multiple of the 10 ms tick).
 //
-// T8: heap sizes come from the memory budget (`pulp_board_logic::memory`), PSRAM
+// Heap sizes come from the memory budget (`pulp_board_logic::memory`), PSRAM
 // is brought up on its own heap (never the global allocator), and one
 // budget-limited allocation round is logged: an in-budget PSRAM block, a
 // 1-byte-over-limit request that must be refused, a DMA buffer that must be
 // internal. A missing or broken PSRAM only degrades to internal limits.
 //
-// T9: one shared ADC1 (`board_c61::adc`) is created with GPIO4 (keys) and GPIO5
+// One shared ADC1 (`board_c61::adc`) is created with GPIO4 (keys) and GPIO5
 // (battery) enabled in the same AdcConfig; keys and the battery monitor get
 // handles to it. The battery is measured once at boot with the BSP charge-pause
 // contract (GPIO10 low, 30 ms, 16 reads, GPIO10 high) and then every
 // BATTERY_EVERY_TICKS; USB (GPIO11, polarity from the board config) is polled
 // every USB_EVERY_TICKS and plug/unplug events are logged. A failed ADC read is
-// logged as an error, never as 0 V. No UI use (T12), no sleep handling (T11).
+// logged as an error, never as 0 V. No UI use, no sleep handling.
 //
-// T11: the wake cause is read right after `esp_hal::init` (`sleep::wake_cause`,
+// The wake cause is read right after `esp_hal::init` (`sleep::wake_cause`,
 // logged), the restore decision after SD init goes through `plan_boot(cause,
 // decision)`, and the full deep-sleep sequence (`sleep::enter_deep_sleep`:
 // save session -> arm GPIO2 wake -> begin_shutdown -> park EPD -> flush SD ->
 // charge restore -> silence lines -> GPIO27 low -> sleep) is linked into this
 // image. It is DISABLED by default: `DEMO_IDLE_SLEEP_SECS = 0`. The app layer
-// that decides when to sleep is T12; this loop has no sleep key. To exercise it
+// decides when to sleep; this loop has no sleep key. To exercise it
 // on a board set the constant to N > 0 and rebuild: after N idle seconds
 // (no key event) the sequence runs once. `black_box` keeps the call from being
 // optimised out while the constant is 0, so `nm` shows the sequence.
@@ -100,18 +100,18 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
     esp_println::logger::init_logger_from_env();
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
-    // R19/R20: why did we start? (empty = power-on / any non-deep-sleep reset)
+    // Why did we start? (empty = power-on / any non-deep-sleep reset)
     let wake = sleep::wake_cause();
     // Internal heap = the planned size (board-logic `INTERNAL_HEAP_*`): main RAM
     // part plus the part reclaimed from the 2nd stage bootloader (dram2).
     esp_alloc::heap_allocator!(size: INTERNAL_HEAP_MAIN_BYTES);
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: INTERNAL_HEAP_RECLAIMED_BYTES);
 
-    // T8: PSRAM (40 MHz) on its own heap; failure degrades, never panics.
+    // PSRAM (40 MHz) on its own heap; failure degrades, never panics.
     memory::init(peripherals.PSRAM);
     memory_demo();
 
-    // R6: board init starts with the GPIO27 power-cycle, before any SD init.
+    // Board init starts with the GPIO27 power-cycle, before any SD init.
     // Partial move: TIMG0 / FROM_CPU_INTR0 stay available below.
     let mut pins = take_c61_pins!(peripherals);
     match pins.power.power_cycle(&mut HalDelay::new()) {
@@ -126,10 +126,10 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
     info!("pulp-os c61 boot: esp32c61 rv32imac, rtos + embassy up");
     info!("boot: wake cause {:?}", wake);
 
-    // R12 + R13 + R16: ONE ADC1 for the front ladder (GPIO4) and the battery
+    // ONE ADC1 for the front ladder (GPIO4) and the battery
     // (GPIO5); both pins are enabled in the same AdcConfig before Adc::new.
     // `adc::init` also checks esp-hal's channel table (BSP: CH2 / CH3).
-    // R19: the deep-sleep wake needs its own handle to GPIO2 (the key driver
+    // The deep-sleep wake needs its own handle to GPIO2 (the key driver
     // takes the original). SAFETY: both configure GPIO2 as the same pull-up
     // input, the wake handle is only used by the sleep sequence, and the key
     // driver is not polled after that sequence starts.
@@ -159,7 +159,7 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
         };
     report_battery(&mut battery_mon);
 
-    // R17: USB detect (GPIO11); polarity comes from the board configuration.
+    // USB detect (GPIO11); polarity comes from the board configuration.
     let mut usb_port = UsbPort::new(pins.usb_detect);
     info!(
         "usb: GPIO11 reads {} -> {} (polarity {:?}, UNVERIFIED on hardware)",
@@ -172,7 +172,7 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
         usb::USB_POLARITY
     );
 
-    // R8: SPI2 + DMA on the BSP pins; EPD (T6 builds the driver) and SD get
+    // SPI2 + DMA on the BSP pins; EPD and SD get
     // arbitrated device handles on the one bus.
     let spi_board = match spi::init(
         peripherals.SPI2,
@@ -192,7 +192,7 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
         }
     };
 
-    // R6 + R9: SD init needs the SdInitPermit minted after the power-cycle.
+    // SD init needs the SdInitPermit minted after the power-cycle.
     let card_detect = CardDetectPin::new(pins.sd_card_detect);
     let mut cd = CardDetect::new(card_detect.state());
     info!("sd: card detect GPIO28 reads {:?}", card_detect.state());
@@ -205,10 +205,10 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
 
     report_storage(&up.storage, &mut up.health);
 
-    // R18 + R20: save -> "restart" (restore decision again) demo on the SD session slots.
+    // save -> "restart" (restore decision again) demo on the SD session slots.
     session_demo(&pins.power, &up.storage, wake).await;
 
-    // R10 + R11: EPD init (SW_RESET only) and one full refresh, BUSY bounded.
+    // EPD init (SW_RESET only) and one full refresh, BUSY bounded.
     let mut epd = epd::new(spi_board.epd, pins.epd_dc, pins.epd_busy);
     match pins.power.display_reset() {
         Ok(reset) => match epd.init(reset) {
@@ -221,7 +221,7 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
         Err(e) => error!("epd: display reset refused: {:?}", e),
     }
 
-    // R19 sequence parts, consumed by the (default-off) idle-sleep demo
+    // Deep-sleep sequence parts, consumed by the (default-off) idle-sleep demo
     let mut sleep_parts = Some((
         C61Lines::new(spi_board.control.clone(), pins.mic_pdm_clk),
         WakeKey::new(wake_gpio2),
@@ -363,7 +363,7 @@ fn memory_demo() {
     memory::log_report();
 }
 
-/// T10 compile/link demo of the session path: restore decision at boot, and
+/// Compile/link demo of the session path: restore decision at boot, and
 /// (only if there is no valid session yet) save a harmless Home-only state and
 /// decide again, as a reboot would. SD write/rename behaviour is NOT verified on
 /// hardware; every failure is logged and boot continues (never a panic).
@@ -374,7 +374,7 @@ async fn session_demo(power: &PeripheralPower<Gpio27Rail>, storage: &SdStorage, 
         warn!("session: _PULP dir: {}", e);
     }
     let first = session::restore_session(power, storage);
-    // R20: decision = f(wake cause, session); valid session restores for any cause
+    // Decision = f(wake cause, session); valid session restores for any cause
     let plan = sleep::plan_boot(wake, first);
     match plan {
         BootPlan::Restore { cause, restored } => info!(

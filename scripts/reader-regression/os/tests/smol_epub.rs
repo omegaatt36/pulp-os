@@ -1,5 +1,5 @@
-// smol-epub (../smol-epub, revision pinned in baseline.md §2) had no tests of its own
-// (T1: 0 unit tests, 4 ignored doctests). These exercise its public API on the
+// smol-epub (vendor/smol-epub, from the revision pinned in baseline.md §2) had no tests of its own
+// (0 unit tests, 4 ignored doctests). These exercise its public API on the
 // fixtures the reader consumes: ZIP index + STORED/DEFLATE extraction, container /
 // OPF / TOC parsing, HTML stripping, cache naming.
 use pulp_os_host::fixtures::*;

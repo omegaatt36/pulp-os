@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R22 / R14 / R15 (T8): ELF memory report and budget check for the C61 image.
+# ELF memory report and budget check for the C61 image.
 #
 #   scripts/report-c61-memory.sh                report + check the C61 full firmware ELF (C61_ELF=... for the boot image)
 #   scripts/report-c61-memory.sh --x4-diff A B  compare the RAM sections of two
@@ -16,15 +16,15 @@
 #   3. applies the budget rules of pulp_board_logic::memory (the same code the
 #      firmware links; run through the `memreport` host example):
 #        - statics <= STATIC_RAM_MAX_BYTES, `.stack` last in RAM (check_image)
-#        - every writable section is entirely in internal RAM (R15)
-#        - every SPI DMA `BUFFER`/`DESCRIPTORS` symbol is inside internal RAM (R15)
+#        - every writable section is entirely in internal RAM
+#        - every SPI DMA `BUFFER`/`DESCRIPTORS` symbol is inside internal RAM
 #   4. diffs the address-map literals in board-logic against esp-hal's
 #      ld/esp32c61/memory.x (skipped with a warning if the registry copy is
 #      missing) and the planned heap sizes against the ELF.
 # Exit status is non-zero if any check fails. Tools come from scripts/lib/tools.sh
 # (llvm-tools component + an awk with strtonum), so it runs on Linux and macOS.
 #
-# Env: C61_TARGET_DIR (default target/t8-c61, built with `cargo build-c61
+# Env: C61_TARGET_DIR (default target/accept-c61, built with `cargo build-c61
 # --locked` if the ELF is missing), C61_ELF (explicit ELF path), TOP_N (default 12).
 set -u
 cd "$(dirname "$0")/.."
@@ -60,7 +60,7 @@ if [ "${1:-}" = "--x4-diff" ]; then
   exit 0
 fi
 
-tdir="${C61_TARGET_DIR:-target/t8-c61}"
+tdir="${C61_TARGET_DIR:-target/accept-c61}"
 elf="${C61_ELF:-$tdir/riscv32imac-unknown-none-elf/release/pulp-os-c61}"
 top="${TOP_N:-12}"
 if [ ! -f "$elf" ]; then
@@ -135,7 +135,7 @@ ndma=$(grep -c '^dma ' "$mdir/facts")
 [ "$ndma" -ge 4 ] && ok "found $ndma SPI DMA symbols (2 BUFFER + 2 DESCRIPTORS expected)" \
   || bad "expected >= 4 SPI DMA symbols, found $ndma"
 
-# R15: PSRAM must stay off the global heap (`psram_allocator!` would add an
+# PSRAM must stay off the global heap (`psram_allocator!` would add an
 # External region to esp_alloc::HEAP, where plain Box/Vec could land in it)
 hits=$(grep -rnE 'psram_allocator!|MemoryCapability::External' src kernel/src 2>/dev/null |
   grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' | grep -v 'kernel/src/board_c61/memory.rs' || true)

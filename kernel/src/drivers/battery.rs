@@ -1,7 +1,7 @@
 // battery voltage estimation, generic over board calibration
 // board-specific divider ratio and discharge curve live in board::battery;
 // the voltage -> percent algorithm lives in pulp-board-logic (shared with the
-// OnePage C61, T9). scripts/check-x4-battery-equiv.sh proves it is unchanged.
+// OnePage C61), pinned by the r16_* tests in board-logic/src/battery.rs.
 
 use crate::board::battery::{DISCHARGE_CURVE, DIVIDER_MULT};
 

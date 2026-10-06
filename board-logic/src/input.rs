@@ -1,4 +1,4 @@
-// Debounce / long-press / repeat state machine for single-key input (R12).
+// Debounce / long-press / repeat state machine for single-key input.
 //
 // Extracted from the X4 `kernel/src/drivers/input.rs` so that the OnePage C61
 // and the X4 run the same code. The X4 driver is now a thin wrapper that

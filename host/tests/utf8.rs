@@ -1,4 +1,4 @@
-// onepage-host-validation / paging regression -- production UTF-8 decoding (shared production logic, English reader regression).
+// utf8 regression -- production UTF-8 decoding.
 //
 // Run: scripts/host-test.sh --test utf8
 //

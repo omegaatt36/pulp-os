@@ -1,4 +1,4 @@
-// Battery sampling and charge-pause contract (R16), HAL-free.
+// Battery sampling and charge-pause contract, HAL-free.
 //
 // Hardware (OnePage C61):
 //   * battery sense = GPIO5 = ADC1_CH3 behind a 1:1 divider: 5.1 MOhm (R7,
@@ -18,8 +18,7 @@
 //   4. resume charging (GPIO10 high, :299);
 //   5. convert with the x2 divider (:303).
 //
-// Deliberate differences from the BSP (not hardware facts, documented in
-// baseline.md T9):
+// Deliberate differences from the BSP (not hardware facts):
 //   * a failed ADC read is an ERROR, not "skip and still divide by 16" (the BSP
 //     counts a failed read as 0 and so under-reports) and never "0 V";
 //   * charging is resumed by a drop guard, so it is restored on every exit
@@ -45,7 +44,7 @@ pub const SAMPLE_COUNT: u32 = 16;
 pub const DIVIDER_MULT: u32 = 2;
 
 /// Piecewise-linear Li-ion discharge curve, descending by mV. This is the X4
-/// table verbatim (kernel/src/board/battery.rs before T9). The BSP has no
+/// table verbatim (kernel/src/board/battery.rs). The BSP has no
 /// percentage curve and crosspoint's `BatteryMonitor` source is not in the
 /// tree, so the C61 reuses this one: UNVERIFIED for the C61's cell.
 pub const LIPO_DISCHARGE_CURVE: &[(u32, u8)] = &[
@@ -301,7 +300,7 @@ mod tests {
             .collect()
     }
 
-    // ---- R16: sequence ------------------------------------------------
+    // ---- sequence --------------------------------------------------
 
     #[test]
     fn r16_sequence_is_enable_pause_settle_16_reads_resume() {
@@ -359,7 +358,7 @@ mod tests {
         );
     }
 
-    // ---- R16: failure paths ---------------------------------------------
+    // ---- failure paths ---------------------------------------------
 
     #[test]
     fn r16_adc_failure_at_every_index_stops_reading_and_still_resumes() {
@@ -447,7 +446,7 @@ mod tests {
         assert_eq!(charge_writes(&log), vec![false, true]);
     }
 
-    // ---- R16: repeat calls / reentry -------------------------------------
+    // ---- repeat calls / reentry -------------------------------------
 
     #[test]
     fn r16_repeated_calls_are_independent_complete_sequences() {
@@ -487,7 +486,7 @@ mod tests {
         assert_eq!(depth, 0);
     }
 
-    // ---- R16: conversion --------------------------------------------------
+    // ---- conversion --------------------------------------------------
 
     #[test]
     fn r16_cell_voltage_is_twice_the_truncated_mean() {
@@ -531,7 +530,7 @@ mod tests {
         assert_eq!(cell_mv_from_adc_mv(u16::MAX), u16::MAX);
     }
 
-    // ---- R16: voltage -> percent ------------------------------------------
+    // ---- voltage -> percent ------------------------------------------
 
     #[test]
     fn r16_percent_clamps_at_both_ends() {

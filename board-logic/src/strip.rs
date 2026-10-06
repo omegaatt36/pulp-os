@@ -1,4 +1,4 @@
-// Strip-based rendering core for the SSD1677 panel (R10).
+// Strip-based rendering core for the SSD1677 panel.
 //
 // 4 KB strip instead of a 48 KB framebuffer: the display is split into
 // horizontal bands of the PHYSICAL 800x480 panel and each band is rendered,

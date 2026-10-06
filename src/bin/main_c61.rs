@@ -1,17 +1,17 @@
-// OnePage C61 full offline firmware (T12): hardware init, construct Kernel +
+// OnePage C61 full offline firmware: hardware init, construct Kernel +
 // AppManager, boot, run. Same shape as src/bin/main.rs (X4); the board bring-up
-// order is the one proven in c61_boot.rs (T4-T11), which stays as the minimal
+// order is the one proven in c61_boot.rs, which stays as the minimal
 // bring-up image.
 //
 //   esp_hal::init -> wake cause -> heaps -> PSRAM (degrades, never panics)
-//   -> GPIO27 power-cycle (R6, before any SD access) -> esp-rtos + embassy
-//   -> ADC1 (keys + battery) -> USB detect -> SPI2/DMA -> SD init (R6, R9)
+//   -> GPIO27 power-cycle (before any SD access) -> esp-rtos + embassy
+//   -> ADC1 (keys + battery) -> USB detect -> SPI2/DMA -> SD init
 //   -> _PULP dir -> EPD driver -> Kernel + AppManager -> boot (session
 //   restore, first full refresh) -> tasks -> run.
 //
 // Offline only: no radio, no Wi-Fi (`wifi` + this board is a compile_error!).
 // Hardware behaviour is unverified, see the "not verified" lists in
-// board_c61/*.rs and the T12 section of the baseline.
+// board_c61/*.rs.
 
 #![no_std]
 #![no_main]
@@ -76,7 +76,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
     paint_stack();
-    // R19/R20: why did we start? (empty = power-on / any non-deep-sleep reset)
+    // Why did we start? (empty = power-on / any non-deep-sleep reset)
     let wake = sleep::wake_cause();
 
     // internal heap = the planned size (board-logic INTERNAL_HEAP_*): main RAM
@@ -89,7 +89,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     memory::init(peripherals.PSRAM);
     memory::log_report();
 
-    // R6: the GPIO27 power-cycle runs before any SD access. Partial move:
+    // The GPIO27 power-cycle runs before any SD access. Partial move:
     // TIMG0 / FROM_CPU_INTR0 stay available below.
     let mut pins = take_c61_pins!(peripherals);
     match pins.power.power_cycle(&mut HalDelay::new()) {
@@ -111,7 +111,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let wake_gpio2 = unsafe { pins.key_wake.clone_unchecked() };
     let lpwr = peripherals.LPWR;
 
-    // R12 + R13 + R16: one ADC1 for the front ladder (GPIO4) and the battery
+    // One ADC1 for the front ladder (GPIO4) and the battery
     // (GPIO5). Without it there are no keys at all: park.
     let (key_input, battery_mon) =
         match adc::init(peripherals.ADC1, pins.front_adc, pins.battery_adc) {
@@ -127,10 +127,10 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         };
     let mut battery_mon = Some(battery_mon);
 
-    // R17: USB detect (GPIO11), polarity from the board configuration
+    // USB detect (GPIO11), polarity from the board configuration
     let usb_port = UsbPort::new(pins.usb_detect);
 
-    // R8: SPI2 + DMA; EPD and SD get arbitrated handles on the one bus. No bus
+    // SPI2 + DMA; EPD and SD get arbitrated handles on the one bus. No bus
     // means no storage and no display: park.
     let spi_board = match spi::init(
         peripherals.SPI2,
@@ -150,7 +150,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         }
     };
 
-    // R6 + R9: SD init needs the SdInitPermit minted after the power-cycle; a
+    // SD init needs the SdInitPermit minted after the power-cycle; a
     // missing or bad card is a recoverable storage error (NoCard path)
     let card_pin = CardDetectPin::new(pins.sd_card_detect);
     let card_detect = CardDetect::new(card_pin.state());

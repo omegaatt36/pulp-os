@@ -1,4 +1,4 @@
-// R21 / bookmarks: the real BookmarkCache (16 slots, LRU by generation, 48-byte
+// Bookmarks: the real BookmarkCache (16 slots, LRU by generation, 48-byte
 // records in _PULP/BKMK.BIN) on the in-memory card, and its use by the reader.
 use pulp_os_host::apps::probe;
 use pulp_os_host::board::action::Action;
@@ -108,7 +108,7 @@ fn list_is_most_recently_saved_first() {
 
 #[test]
 fn resaving_an_early_slot_does_not_always_make_it_the_newest_baseline_quirk() {
-    // Baseline behaviour (identical in the pre-port code, see baseline.md T13): the
+    // Baseline behaviour (identical in the pre-port code): the
     // generation of an updated slot is max(generation of the slots up to and
     // including it) + 1, because the scan stops at the match. Re-saving BOOK01
     // (slot 1) therefore gets generation 3 and only ties with BOOK02.

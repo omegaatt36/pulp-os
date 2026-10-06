@@ -1,6 +1,5 @@
-// onepage-host-validation / paging regression -- UTF-8 + paging through the production ReaderApp
-// (shared production logic shared production algorithm, firmware builds firmware stays buildable, English reader regression English TXT
-// previous/next paging).
+// paging regression -- UTF-8 + paging through the production ReaderApp:
+// previous/next paging on English TXT fixtures.
 //
 // Run: scripts/host-test.sh --test paging
 //

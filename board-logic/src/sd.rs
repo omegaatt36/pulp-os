@@ -1,5 +1,5 @@
-// SD card detect, init flow and storage-error state (R9, plus the R6/R7
-// hand-off with the GPIO27 power state machine).
+// SD card detect, init flow and storage-error state, plus the hand-off with
+// the GPIO27 power state machine.
 //
 // Hardware facts (../bsp_onepage_c61/board_c61.c):
 //   * card detect is GPIO28, input with internal pull-up, "mechanical CD
@@ -134,7 +134,7 @@ pub struct SdInitReport {
 }
 
 /// Retry loop. Requires the permit by reference: SD traffic can only start
-/// after the GPIO27 power-cycle (type-level R6).
+/// after the GPIO27 power-cycle, enforced at type level.
 pub fn probe_with_retry<P: SdProbe, D: DelayMs>(
     _permit: &SdInitPermit,
     probe: &mut P,
@@ -342,7 +342,7 @@ mod tests {
         )
     }
 
-    // ---- card detect (R9) ------------------------------------------------
+    // ---- card detect ------------------------------------------------
 
     #[test]
     fn r9_cd_polarity_is_bsp_low_means_inserted() {
@@ -387,7 +387,7 @@ mod tests {
         assert_eq!(cd.state(), CardState::Absent);
     }
 
-    // ---- init flow (R6 permit, R9 errors) --------------------------------
+    // ---- init flow (permit, errors) --------------------------------
 
     #[test]
     fn r6_init_sd_is_refused_before_power_cycle_and_touches_nothing() {
@@ -534,7 +534,7 @@ mod tests {
         );
     }
 
-    // ---- storage status (R9 "show a recoverable storage error") ----------
+    // ---- storage status: "show a recoverable storage error" ----------
 
     #[test]
     fn r9_every_fault_maps_to_a_displayable_error_status() {

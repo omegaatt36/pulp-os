@@ -22,7 +22,7 @@ const ITEM_X: u16 = (SCREEN_W - ITEM_W) / 2;
 const TITLE_ITEM_GAP: u16 = 24;
 const MAX_ITEMS: usize = 5;
 // the Upload entry exists only when the Wi-Fi boundary is compiled in; the
-// offline firmware has no menu path into upload mode (R5)
+// offline firmware has no menu path into upload mode
 const UPLOAD_ITEMS: usize = cfg!(feature = "wifi") as usize;
 
 // bookmark list layout (matches Files app)

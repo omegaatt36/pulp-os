@@ -1,13 +1,13 @@
-// C61 session persistence on SD (R18, R20), HAL-free.
+// C61 session persistence on SD, HAL-free.
 //
 // The X4 keeps its session in RTC FAST memory (`kernel/src/kernel/rtc_session.rs`,
 // `#[link_section = ".rtc_fast.persistent"]`). esp-hal 1.2 has no such section
-// for the ESP32-C61 (proposal: "C61 無現有 HAL `.rtc_fast.persistent` 配置"), so
-// the C61 keeps the same reading-position semantics in a file on the SD card.
+// for the ESP32-C61, so the C61 keeps the same reading-position semantics in a
+// file on the SD card.
 // This module is the format, the validation and the failure policy; the kernel
 // (`board_c61::session`) only maps `SessionStore` onto `drivers::storage`.
 //
-// Field mapping against the X4 `RtcSession` (names kept, see baseline.md T10):
+// Field mapping against the X4 `RtcSession` (names kept):
 //   X4 header magic "PLPS" (0x504C5053)  -> same constant, now little-endian u32
 //   X4 wake_count                        -> `wake_count` (caller owned)
 //   X4 nav_depth / nav_stack (<= 4)      -> same, validated (ids 0..=4, Home at bottom)
@@ -437,7 +437,7 @@ fn newest(a: &SlotStatus, b: &SlotStatus) -> Option<(Slot, Record)> {
 }
 
 // ---------------------------------------------------------------------------
-// R18 ordering constraint: SD must be active
+// ordering constraint: SD must be active
 // ---------------------------------------------------------------------------
 
 /// Proof that the SD card is initialised and its rail is still on. Borrows the
@@ -485,8 +485,8 @@ pub enum SaveError {
     Verify,
 }
 
-/// Persist `state` (R18). Call before `begin_shutdown`, while the SD rail is up.
-/// The caller decides what a failure means for going to sleep (T11).
+/// Persist `state`. Call before `begin_shutdown`, while the SD rail is up.
+/// The caller decides what a failure means for going to sleep.
 pub fn save_session<P: RailPin, S: SessionStore>(
     power: &PeripheralPower<P>,
     store: &mut S,
@@ -553,7 +553,7 @@ pub enum BootDecision {
     NormalBoot(NormalBootReason),
 }
 
-/// Boot decision (R20): restore the newest valid record, otherwise boot
+/// Boot decision: restore the newest valid record, otherwise boot
 /// normally. Never panics and never fails the boot; a bad or unreadable slot
 /// only costs the restored position. Bad slot files are left in place: the next
 /// save overwrites an invalid slot before it touches a valid one.
@@ -595,7 +595,7 @@ fn restore_with_proof<S: SessionStore>(_proof: &SdActiveProof<'_>, store: &mut S
     }
 }
 
-/// Delete both slot files (e.g. one-shot restore, T12's choice). Both deletes
+/// Delete both slot files (e.g. after a one-shot restore). Both deletes
 /// are attempted; the first real error (not "missing") is returned. A failure
 /// between the two deletes can leave the older record behind.
 pub fn clear_session<P: RailPin, S: SessionStore>(
@@ -858,7 +858,7 @@ mod tests {
         assert_eq!(&b[76..80], &crc32(&b[..76]).to_le_bytes());
     }
 
-    // ---- round trip (R20) -------------------------------------------------
+    // ---- round trip -------------------------------------------------
 
     #[test]
     fn r20_round_trip_restores_the_same_position() {
@@ -941,7 +941,7 @@ mod tests {
         assert_eq!(encode(&s, 1), Err(FieldError::FontSize));
     }
 
-    // ---- corruption matrix (R20: invalid -> normal boot) ------------------
+    // ---- corruption matrix: invalid -> normal boot ------------------
 
     #[test]
     fn r20_decode_empty_file() {
@@ -1119,7 +1119,7 @@ mod tests {
         }
     }
 
-    // ---- boot decision over a store (R20) ---------------------------------
+    // ---- boot decision over a store ---------------------------------
 
     #[test]
     fn r20_valid_session_is_restored_to_the_same_position() {
@@ -1287,7 +1287,7 @@ mod tests {
         assert_eq!(restored(&p, &mut st).unwrap().slot, Slot::A);
     }
 
-    // ---- save: slots, sequence, atomicity (R18) ---------------------------
+    // ---- save: slots, sequence, atomicity ---------------------------
 
     #[test]
     fn r18_saves_alternate_slots_with_increasing_sequence() {
@@ -1502,7 +1502,7 @@ mod tests {
         ));
     }
 
-    // ---- R18 ordering constraint: SD active -------------------------------
+    // ---- ordering constraint: SD active -------------------------------
 
     #[test]
     fn r18_save_is_refused_unless_the_sd_is_active() {
@@ -1530,7 +1530,7 @@ mod tests {
     fn r18_save_before_shutdown_works_and_after_shutdown_begins_is_refused() {
         let mut p = active();
         let mut st = FakeStore::new();
-        // the T11 order: save while SdActive, then shutdown
+        // the required order: save while SdActive, then shutdown
         save_session(&p, &mut st, &reading_state()).unwrap();
         p.begin_shutdown().unwrap();
         assert_eq!(

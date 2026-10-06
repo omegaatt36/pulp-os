@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# onepage-host-validation / boundary acceptance acceptance: host build boundary (host boundary) and
-# firmware build regression (firmware builds).
+# Host build boundary and firmware build regression.
 #
 # Usage: scripts/check-host-boundary.sh [--skip-firmware]
-#   --skip-firmware   run only the host boundary host checks (fast iteration); the default
-#                     also runs the firmware builds firmware builds.
+#   --skip-firmware   run only the host boundary checks (fast iteration); the default
+#                     also runs the firmware builds.
 #
 # ---------------------------------------------------------------------------
 # CONTRACT the implementation must provide (this script only verifies it)
@@ -47,14 +46,14 @@
 #   hence the wrapper script (precedent: scripts/test-board-logic.sh).
 #
 # Expected values are derived from the requirement text:
-#   host boundary "不載入 Espressif 硬體 runtime 或 embedded linker scripts"
+#   host boundary: no Espressif hardware runtime or embedded linker scripts
 #      -> forbidden: any package named esp-*/esp_* in the host graph; any
 #         -T*.x linker-script argument in the host build's verbose output.
-#   firmware builds "OnePage 與 X4 離線 firmware 可編譯"
+#   firmware builds stay buildable:
 #      -> `cargo build-x4` and `cargo build-c61` (.cargo/config.toml
 #         aliases) exit 0 with --locked.
-#   shared production logic (shared production logic) is NOT covered here; it is verified at
-#      paging regression/render regression where actual paging/rendering code is wired to the host crate.
+#   Shared production logic is NOT covered here; it is verified at
+#      the paging/render regressions where actual paging/rendering code is wired to the host crate.
 # ---------------------------------------------------------------------------
 set -u
 cd "$(dirname "$0")/.."
@@ -75,9 +74,9 @@ bad() { echo "FAIL  $*"; fail=1; }
 host="$(host_triple)"
 HOST_CMD=scripts/host-test.sh
 HOST_PKG=pulp-host
-# Espressif crates by name prefix (host boundary "Espressif 硬體 runtime")
+# Espressif crates by name prefix (host boundary rule)
 ESP_RE='^esp[-_]'
-# Embedded linker-script arguments (host boundary): any `-T<script>.x`, or linkall.x itself
+# Embedded linker-script arguments (host boundary rule): any `-T<script>.x`, or linkall.x itself
 LD_RE='(^|[[:space:]=])-T[^[:space:]]*\.x|linkall\.x'
 
 out_dir=target/accept-host
@@ -177,9 +176,10 @@ fi
 if [ "$skip_firmware" -eq 1 ]; then
   echo "== firmware: skipped (--skip-firmware)"
 else
+  root="${ACCEPT_TARGET_ROOT:-target/accept}"
   for board in x4 c61; do
     echo "== firmware: cargo build-$board"
-    dir="target/accept-host-$board"
+    dir="$root/$board"
     if CARGO_TARGET_DIR="$dir" cargo "build-$board" --locked >"$dir.log" 2>&1; then
       ok "cargo build-$board exited 0"
     else

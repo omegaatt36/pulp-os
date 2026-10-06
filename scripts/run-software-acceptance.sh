@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
-# One-shot software acceptance for the OnePage C61 port (T13; R21, R22, R23).
+# One-shot software acceptance for the OnePage C61 firmware.
 #
-#   scripts/run-software-acceptance.sh [--with-mutants] [--skip-builds]
+#   scripts/run-software-acceptance.sh
 #
 # Stages (each prints `ok`/`FAIL`; any FAIL gives a non-zero exit, but every stage runs):
-#   1. host tests of the HAL-free logic            scripts/test-board-logic.sh
-#   2. English TXT/EPUB regression (R21)           check-reader-regression.sh both
+#   1. host tests of the HAL-free board logic      scripts/test-board-logic.sh
+#   2. host tests of the shared reader logic       scripts/host-test.sh
+#   3. English TXT/EPUB regression                 check-reader-regression.sh both
 #        pre-port HEAD and the work tree run the same tests and must produce the
 #        same golden trace sha256
-#   3. build matrix (R1, R3, R4)                   X4 offline, X4 + wifi, C61 (both images)
-#   4. boundary / equivalence checks (R2, R4, R5, R8)
-#   5. C61 ELF memory budget (R14, R15, R22)       report-c61-memory.sh
-#   6. cargo fmt --check
-#   --with-mutants  also run check-reader-mutants.sh (slow: one full suite per mutant)
-#   --skip-builds   skip stage 3 and reuse the ELFs under target/accept-* (they must exist)
-# Finally prints the R23 table: what has NOT been verified on hardware.
+#   4. build matrix                                X4 offline, X4 + wifi, C61 (both images)
+#   5. boundary / equivalence checks (board selection, host boundary,
+#      offline radio, C61 raw-GPIO, X4 traces)
+#   6. C61 ELF memory budget                       report-c61-memory.sh
+#   7. cargo fmt --check
+# Finally prints the hardware acceptance status: what has NOT been verified on hardware.
+#
+# The firmware builds share one target root with check-offline-boundary.sh and
+# check-c61-no-c3-raw-gpio.sh, so those stages reuse the ELFs instead of
+# rebuilding.
 #
 # Env: ACCEPT_TARGET_ROOT (default target/accept), READER_REG_WORKDIR (see
 # check-reader-regression.sh). Needs network on the first run (cargo fetch), GNU
@@ -24,20 +28,10 @@ set -u
 cd "$(dirname "$0")/.."
 source scripts/lib/tools.sh || exit $?
 
-WITH_MUTANTS=0
-SKIP_BUILDS=0
-for a in "$@"; do
-  case "$a" in
-    --with-mutants) WITH_MUTANTS=1 ;;
-    --skip-builds) SKIP_BUILDS=1 ;;
-    *) echo "unknown arg $a" >&2; exit 2 ;;
-  esac
-done
-
 root="${ACCEPT_TARGET_ROOT:-target/accept}"
-x4_elf="$root-x4/riscv32imc-unknown-none-elf/release/pulp-os"
-x4w_elf="$root-x4w/riscv32imc-unknown-none-elf/release/pulp-os"
-c61_dir="$root-c61"
+x4_elf="$root/x4/riscv32imc-unknown-none-elf/release/pulp-os"
+x4w_elf="$root/x4-wifi/riscv32imc-unknown-none-elf/release/pulp-os"
+c61_dir="$root/c61"
 c61_elf="$c61_dir/riscv32imac-unknown-none-elf/release/pulp-os-c61"
 c61b_elf="$c61_dir/riscv32imac-unknown-none-elf/release/pulp-os-c61-boot"
 
@@ -65,25 +59,23 @@ matrix_sizes() {
 }
 
 stage "host tests (pulp-board-logic)" scripts/test-board-logic.sh
+stage "host tests (pulp-host, fontpack, fontconv)" scripts/host-test.sh --locked
 stage "C61 shared ADC and SD probe adapters" bash scripts/check-c61-adapter-regression.sh
-stage "reader regression, head vs tree (R21)" scripts/check-reader-regression.sh both
-[ "$WITH_MUTANTS" = 1 ] && stage "reader mutants" scripts/check-reader-mutants.sh
+stage "reader regression, head vs tree" scripts/check-reader-regression.sh both
 
-if [ "$SKIP_BUILDS" = 0 ]; then
-  stage "build X4 offline (R3, R4)"     env CARGO_TARGET_DIR="$root-x4"  cargo build-x4 --locked
-  stage "build X4 + wifi (control)"     env CARGO_TARGET_DIR="$root-x4w" cargo build-x4-wifi --locked
-  stage "build C61 full + boot (R1)"    env CARGO_TARGET_DIR="$c61_dir"  cargo build-c61 --locked
-fi
+stage "build X4 offline"     env CARGO_TARGET_DIR="$root/x4"     cargo build-x4 --locked
+stage "build X4 + wifi (control)" env CARGO_TARGET_DIR="$root/x4-wifi" cargo build-x4-wifi --locked
+stage "build C61 full + boot" env CARGO_TARGET_DIR="$c61_dir"    cargo build-c61 --locked
 
 stage "build matrix sizes" matrix_sizes
 
-stage "board selection errors (R2)"   scripts/check-board-selection.sh
-stage "offline radio boundary (R4, R5)" env OFFLINE_CHECK_TARGET_ROOT="$root-offline" scripts/check-offline-boundary.sh
-stage "C61 free of C3 raw GPIO (R8)"  env C61_TARGET_DIR="$c61_dir" X4_ELF="$x4_elf" scripts/check-c61-no-c3-raw-gpio.sh
+stage "board selection errors"        scripts/check-board-selection.sh
+stage "host boundary probes"          env ACCEPT_TARGET_ROOT="$root" scripts/check-host-boundary.sh --skip-firmware
+stage "offline radio boundary"        env OFFLINE_CHECK_TARGET_ROOT="$root" scripts/check-offline-boundary.sh
+stage "C61 free of C3 raw GPIO"       env C61_TARGET_DIR="$c61_dir" X4_ELF="$x4_elf" scripts/check-c61-no-c3-raw-gpio.sh
 stage "X4 input trace equivalence"    scripts/check-x4-input-trace.sh
 stage "X4 driver trace equivalence"   scripts/check-x4-driver-trace.sh
-stage "X4 battery equivalence"        scripts/check-x4-battery-equiv.sh
-stage "C61 ELF memory budget (R14, R15, R22)" env C61_ELF="$c61_elf" scripts/report-c61-memory.sh
+stage "C61 ELF memory budget"         env C61_ELF="$c61_elf" scripts/report-c61-memory.sh
 # -p, not --all: --all also checks path dependencies (../smol-epub is another repo)
 stage "cargo fmt --check"             cargo fmt -p pulp-os -p pulp-kernel -p pulp-board-logic -- --check
 
@@ -93,7 +85,7 @@ printf '%s\n' "${results[@]}"
 
 cat <<'EOF'
 
-################ R23: hardware acceptance status, NOT run on a OnePage C61
+################ hardware acceptance status, NOT run on a OnePage C61
 UNVERIFIED  boot (flash40 / PSRAM40 image-hash, espflash >= 4.6.0 for esp32c61)
 UNVERIFIED  PSRAM detection, 40 MHz, heap/stack high-water, cache/DMA coherence
 UNVERIFIED  SD (card-detect polarity, SPI/DMA, write latency, power-loss behaviour)
@@ -103,7 +95,7 @@ UNVERIFIED  battery sampling and USB detect polarity (BSP code vs README conflic
 UNVERIFIED  deep sleep, GPIO2 wake (arm-before-poweroff differs from BSP), GPIO27/GPIO10 pad state
 UNVERIFIED  sleep/active current, session restore across a real power cycle
 UNVERIFIED  X4 on hardware (ported to HAL 1.2: SPI, sleep, startup)
-Procedure and record template: see specs/changes/archive/onepage-c61-port/ (T14).
+Procedure and record template: see specs/changes/archive/onepage-c61-port/.
 EOF
 
 exit "$fail"

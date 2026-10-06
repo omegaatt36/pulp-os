@@ -1,8 +1,8 @@
-// USB insertion detect (R17), HAL-free. GPIO11, input with internal pull-up.
+// USB insertion detect, HAL-free. GPIO11, input with internal pull-up.
 //
 // POLARITY IS A CONFIGURATION VALUE (`USB_POLARITY`), never hard-coded in the
 // decode path. Sources disagree, so the choice and its evidence are recorded
-// here (and in specs/changes/archive/onepage-c61-port/baseline.md, T9):
+// here:
 //
 //   source                                              says
 //   --------------------------------------------------- ----------------------

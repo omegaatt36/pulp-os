@@ -23,7 +23,7 @@ impl RailPin for Gpio27Rail {
 }
 
 /// Blocking busy-wait delay: the boot power-cycle (2 x 20 ms) and the battery
-/// charge-pause settle (30 ms, T9).
+/// charge-pause settle (30 ms).
 pub struct HalDelay(Delay);
 
 impl HalDelay {

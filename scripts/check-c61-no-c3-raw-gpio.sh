@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R8 check (T5): the C61 build must not depend on the C3-only raw GPIO register
+# The C61 build must not depend on the C3-only raw GPIO register
 # path (kernel/src/board/raw_gpio.rs: GPIO_OUT_W1TS 0x6000_4008, GPIO_ENABLE
 # 0x6000_4024, IO_MUX 0x6000_9000, out-sel 0x6000_4554, used for X4's GPIO12
 # SD CS). Four independent probes:
@@ -12,13 +12,13 @@
 #      esp32c61 PAC 0x6000_9000 is TIMG1, not the C3 IO_MUX.)
 # Positive control: the X4 ELF (if present) must trip probes 3 and 4.
 #
-# Env: C61_TARGET_DIR (default target/t5-c61), X4_ELF (optional control).
+# Env: C61_TARGET_DIR (default target/accept-c61), X4_ELF (optional control).
 set -u
 cd "$(dirname "$0")/.."
 source scripts/lib/tools.sh || exit $?
-tdir="${C61_TARGET_DIR:-target/t5-c61}"
+tdir="${C61_TARGET_DIR:-target/accept-c61}"
 rel="$tdir/riscv32imac-unknown-none-elf/release"
-elf="$rel/pulp-os-c61"       # full firmware (T12)
+elf="$rel/pulp-os-c61"       # full firmware
 elf_boot="$rel/pulp-os-c61-boot"
 fail=0
 ok()  { echo "ok    $*"; }
@@ -33,7 +33,7 @@ fi
 SRC=(kernel/src/board_c61 board-logic/src kernel/src/drivers/sdcard.rs
      kernel/src/drivers/storage.rs kernel/src/drivers/mod.rs kernel/src/error.rs
      src/bin/c61_boot.rs src/bin/main_c61.rs
-     # T12: the full firmware also compiles the scheduler, the apps and the UI
+     # the full firmware also compiles the scheduler, the apps and the UI
      kernel/src/kernel kernel/src/ui kernel/src/util kernel/src/drivers/strip.rs
      src/apps src/ui)
 RE='0x6000_?[0-9a-fA-F]{4}|raw_gpio|RawOutputPin|GPIO_OUT_W1T[SC]|GPIO_ENABLE_W1TS|IO_MUX_BASE'

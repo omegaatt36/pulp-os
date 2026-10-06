@@ -1,4 +1,4 @@
-// R21 / settings: SETTINGS.TXT parse + write round trip, tolerance, clamping, the
+// Settings: SETTINGS.TXT parse + write round trip, tolerance, clamping, the
 // real SettingsApp editing/saving, and how the saved values reach the reader.
 use pulp_os_host::apps::probe;
 use pulp_os_host::board::action::Action;

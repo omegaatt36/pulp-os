@@ -1,4 +1,4 @@
-// OnePage C61 keys (R12, R13): esp-hal adapter only.
+// OnePage C61 keys: esp-hal adapter only.
 //
 // Hardware (BSP board_keys.c:27-29, board_c61.c:63-66):
 //   * front ladder: GPIO4 = ADC1_CH2, 11 dB attenuation (BSP ADC_ATTEN_DB_12),
@@ -9,7 +9,7 @@
 // Decoding, 2.5 s startup grace, debounce, long-press, repeat and the
 // key -> Action table are in pulp_board_logic::{keys, input} (host-tested).
 //
-// The ADC1 instance is created in `board_c61::adc` (T9), which enables GPIO4
+// The ADC1 instance is created in `board_c61::adc`, which enables GPIO4
 // (this ladder) and GPIO5 (battery) in ONE `AdcConfig` and checks esp-hal's pin
 // table (`ADC1_CH2 = GPIO4`, `ADC1_CH3 = GPIO5`) against the BSP's. This module
 // only receives the shared handle; the converter owns both pins (the BSP

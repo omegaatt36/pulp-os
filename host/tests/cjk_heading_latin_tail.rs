@@ -1,9 +1,9 @@
-//! R10 boundary policy: "heading 狀態持續到 closing marker，不因頁界或 nested
+//! Heading boundary policy: "heading 狀態持續到 closing marker，不因頁界或 nested
 //! bold/italic 而結束。" A heading opened by 0x01 'H' and closed by 0x01 'h' keeps
 //! heading style on every page before the closing marker, including pages that hold
 //! only Latin text after a CJK start.
 //!
-//! Observables (all derived from the requirement and literal pack metrics):
+//! Observables (all derived from the policy above and literal pack metrics):
 //! * Latin static glyphs are wider in heading style than in body style, so the number
 //!   of Latin chars that fit a narrow line distinguishes the two styles. Reference
 //!   capacities are measured on independent oracle rigs (Latin-only heading, Latin-only
@@ -91,8 +91,8 @@ fn assert_latin_page_capacity(r: &Rig, cap: usize, what: &str) {
 
 #[test]
 fn pure_latin_heading_resets_style_at_page_start() {
-    // Characterization (spec R10, scoped): with no CJK glyph window earlier in the chapter,
-    // heading style is reset at every page start, as in the original English behaviour.
+    // Characterization: with no CJK glyph window earlier in the chapter, heading style
+    // is reset at every page start, as in the original English behaviour.
     let (h, b) = caps();
     let mut input = vec![1, b'H'];
     input.extend_from_slice("A".repeat(LATIN).as_bytes());
@@ -254,9 +254,9 @@ fn body_style_resumes_after_closing_marker() {
 
 // ---- Drawn output of the heading line that carries the closing marker ----
 //
-// R10 (scoped): heading style persists until the closing marker, so the text before the
-// marker on its own line must be DRAWN in heading style, and only text after the marker
-// in body style. Observable: the pixel strip of one text line (full line height, text
+// Heading style persists until the closing marker, so the text before the marker on
+// its own line must be DRAWN in heading style, and only text after the marker in body
+// style. Observable: the pixel strip of one text line (full line height, text
 // width), compared with reference rigs that draw the same visible text as a pure heading
 // line and as a pure body line. No marker occurs in either reference.
 

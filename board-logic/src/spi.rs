@@ -1,4 +1,4 @@
-// Shared SPI2 bus plan and mutual-exclusion transaction rules (R8).
+// Shared SPI2 bus plan and mutual-exclusion transaction rules.
 //
 // EPD and SD share one SPI2 bus (SCK22 / MOSI23 / MISO24, board_c61.c:37-38,
 // 43, 96); each device has its own chip select (EPD CS25 :39, SD CS26 :58).
@@ -10,7 +10,7 @@
 //     also when the closure fails (so a failed SD read cannot leave the bus
 //     selected and corrupt the next EPD frame);
 //   * a transaction started while another one is open is refused with
-//     `BusError::Busy` instead of panicking (R9: no panic on the SD path).
+//     `BusError::Busy` instead of panicking (the SD path may not panic).
 //
 // Bus timing and buffer constants are mirrored from the BSP so they are
 // reviewable (and tested) off-target.
@@ -23,7 +23,7 @@ pub const SPI_INIT_KHZ: u32 = 400;
 /// "10MHz stable clock for shared SPI bus"). (X4 runs 20 MHz; not carried
 /// over.)
 pub const SPI_OPERATING_KHZ: u32 = 10_000;
-/// DMA buffer per direction, internal RAM (R15). Same sizing rationale as X4:
+/// DMA buffer per direction, internal RAM. Same sizing rationale as X4:
 /// SD sector 512 B, EPD strip well below 4 KiB.
 pub const SPI_DMA_BUF_BYTES: usize = 4096;
 /// SD spec: >= 74 clocks with CS high before CMD0. 10 bytes = 80 clocks.

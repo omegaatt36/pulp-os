@@ -174,7 +174,7 @@ fn check() -> bool {
         ok = false;
     }
     if dma_seen == 0 {
-        println!("FAIL no DMA symbol given (nothing proves R15)");
+        println!("FAIL no DMA symbol given (nothing proves the DMA rule)");
         ok = false;
     }
     ok

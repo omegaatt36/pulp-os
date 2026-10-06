@@ -1,6 +1,6 @@
-// onepage-host-validation / fixture validation -- distributable English TXT / EPUB2 / EPUB3
-// fixtures (English reader regression: the fixtures the reader regression navigation / TOC / image / settings /
-// bookmark regressions will run on).
+// fixture validation -- distributable English TXT / EPUB2 / EPUB3 fixtures:
+// the books the reader navigation / TOC / image / settings / bookmark
+// regressions run on.
 //
 // Run: scripts/host-test.sh --test fixtures
 //

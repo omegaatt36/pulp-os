@@ -1,4 +1,4 @@
-// SD card bring-up for the OnePage C61 (R6 permit, R9 recoverable errors).
+// SD card bring-up for the OnePage C61.
 //
 // All decisions (retry policy, failure classification, card-detect debounce
 // and polarity, storage status) are in pulp_board_logic::sd, host-tested; this
@@ -8,8 +8,7 @@
 // storage layer then reports `ErrorKind::NoCard` from `storage::borrow` for
 // every call (`probe_ok()` is false), which is the path the X4 Files app
 // already renders (`FilesApp::load_failed(Error)`). `StorageHealth` adds the
-// finer status/message ("SD: no card", ...) for the UI to show; wiring it into
-// the app layer belongs to the C61 app-lifecycle task (T12). Runtime
+// finer status/message ("SD: no card", ...) for the UI to show. Runtime
 // read/write errors from `drivers::storage` are classified by
 // `observe_storage_result`.
 //

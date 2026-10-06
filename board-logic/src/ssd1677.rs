@@ -1,6 +1,6 @@
 // SSD1677 e-paper logic shared by the X4 (GDEQ0426T82) and the OnePage C61
 // (EPD0426A02) boards: geometry, rotation, command sequences, bounded BUSY
-// wait and the full-refresh driver `Epd` (R10, R11).
+// wait and the full-refresh driver `Epd`.
 //
 // Both boards drive the same 800x480 source x gate panel size. BSP evidence for
 // the C61 (../bsp_onepage_c61/board_c61.c): EPD_W 800 / EPD_H 480 (:50-51,
@@ -96,7 +96,7 @@ pub struct RenderState {
 /// Why a display operation failed. All of these are reported, never panic.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DisplayError {
-    /// BUSY stayed asserted past the configured limit (R11).
+    /// BUSY stayed asserted past the configured limit.
     BusyTimeout,
     /// The SPI/pin transfer itself failed.
     Bus,
@@ -391,8 +391,7 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
     /// `PeripheralPower::display_reset()`; `Software` is the only value, so
     /// the controller is reset with SW_RESET and GPIO27 is not touched. BUSY
     /// is waited (bounded) before the reset and after it, which the X4 init
-    /// does not do (conservative; BSP init flow could not be read, see
-    /// baseline.md).
+    /// does not do (conservative; the BSP init flow could not be read).
     pub fn init(&mut self, reset: DisplayReset) -> Result<(), DisplayError> {
         match reset {
             DisplayReset::Software => {}
@@ -628,7 +627,7 @@ mod tests {
     }
     const PHYS_BYTES: usize = (WIDTH as usize) / 8;
 
-    // -- command trace (R10) -------------------------------------------------
+    // -- command trace -------------------------------------------------
 
     #[test]
     fn x4_init_sequence_is_unchanged_golden() {
@@ -894,7 +893,7 @@ mod tests {
         assert_eq!(epd.rotation(), Rotation::Deg270);
     }
 
-    // -- strip data (R10) ----------------------------------------------------
+    // -- strip data ----------------------------------------------------
 
     #[test]
     fn r10_portrait_logical_size_is_480x800() {
@@ -1174,7 +1173,7 @@ mod tests {
         }
     }
 
-    // -- BUSY (R11) ----------------------------------------------------------
+    // -- BUSY ----------------------------------------------------------
 
     #[test]
     fn r11_default_limit_is_the_bsp_5000_ms() {

@@ -1,4 +1,4 @@
-// R21 / navigation: page turns, chapter jumps, boundaries, TOC, quick actions,
+// Navigation: page turns, chapter jumps, boundaries, TOC, quick actions,
 // position restore and Back, on the real ReaderApp (same tests run on the pre-port code).
 use pulp_os_host::apps::probe::{self, Phase};
 use pulp_os_host::apps::{App, Transition};

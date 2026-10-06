@@ -1,4 +1,4 @@
-// Memory placement policy and allocation budgets (R14, R15).
+// Memory placement policy and allocation budgets.
 //
 // The OnePage C61 has 320 KiB of HP SRAM ("internal") and one 2 MB PSRAM chip
 // mapped through the flash cache MMU ("external"). The X4 has internal RAM
@@ -6,15 +6,15 @@
 // firmware and the host tests run the same code:
 //
 //   * the C61 address map the placement rules are written against;
-//   * which allocation classes may live in PSRAM (R15: DMA buffers/descriptors,
+//   * which allocation classes may live in PSRAM (DMA buffers/descriptors,
 //     ISR-visible data and the runtime heap never may);
-//   * per-class and per-pool budgets with checked arithmetic (R14: a request
+//   * per-class and per-pool budgets with checked arithmetic (a request
 //     over budget is an `Err`, never a panic and never an out-of-memory spiral);
 //   * the PSRAM bring-up state machine (not initialised / ready / degraded) and
 //     the fallback to smaller internal limits;
 //   * the PSRAM smoke test (`selftest`) over a word-memory trait;
 //   * the inventory of every large (>= 4 KiB) allocation in the firmware with
-//     its classification, for the T12 migration.
+//     its classification.
 //
 // Nothing here touches hardware. The kernel's `board_c61::memory` registers the
 // PSRAM region on its own `EspHeap` (never on the global heap, see below) and
@@ -86,7 +86,7 @@ pub const fn range_is_internal(addr: usize, len: usize) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// clocks (bring-up setting, proposal.md: flash 40 / PSRAM 40)
+// clocks (bring-up setting: flash 40 / PSRAM 40)
 
 /// Flash clock the image header selects (`--flash-freq 40mhz`). esp-hal's
 /// `PsramConfig::default()` says 80 MHz and would re-clock the flash; the
@@ -97,16 +97,16 @@ pub const PSRAM_MHZ: u32 = 40;
 // ---------------------------------------------------------------------------
 // budgets
 
-/// The OnePage part is 2 MB (proposal.md). A bigger chip is clamped to this.
+/// The OnePage part is 2 MB. A bigger chip is clamped to this.
 pub const PSRAM_HW_BYTES: usize = 2 * MIB;
 /// Below this the PSRAM is not worth the extra failure modes: degrade.
 pub const PSRAM_MIN_BYTES: usize = MIB;
-/// Never handed out: allocator metadata, fragmentation, T12 headroom.
+/// Never handed out: allocator metadata and headroom.
 pub const PSRAM_RESERVE_BYTES: usize = 192 * KIB;
 
-/// PSRAM class limits (PSRAM mode). Proposals sized from the inventory below
+/// PSRAM class limits (PSRAM mode). Sized from the inventory below
 /// (one 96 KiB chapter cache today; PSRAM lets several chapters stay
-/// resident); T12 may move bytes between classes, the sum is asserted.
+/// resident); the integrator may move bytes between classes, the sum is asserted.
 pub const PSRAM_CHAPTER_TEXT_BYTES: usize = 768 * KIB;
 pub const PSRAM_IMAGE_DATA_BYTES: usize = 512 * KIB;
 pub const PSRAM_PAGE_TABLE_BYTES: usize = 64 * KIB;
@@ -123,7 +123,7 @@ const _: () = assert!(
         <= PSRAM_HW_BYTES
 );
 
-/// Internal heap plan (what T12's `heap_allocator!` calls add up to): a
+/// Internal heap plan (what the `heap_allocator!` calls add up to): a
 /// main-RAM part and the bootloader-reclaimed dram2 part, like the X4's
 /// 110_592 + 64_000.
 pub const INTERNAL_HEAP_MAIN_BYTES: usize = 96 * KIB;
@@ -177,7 +177,7 @@ impl Region {
 }
 
 /// What an allocation is for. The class, not the caller, decides where it may
-/// live (R15).
+/// live.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MemClass {
     /// DMA buffers and descriptors. Internal only.
@@ -187,13 +187,13 @@ pub enum MemClass {
     /// Runtime heap, executor arena, task stacks, critical-section data.
     /// Internal only.
     Runtime,
-    /// Decompressed chapter text and its prefetch/page buffers (R14).
+    /// Decompressed chapter text and its prefetch/page buffers.
     ChapterText,
-    /// Decoded images and decoder scratch (R14).
+    /// Decoded images and decoder scratch.
     ImageData,
-    /// Page offset tables and other per-book indices (R14).
+    /// Page offset tables and other per-book indices.
     PageTable,
-    /// ZIP central directory, entry index, EPUB TOC scratch (R14).
+    /// ZIP central directory, entry index, EPUB TOC scratch.
     ZipToc,
     /// Immutable prepared font bitmap bytes; never DMA or ISR-visible.
     FontGlyphs,
@@ -226,7 +226,7 @@ impl MemClass {
         }
     }
 
-    /// May this class be placed in PSRAM at all? (R15)
+    /// May this class be placed in PSRAM at all?
     pub const fn allows_psram(self) -> bool {
         matches!(
             self,
@@ -299,7 +299,7 @@ pub enum MemError {
     InvalidAlign,
     /// `size`/`align` arithmetic overflowed `usize`.
     Overflow,
-    /// The class may not live in that region (R15).
+    /// The class may not live in that region.
     RegionForbidden { class: MemClass, region: Region },
     /// The class' own limit would be exceeded.
     ClassLimit {
@@ -720,7 +720,7 @@ impl Default for MemoryBudget {
 }
 
 // ---------------------------------------------------------------------------
-// ELF image budget (R22). `scripts/report-c61-memory.sh` extracts the numbers
+// ELF image budget. `scripts/report-c61-memory.sh` extracts the numbers
 // from the linked ELF and feeds them to `check_image` through the
 // `memreport` example, so the pass/fail rule is this code, not shell.
 
@@ -805,11 +805,11 @@ pub fn section_placement_ok(addr: usize, size: usize, writable: bool) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// inventory of large allocations (>= 4 KiB, plus the DMA descriptors because
-// of R15). Sizes are estimates read from the X4 release ELF
-// (`nm --size-sort -S`), the T7 C61 boot ELF and the source constants; rows
-// marked "in READER" are inside the 18,972 B `READER` static and are not
-// additive. T12 uses this table to move the `Candidate` rows.
+// inventory of large allocations (>= 4 KiB, plus the DMA descriptors). Sizes
+// are estimates read from the X4 release ELF (`nm --size-sort -S`), the C61
+// boot ELF and the source constants; rows marked "in READER" are inside the
+// 18,972 B `READER` static and are not additive. The `Candidate` rows may
+// move to PSRAM.
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AllocKind {
@@ -820,9 +820,9 @@ pub enum AllocKind {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Placement {
-    /// Internal RAM is required (R15).
+    /// Internal RAM is required.
     Required,
-    /// May move to PSRAM under its class budget (T12).
+    /// May move to PSRAM under its class budget.
     Candidate,
     /// Stays internal for latency or size reasons; a PSRAM move is optional.
     Keep,
@@ -890,7 +890,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         28,
         DmaBuffer,
         Required,
-        "below 4 KiB, listed for R15; nm-checked internal",
+        "below 4 KiB, nm-checked internal",
     ),
     item(
         "C61 main heap",
@@ -939,7 +939,7 @@ pub const INVENTORY: &[InventoryItem] = &[
     ),
     item(
         "main stack (.stack)",
-        "linker .stack = _stack_start - _stack_end (C61 T8 boot ELF: 132,768; whatever RAM the statics leave)",
+        "linker .stack = _stack_start - _stack_end (C61 boot ELF: 132,768; whatever RAM the statics leave)",
         Stack,
         132_768,
         Runtime,
@@ -1010,7 +1010,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         Keep,
         "128 x DirEntry; UI list, low value to move",
     ),
-    // --- PSRAM candidates (T12) ---
+    // --- PSRAM candidates ---
     item(
         "reader font bitmap caches",
         "src/fonts/cjk.rs PageCache bitmap backing (body + heading + 3 auxiliary)",
@@ -1222,7 +1222,7 @@ mod tests {
         assert!(INTERNAL_DMA_BYTES >= 2 * crate::spi::SPI_DMA_BUF_BYTES);
     }
 
-    // --- address classification (R15) ------------------------------------
+    // --- address classification ------------------------------------
 
     #[test]
     fn r15_addr_space_boundaries() {
@@ -1272,7 +1272,7 @@ mod tests {
         assert!(!range_is_internal(C61_RAM_END - 4, 8));
     }
 
-    // --- classification rules (R15) --------------------------------------
+    // --- classification rules --------------------------------------
 
     #[test]
     fn r15_dma_isr_runtime_never_allow_psram() {
@@ -1328,7 +1328,7 @@ mod tests {
         }
     }
 
-    // --- budget: boundaries (R14) ----------------------------------------
+    // --- budget: boundaries ----------------------------------------
 
     #[test]
     fn r14_exactly_filling_a_class_limit_succeeds() {
@@ -1438,7 +1438,7 @@ mod tests {
             pool - PSRAM_CHAPTER_TEXT_BYTES - 16 * KIB,
             4,
         )
-            .unwrap();
+        .unwrap();
         // image-data has its whole 512 KiB left but the pool does not
         let e = b.reserve(MemClass::ImageData, 32 * KIB, 4).unwrap_err();
         assert_eq!(
@@ -1558,7 +1558,7 @@ mod tests {
         assert!(b.release(r).is_err());
     }
 
-    // --- failure handling / degradation (R14, R15) -----------------------
+    // --- failure handling / degradation -----------------------
 
     #[test]
     fn r14_fresh_budget_is_not_initialised_and_places_internally() {
@@ -1932,7 +1932,7 @@ mod tests {
         assert!(b.pool_used(Region::Psram) < b.pool_limit(Region::Psram));
     }
 
-    // --- PSRAM window sanity (R14) -----------------------------------------
+    // --- PSRAM window sanity -----------------------------------------
 
     #[test]
     fn r14_window_fault_accepts_a_page_aligned_window_in_the_cache_range() {
@@ -1966,7 +1966,7 @@ mod tests {
         assert_eq!(psram_heap_bytes(st), 0);
     }
 
-    // --- ELF image budget (R22) ---------------------------------------------
+    // --- ELF image budget ---------------------------------------------
 
     fn image(static_bytes: usize) -> ImageMemory {
         ImageMemory {

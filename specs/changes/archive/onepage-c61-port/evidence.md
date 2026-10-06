@@ -97,3 +97,19 @@ Historical-evidence result remains **0 complete / 23 open**: corrected software 
 On 2026-10-05, after the assistant disclosed 23 requirements missing original provenance/red-proof and five decisions still marked unconfirmed, the user replied: **「可以，封存吧」**. This authorizes the requested exception to spec-archive's missing-evidence stop gate. It does not supply the missing history, confirm each implementation decision, or verify physical hardware.
 
 Archived path: `specs/changes/archive/onepage-c61-port/`. All 14 original tasks and 3 corrective tasks are checked. Software acceptance and independent review pass; the historical evidence table remains 0 complete / 23 open. The five decisions and all hardware 未驗 statuses are retained. No living spec was promoted.
+
+## Independent re-validation (2026-10-06, Linux host)
+
+Command: `scripts/run-software-acceptance.sh` from repo root, branch `onepage` @80b1887d, Linux x86_64, toolchain nightly-2026-09-22, `../smol-epub` @832609d. Exit 0; all 15 stages pass.
+
+| Check | Actual result |
+|---|---|
+| board-logic host tests | 324 passed / 0 failed |
+| C61 adapter regression | 2 passed / 0 failed |
+| Reader regression head/tree | 83 / 90 passed; both goldens 3105 lines, sha256 `8cb6e31a70a32cdc05d30fab45ee0c7983da8cde6a55ba8bb45a0540f8d3f454` |
+| Build matrix | X4 offline, X4 + wifi, C61 full + boot all linked (--locked) |
+| Boundaries | board-selection errors, offline radio boundary, C61 no-C3-raw-GPIO probes all pass |
+| X4 locks | input trace 26032 lines + driver trace 2122 lines reproduce their pinned sha256 |
+| C61 memory budget | statics 180864 B, stack 75760 B, headroom 26608 B over the 48 KiB minimum — all checks ok |
+
+Note: statics/stack drifted from the archived 178032/78592 figures because of later changes (CJK bitmap fonts, hosted by the tree, not by this change); still within STATIC_RAM_MAX_BYTES with 26608 B headroom. `check-reader-mutants.sh` and `check-x4-battery-equiv.sh` were retired after this run (mutant campaign was complete at T13 and the script's R16 pattern no longer exists in the rewritten UTF-8 decoder; the battery equivalence proof is superseded by the r16_* unit tests). Hardware acceptance remains entirely 未驗.

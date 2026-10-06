@@ -1,7 +1,6 @@
-// onepage-host-validation / EPUB regression -- EPUB navigation through the production ReaderApp:
+// EPUB regression -- EPUB navigation through the production ReaderApp:
 // open, previous/next paging across chapters, TOC, chapter jumps, image pages
-// (shared production logic shared production algorithm, firmware builds firmware stays buildable, English reader regression English
-// EPUB 2 / EPUB 3 fixtures: previous/next paging, TOC, images).
+// on EPUB 2 / EPUB 3 fixtures.
 //
 // Run: scripts/host-test.sh --test reader_epub
 //

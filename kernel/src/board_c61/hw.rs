@@ -1,17 +1,17 @@
-// What the kernel owns on the OnePage C61 besides the display and the SD volume
-// (T12). The X4 kernel gets these through globals in `board/` (SPI bus mutex,
+// What the kernel owns on the OnePage C61 besides the display and the SD volume.
+// The X4 kernel gets these through globals in `board/` (SPI bus mutex,
 // SD CS clone, power-button static); on the C61 they are plain fields of
 // `Kernel`, handed over once by the firmware entry (`src/bin/main_c61.rs`), so
 // there is exactly one owner of each piece and no `static mut`.
 //
 //   power    GPIO27 state machine: display re-init token, session gate, sleep
-//   battery  GPIO5 monitor with the charge-pause contract (T9). Owned here and
+//   battery  GPIO5 monitor with the charge-pause contract. Owned here and
 //            measured from the housekeeping poll (`Kernel::poll_housekeeping`),
 //            not from a task, because the sleep sequence needs `&mut` access
 //            too (charge restore) and one measurement blocks ~30 ms + 16
 //            conversions: a task would need a lock held across the block
 //   card     GPIO28 detect + debounce + health + the SD SPI handle for re-init
-//   sleep    the three hardware parts of the T11 sequence
+//   sleep    the three hardware parts of the deep-sleep sequence
 //   display  recovery bookkeeping of a failed full refresh
 
 use pulp_board_logic::lifecycle::{BATTERY_INTERVAL_MS, DisplayHealth, Periodic};
@@ -35,7 +35,7 @@ pub struct CardHw {
     pub control: SpiControl,
 }
 
-/// The parts the T11 sequence consumes by `&mut` (kept so an aborted sleep
+/// The parts the sleep sequence consumes by `&mut` (kept so an aborted sleep
 /// leaves the device fully usable and a later idle timeout can try again).
 pub struct SleepParts {
     pub lines: C61Lines,

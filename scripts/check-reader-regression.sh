@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# English TXT/EPUB regression (T13, R21): host tests of the REAL reader, settings,
+# English TXT/EPUB regression: host tests of the REAL reader, settings,
 # bookmark and kernel-handle sources.
 #
 # How: scripts/reader-regression/ is a host harness (two crates + an esp-hal stub)
@@ -24,12 +24,12 @@
 set -euo pipefail
 
 BASE_REV="${BASE_REV:-3bb911af}"
-# sha256 of `golden` stdout, produced from BASE_REV (see baseline.md, T13)
+# sha256 of `golden` stdout, produced from BASE_REV (the pre-port X4 commit)
 PINNED_SHA256="${PINNED_SHA256:-8cb6e31a70a32cdc05d30fab45ee0c7983da8cde6a55ba8bb45a0540f8d3f454}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/scripts/lib/tools.sh" || exit $?
-SMOL="$(cd "$ROOT/../smol-epub" && pwd)"
+SMOL="$(cd "$ROOT/vendor/smol-epub" && pwd)"
 WORKROOT="${READER_REG_WORKDIR:-${TMPDIR:-/tmp}/pulp-reader-regression}"
 TOOLCHAIN="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' "$ROOT/rust-toolchain.toml")"
 CARGO=(cargo "+$TOOLCHAIN")

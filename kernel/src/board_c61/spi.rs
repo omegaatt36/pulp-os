@@ -1,4 +1,4 @@
-// SPI2 + DMA for the OnePage C61 (R8). EPD and SD share the bus.
+// SPI2 + DMA for the OnePage C61. EPD and SD share the bus.
 //
 // Wiring (BSP board_c61.c): SCK22 :38, MOSI23 :37, MISO24 :96, EPD CS25 :39,
 // SD CS26 :58. Pin numbers/timing live in pulp_board_logic (host-tested);
@@ -217,7 +217,7 @@ impl SpiControl {
     }
 
     /// Back to the SD probe clock before a card inserted at runtime is
-    /// initialised (T12); `speed_up` again afterwards.
+    /// initialised; `speed_up` again afterwards.
     pub fn slow_down(&self) -> Result<(), SpiInitError> {
         self.set_khz(SPI_INIT_KHZ, SPI_OPERATING_KHZ)
     }
@@ -268,7 +268,7 @@ impl SpiControl {
 }
 
 pub struct SpiBoard {
-    /// EPD device handle (T6 builds the SSD1677 driver on it; DC/BUSY and the
+    /// EPD device handle (the SSD1677 driver is built on it; DC/BUSY and the
     /// software reset stay in `Pins`).
     pub epd: EpdSpiDevice,
     pub sd: SdSpiDevice,

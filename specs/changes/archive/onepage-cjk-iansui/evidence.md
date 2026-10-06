@@ -179,3 +179,14 @@ Known residuals (not claims): the quote-indent of the closing-marker line in a c
 仍有效的備註：本次 archive session 未重跑 firmware link gate（引用 `target/final-*2.log`）；T1–T5 的 weakening 快照 `/tmp/cjk-snap` 可能已不存在；`iansui.zip` 已追蹤並隨資料夾歸檔。
 
 N verified / M open：16 條 R 皆列測試路徑與 replay；R8、R14（部分）、R16 無完整 red-proof，皆經使用者明確接受歸檔；0 條未決。
+
+## 獨立重驗（2026-10-06，Linux host）
+
+branch `onepage` @80b1887d、toolchain nightly-2026-09-22、`../smol-epub` @832609d。
+
+- `IANSUI_REQUIRED=1 CARGO_NET_OFFLINE=true scripts/host-test.sh --locked` exit 0：**719 passed / 0 failed / 0 no-font skip**（fontconv 真字型測試以 repo 根目錄 `Iansui-Regular.ttf` 執行，0 個 SKIPPED）。
+- `IANSUI_REQUIRED=1 scripts/check-host-boundary.sh` exit 0：X4＋C61 firmware link 通過（補上前一節「未重跑 firmware gate」的備註）。
+- `scripts/check-reader-regression.sh both` exit 0：head 83／tree 90，golden 3105 行 sha `8cb6e31a…` 不變；本次起 `@SMOL@` 指向 repo 內修補過的 `vendor/smol-epub`（原先指向骯髒的 sibling `../smol-epub`，與韌體實際連結的版本不一致）。
+- `scripts/run-software-acceptance.sh` exit 0（15/15 stages），board-logic 324 全綠。
+
+R8、R14（部分）、R16 的 red-proof 限制與 Open items 處置維持不變；硬體全部未驗。

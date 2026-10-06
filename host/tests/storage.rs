@@ -1,4 +1,4 @@
-// onepage-host-validation / storage regression -- virtual storage (virtual storage, storage failure injection).
+// storage regression -- virtual storage backends and storage failure injection.
 //
 // Run: scripts/host-test.sh --test storage
 //

@@ -15,27 +15,27 @@ use super::power::Gpio27Rail;
 /// Raw pins, not yet configured. Later tasks turn them into SPI / Input /
 /// Output / ADC drivers (they take the field by value).
 pub struct Pins {
-    // shared SPI2 bus (T5)
+    // shared SPI2 bus
     pub spi_sck: GPIO22<'static>,
     pub spi_mosi: GPIO23<'static>,
     pub spi_miso: GPIO24<'static>,
-    // EPD (T6); RST is GPIO27 and lives in `power`
+    // EPD; RST is GPIO27 and lives in `power`
     pub epd_cs: GPIO25<'static>,
     pub epd_dc: GPIO8<'static>,
     pub epd_busy: GPIO29<'static>,
-    // SD (T5)
+    // SD
     pub sd_cs: GPIO26<'static>,
     pub sd_card_detect: GPIO28<'static>,
-    // keys (T7): front ADC ladder + 3 side keys; wake is LP-capable (T11)
+    // keys: front ADC ladder + 3 side keys; wake is LP-capable
     pub front_adc: GPIO4<'static>,
     pub key_wake: GPIO2<'static>,
     pub key_prev: GPIO6<'static>,
     pub key_next: GPIO9<'static>,
-    // battery / USB (T9)
+    // battery / USB
     pub battery_adc: GPIO5<'static>,
     pub charge_enable: GPIO10<'static>,
     pub usb_detect: GPIO11<'static>,
-    // reserved PDM mic pins; CLK is silenced before the rail is cut (T11)
+    // reserved PDM mic pins; CLK is silenced before the rail is cut
     pub mic_pdm_clk: GPIO7<'static>,
     pub mic_pdm_data: GPIO3<'static>,
     /// GPIO27: SD/MIC power enable and EPD RST. Sole owner of the pin.

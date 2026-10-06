@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R2 check: invalid board selections must fail at build time with a readable
+# Invalid board selections must fail at build time with a readable
 # message (compile_error! in kernel/src/lib.rs). Positive builds are covered
 # by `cargo build-x4` / `cargo build-c61`.
 set -u

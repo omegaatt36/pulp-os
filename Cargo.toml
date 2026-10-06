@@ -36,14 +36,14 @@ name = "pulp-os"
 path = "./src/bin/main.rs"
 required-features = ["board-x4"]
 
-# OnePage C61 full offline firmware (T12)
+# OnePage C61 full offline firmware
 [[bin]]
 name = "pulp-os-c61"
 path = "./src/bin/main_c61.rs"
 required-features = ["board-onepage-c61"]
 
-# OnePage C61 minimal bring-up image (T2-T11 proofs: pins, SD, EPD, keys, PSRAM,
-# battery/USB, session, sleep demo); kept for hardware bring-up (T14)
+# OnePage C61 minimal bring-up image (pins, SD, EPD, keys, PSRAM,
+# battery/USB, session, sleep demo); kept for hardware bring-up
 [[bin]]
 name = "pulp-os-c61-boot"
 path = "./src/bin/c61_boot.rs"
@@ -65,7 +65,7 @@ required-features = ["board-onepage-c61"]
 [features]
 default = []
 
-# Wi-Fi upload stack (optional boundary, T3). Off by default for every board:
+# Wi-Fi upload stack (optional boundary). Off by default for every board:
 # without it esp-radio / embassy-net / embedded-io-async are not linked, the
 # Upload app, its home-menu entry and the WIFI peripheral steal are compiled
 # out (R4, R5). Build an X4 with upload via `cargo build-x4-wifi`.

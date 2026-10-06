@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R4/R5 check: the offline firmware (feature `wifi` off, the default) must not
+# The offline firmware (feature `wifi` off, the default) must not
 # link any radio / network stack and must not carry the upload menu entry.
 # The X4 build with `--features wifi` is the positive control: the same probes
 # must find the radio symbols and the Upload strings there, otherwise the

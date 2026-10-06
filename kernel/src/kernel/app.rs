@@ -31,7 +31,7 @@ use super::config::{SystemSettings, WifiConfig};
 pub const MAX_APP_ACTIONS: usize = 6;
 
 // the board's session payload: X4 keeps it in RTC FAST memory, the OnePage C61
-// has no such section and stores the same fields on the SD card (T10)
+// has no such section and stores the same fields on the SD card
 #[cfg(feature = "board-x4")]
 pub type SessionData = super::rtc_session::RtcSession;
 #[cfg(feature = "board-onepage-c61")]

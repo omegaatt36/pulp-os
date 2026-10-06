@@ -1,4 +1,4 @@
-// OnePage C61 USB detect (R17): esp-hal adapter over pulp_board_logic::usb.
+// OnePage C61 USB detect: esp-hal adapter over pulp_board_logic::usb.
 //
 // GPIO11 as input with the internal pull-up (BSP board_c61.c:274-279; the board
 // also has an external 10 kOhm pull-up, R29). The polarity is NOT decided here:

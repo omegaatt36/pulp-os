@@ -1,4 +1,4 @@
-// R21 / pagination: the real ReaderApp lays out English TXT and EPUB.
+// Pagination: the real ReaderApp lays out English TXT and EPUB.
 // Expected numbers marked "baseline" were produced by the pre-port commit (the same
 // tests run against it via `scripts/check-reader-regression.sh head`).
 use pulp_os_host::apps::probe::{self, Phase};
@@ -189,7 +189,7 @@ fn txt_blank_lines_are_kept_and_long_tokens_are_split() {
 #[cfg(not(feature = "tree"))]
 #[test]
 fn txt_font_change_while_reading_keeps_the_page_table_baseline_quirk() {
-    // Baseline behaviour (identical in the pre-port code, see baseline.md T13): the
+    // Baseline behaviour (identical in the pre-port code): the
     // book font is applied by `set_book_font_size` (apply_font_metrics) before
     // on_resume / on_quick_cycle_update look at it, so a mid-read font change
     // re-wraps the *current* page with the new line budget but does not rebuild the

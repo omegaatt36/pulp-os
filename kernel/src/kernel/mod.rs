@@ -64,7 +64,7 @@ pub struct Kernel {
     // phase3_sync (rapid navigation); next partial uses inv_red
     pub(crate) red_stale: bool,
 
-    // OnePage C61: power rail, battery, card detect, sleep parts (T12)
+    // OnePage C61: power rail, battery, card detect, sleep parts
     #[cfg(feature = "board-onepage-c61")]
     pub(crate) hw: crate::board_c61::hw::C61Hw,
 }

@@ -1,4 +1,4 @@
-// C61 session persistence adapter (R18, R20): `SessionStore` over the existing
+// C61 session persistence adapter: `SessionStore` over the existing
 // SD storage layer. Format, validation, slot policy, SD-active gating and all
 // failure handling are in pulp_board_logic::session (host-tested, same code).
 //
@@ -82,9 +82,9 @@ impl SessionStore for SdSessionStore<'_> {
     }
 }
 
-/// Save the session (R18). Refused unless `power` is `SdActive`: call it before
+/// Save the session. Refused unless `power` is `SdActive`: call it before
 /// `begin_shutdown`, while the SD rail is still up. Failure is returned, not
-/// handled: T11 decides whether to sleep anyway.
+/// handled: the caller (the sleep path) decides whether to sleep anyway.
 pub fn save_session(
     power: &PeripheralPower<Gpio27Rail>,
     sd: &SdStorage,
@@ -93,13 +93,13 @@ pub fn save_session(
     pulp_board_logic::session::save_session(power, &mut SdSessionStore::new(sd), state)
 }
 
-/// Boot decision (R20): call after SD init. `Restore` carries a validated
+/// Boot decision: call after SD init. `Restore` carries a validated
 /// state; anything else means boot normally.
 pub fn restore_session(power: &PeripheralPower<Gpio27Rail>, sd: &SdStorage) -> BootDecision {
     pulp_board_logic::session::restore_session(power, &mut SdSessionStore::new(sd))
 }
 
-/// Delete both slot files (for a one-shot restore policy chosen in T12).
+/// Delete both slot files (used by the one-shot restore policy).
 pub fn clear_session(power: &PeripheralPower<Gpio27Rail>, sd: &SdStorage) -> Result<(), SaveError> {
     pulp_board_logic::session::clear_session(power, &mut SdSessionStore::new(sd))
 }

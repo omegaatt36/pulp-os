@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# X4 input state-machine lock (T7). The debounce / long-press / repeat state
+# X4 input state-machine lock. The debounce / long-press / repeat state
 # machine of kernel/src/drivers/input.rs moved into pulp-board-logic
 # (`input::InputCore`, shared with the OnePage C61). This proves the real X4
 # source (kernel/src/drivers/input.rs, not a copy) still produces the same event
@@ -10,7 +10,7 @@
 # ADC / power pin, drive scripted scenarios (single press, sub-debounce bounce,
 # 1 ms boundary scans, power priority, row2, reset_hold_state) plus a 300k-step
 # pseudo-random walk, and hash the trace. PINNED_SHA256 was produced from the
-# pre-T7 file (git HEAD 3bb911af kernel/src/drivers/input.rs). Re-derive it with
+# pre-port file (git HEAD 3bb911af kernel/src/drivers/input.rs). Re-derive it with
 #   git show HEAD:kernel/src/drivers/input.rs > /tmp/input_head.rs
 #   INPUT_RS=/tmp/input_head.rs bash scripts/check-x4-input-trace.sh
 # (the old file, with the pin unchanged, must report this same sha256).
@@ -64,7 +64,7 @@ cargo run -q --offline > "$OUT" 2> "$WORK/build.log" || { cat "$WORK/build.log";
 GOT="$(sha256sum "$OUT" | cut -d' ' -f1)"
 LINES="$(wc -l < "$OUT")"
 if [ "$GOT" = "$PINNED_SHA256" ]; then
-    echo "ok   X4 input trace identical to pre-T7 ($LINES lines, sha256 $GOT)"
+    echo "ok   X4 input trace identical to the pinned pre-port trace ($LINES lines, sha256 $GOT)"
 else
     echo "FAIL X4 input trace changed: got $GOT, expected $PINNED_SHA256 (trace: $OUT)"
     exit 1

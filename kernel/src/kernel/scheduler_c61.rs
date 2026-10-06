@@ -1,4 +1,4 @@
-// OnePage C61 half of the scheduler (T12): boot, render, card detect, battery
+// OnePage C61 half of the scheduler: boot, render, card detect, battery
 // and deep-sleep entry. The event loop itself (scheduler.rs `run`,
 // `handle_input`, `poll_housekeeping`) is shared with the X4.
 //
@@ -156,7 +156,7 @@ impl super::Kernel {
     pub async fn boot<A: AppLayer>(&mut self, app_mgr: &mut A, wake: WakeCause) {
         self.bm_cache.ensure_loaded(&self.sd);
 
-        // R20: decide before anything else touches the session files
+        // Decide before anything else touches the session files
         let plan = sleep::plan_boot(wake, session::restore_session(&self.hw.power, &self.sd));
 
         {
@@ -196,9 +196,9 @@ impl super::Kernel {
         info!("ui ready.");
     }
 
-    // R20 decision 3 (baseline): a validated record is applied if this firmware
-    // and this card can show it; the record is kept after a successful apply
-    // and deleted when it cannot be applied, so bad data cannot loop at boot
+    // A validated record is applied if this firmware and this card can show
+    // it; the record is kept after a successful apply and deleted when it
+    // cannot be applied, so bad data cannot loop at boot
     fn restore_session<A: AppLayer>(&mut self, app_mgr: &mut A, state: &SessionState) -> bool {
         let env = RestoreEnv {
             upload_available: false, // the C61 firmware is offline-only
@@ -260,7 +260,7 @@ impl super::Kernel {
         );
     }
 
-    // card detect (R9) and the 30 s battery measurement; called every loop
+    // card detect and the 30 s battery measurement; called every loop
     // iteration, cheap when nothing is due
     pub(super) async fn poll_card<A: AppLayer>(&mut self, app_mgr: &mut A) {
         if !self.hw.card_due.due(now_ms()) {
@@ -328,7 +328,7 @@ impl super::Kernel {
         }
     }
 
-    // flush, sleep screen, then the T11 sequence. Returns only when the
+    // flush, sleep screen, then the deep-sleep sequence. Returns only when the
     // sequence aborted before anything irreversible (wake key still held, rail
     // not in a shutdown-able state): the device is then fully usable, so the
     // frame is redrawn and the idle timer restarts

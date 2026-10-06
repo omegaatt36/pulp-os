@@ -1,4 +1,4 @@
-// Semantic UI actions, shared by every board (R12).
+// Semantic UI actions, shared by every board.
 //
 // These two enums used to live in kernel/src/board/action.rs (X4 only). They
 // are plain data with no HAL dependency, so they live here and the X4 module

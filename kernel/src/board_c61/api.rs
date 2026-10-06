@@ -1,4 +1,4 @@
-// Board-neutral surface of the OnePage C61 (T12).
+// Board-neutral surface of the OnePage C61.
 //
 // The kernel scheduler and the apps are written against `crate::board::*`
 // (X4: kernel/src/board/). On the C61 `pulp_kernel::board` is this module, so
@@ -11,7 +11,7 @@
 //   board::layout::*             label slots of the front keys
 //
 // There is nothing new here that decides behaviour: the key -> Action table and
-// the swap rule are pulp_board_logic::keys (host-tested since T7).
+// the swap rule are pulp_board_logic::keys (host-tested).
 
 use pulp_board_logic::ssd1677::{HEIGHT, WIDTH};
 
@@ -77,8 +77,8 @@ pub mod layout {
     // side keys (center-y on the right edge) for the button label overlay. The
     // physical key order and the side-key positions on the OnePage bezel are
     // UNVERIFIED (the BSP only lists Back / Left / Right / Enter): the X4 slot
-    // centres are reused, the spacing is equal anyway. T14 checks them on the
-    // device; only the bottom row is drawn.
+    // centres are reused, the spacing is equal anyway. Only the bottom row is
+    // drawn.
     pub const CX_BACK: u16 = 84;
     pub const CX_CONFIRM: u16 = 194;
     pub const CX_LEFT: u16 = 286;

@@ -1,15 +1,14 @@
 // large, long-lived byte buffers (chapter text, decoded images, zip central
 // directory): the one place where the placement differs between the boards
 //
-// X4: plain heap `Vec<u8>` (no PSRAM; behaviour and code are what they were
-// before T12).
+// X4: plain heap `Vec<u8>` (no PSRAM; behaviour and code are as they were).
 //
 // OnePage C61: budget-checked block from `board_c61::memory::alloc`, which
 // puts PSRAM-capable classes in PSRAM while it is `Ready` and falls back to
 // internal RAM with the (smaller, X4-sized) degraded limits otherwise. A request
 // the budget refuses is an `Err`, which the callers turn into their existing
 // "too large / skipped" paths; it never panics. DMA, ISR and runtime data are
-// not expressible here (`BufClass` has no such variant): R15.
+// not expressible here (`BufClass` has no such variant).
 //
 // Contents are zero-initialised on both boards (X4 `resize(n, 0)` did the same).
 

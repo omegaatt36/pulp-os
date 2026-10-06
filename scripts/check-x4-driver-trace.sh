@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# X4 EPD driver wire-trace lock (T6). The X4 driver's pure sequences and the
+# X4 EPD driver wire-trace lock. The X4 driver's pure sequences and the
 # strip layout moved into pulp-board-logic; this proves the real X4 driver
 # source (kernel/src/drivers/{ssd1677,strip}.rs, unmodified, not a copy) still
 # emits the byte-for-byte same SPI/DC/RST/delay trace as before the move.
@@ -7,7 +7,7 @@
 # How: build the two kernel files on the host against a tiny esp-hal shim
 # (Delay + Instant only) and fakes for SPI/DC/RST/BUSY, drive init, a full
 # frame, 7 partial regions (both phase-1 variants, phase 3), deep sleep, and
-# hash the recorded trace. PINNED_SHA256 was produced from the pre-T6 sources
+# hash the recorded trace. PINNED_SHA256 was produced from the pre-port sources
 # (git HEAD 3bb911af kernel/src/drivers/{ssd1677,strip}.rs), so a mismatch means
 # X4 behavior changed. Update the pin only for an intentional X4 change.
 #
@@ -59,7 +59,7 @@ cargo run -q --offline > "$OUT" 2> "$WORK/build.log" || { cat "$WORK/build.log";
 GOT="$(sha256sum "$OUT" | cut -d' ' -f1)"
 LINES="$(wc -l < "$OUT")"
 if [ "$GOT" = "$PINNED_SHA256" ]; then
-    echo "ok   X4 driver trace identical to pre-T6 ($LINES lines, sha256 $GOT)"
+    echo "ok   X4 driver trace identical to the pinned pre-port trace ($LINES lines, sha256 $GOT)"
 else
     echo "FAIL X4 driver trace changed: got $GOT, expected $PINNED_SHA256 (trace: $OUT)"
     exit 1

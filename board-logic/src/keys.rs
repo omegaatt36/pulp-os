@@ -1,5 +1,5 @@
-// OnePage C61 keys: 1 front ADC ladder (GPIO4, ADC1) + 3 side GPIO keys
-// (R12, R13). Decoding, startup grace, and the key -> `Action` table are pure
+// OnePage C61 keys: 1 front ADC ladder (GPIO4, ADC1) + 3 side GPIO keys.
+// Decoding, startup grace, and the key -> `Action` table are pure
 // logic here; hardware is reached through `AdcSample`, `KeyPin`, `Clock`.
 //
 // BSP facts (../bsp_onepage_c61):
@@ -34,7 +34,7 @@ pub const GPIO_KEYS_ACTIVE_LOW: bool = true;
 /// Physical keys, in BSP `onepage_key_t` order (board.h:26-34).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Key {
-    /// Side key GPIO2 (also the deep-sleep wake source, T11).
+    /// Side key GPIO2 (also the deep-sleep wake source).
     Wake,
     /// Side key GPIO6.
     Prev,
@@ -214,8 +214,8 @@ enum Phase {
 }
 
 /// Hardware + grace logic behind `InputCore`. Grace applies to every key, like
-/// the BSP (board_keys.c:57 drops events from all 7 keys), which is a superset
-/// of R13 (front-ladder only). A key already down when grace ends is not
+/// the BSP (board_keys.c:57 drops events from all 7 keys) — stricter than
+/// suppressing only the front ladder. A key already down when grace ends is not
 /// reported as a press (the BSP likewise never emits its DOWN).
 pub struct KeyScanner<A, P, C> {
     adc: A,
@@ -676,7 +676,7 @@ mod tests {
         assert_eq!(ev, vec![(3220, Event::Press(Key::Enter))]);
     }
 
-    // ---- ladder through the driver (R12) -----------------------------------
+    // ---- ladder through the driver -----------------------------------
 
     #[test]
     fn r12_each_ladder_key_press_release_after_grace() {
@@ -835,7 +835,7 @@ mod tests {
         );
     }
 
-    // ---- startup grace (R13) ----------------------------------------------------
+    // ---- startup grace ----------------------------------------------------
 
     #[test]
     fn r13_grace_is_two_and_a_half_seconds() {
@@ -941,8 +941,8 @@ mod tests {
     #[test]
     fn r13_gpio_keys_are_suppressed_during_grace_like_the_bsp() {
         // BSP btn_trampoline drops events from ALL keys during the window
-        // (board_keys.c:57); R13 only requires the front ladder, this is the
-        // stricter, BSP-faithful superset.
+        // (board_keys.c:57); suppressing only the front ladder would suffice,
+        // this is the stricter, BSP-faithful superset.
         for pin in 0..3 {
             let mut r = Rig::new();
             r.set_gpio(pin == 0, pin == 1, pin == 2);

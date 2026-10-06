@@ -1,4 +1,4 @@
-// OnePage C61 deep sleep (R18, R19, R20): esp-hal adapters only.
+// OnePage C61 deep sleep: esp-hal adapters only.
 //
 // The order of everything (save -> wake -> shutdown -> park EPD -> stop SD ->
 // charge -> silence lines -> GPIO27 cut -> sleep), the failure policy and the

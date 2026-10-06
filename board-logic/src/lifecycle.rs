@@ -1,4 +1,4 @@
-// App-lifecycle decisions of the OnePage C61 firmware (T12), HAL-free.
+// App-lifecycle decisions of the OnePage C61 firmware, HAL-free.
 //
 // The kernel scheduler and the app manager do the I/O; the *decisions* that are
 // more than a plumbing call are here so the host tests exercise the code the
@@ -6,7 +6,7 @@
 //
 //   * `Periodic`            when the 30 s battery measurement and the card-detect
 //                           sampling are due (the main loop ticks every 10 ms)
-//   * `check_restorable`    R20: is a validated session actually applicable to
+//   * `check_restorable`    is a validated session actually applicable to
 //                           *this* card and *this* (offline) firmware
 //   * `post_restore`        what to do with the session file after an apply
 //                           attempt (decision: keep on success, clear on failure
@@ -64,7 +64,7 @@ impl Periodic {
 pub const BATTERY_INTERVAL_MS: u64 = 30_000;
 
 // ---------------------------------------------------------------------------
-// R20: is the restored session applicable
+// is the restored session applicable
 // ---------------------------------------------------------------------------
 
 /// What the running firmware can show.
@@ -135,8 +135,8 @@ pub struct MenuKeyContext {
     pub reader_showing_toc: bool,
 }
 
-/// `Action::Menu` has no key on the C61 (X4: Power short press). Audit result
-/// (baseline T12): the quick menu holds Refresh and Go Home (both have another
+/// `Action::Menu` has no key on the C61 (X4: Power short press). Audit result:
+/// the quick menu holds Refresh and Go Home (both have another
 /// route: refresh is always a full refresh on the C61, Back long press goes
 /// Home), the reader's Book Font (also in Settings), Prev/Next Chapter (also
 /// LEFT/RIGHT) and **Contents** (no other route), and Files' Delete File /

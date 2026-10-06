@@ -1,4 +1,4 @@
-// Deep-sleep entry contract (R18, R19, R20), HAL-free.
+// Deep-sleep entry contract, HAL-free.
 //
 // One function, `SleepSequence::enter_deep_sleep`, owns the order of everything
 // that happens between "the app wants to sleep" and "the chip sleeps". The
@@ -20,7 +20,7 @@
 //
 //   0. rail precheck   only `PowerCycled`/`SdActive` may start; anything else
 //                      aborts before ANY side effect
-//   1. save session    R18: first, while SD is active and GPIO27 is high
+//   1. save session    first, while SD is active and GPIO27 is high
 //   2. arm GPIO2 wake  low level, pull-up; failure ABORTS here (see below)
 //   3. begin_shutdown  no new SD init / reset / save from now on
 //   4. park EPD        BSP :337  (DEEP_SLEEP mode 1)
@@ -144,7 +144,7 @@ pub trait SessionSaver {
 }
 
 /// `SessionSaver` over any `SessionStore` (the SD store in the kernel): calls
-/// the T10 `save_session`, which needs `SdActive` and refuses otherwise.
+/// `save_session`, which needs `SdActive` and refuses otherwise.
 pub struct StoreSaver<'a, S: SessionStore> {
     pub store: &'a mut S,
     pub state: &'a SessionState,
@@ -311,7 +311,7 @@ where
             }
         }
 
-        // 1. R18: save first, while SD is active and GPIO27 still high
+        // 1. save first, while SD is active and GPIO27 still high
         let save = self.saver.save(&*self.power);
 
         // 2. wake source, before anything irreversible (see module comment)
@@ -369,7 +369,7 @@ where
 }
 
 // ---------------------------------------------------------------------------
-// wake cause and boot decision (R20)
+// wake cause and boot decision
 // ---------------------------------------------------------------------------
 
 /// Why the chip started. Mirrors BSP `board_wake_cause_t`
@@ -410,7 +410,7 @@ pub fn classify_wake(bits: WakeBits) -> WakeCause {
     }
 }
 
-/// What to do after SD init (R20).
+/// What to do after SD init.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BootPlan {
     /// Reopen the saved reading position.
@@ -437,12 +437,12 @@ impl BootPlan {
     }
 }
 
-/// R20: "restart with valid persistent state -> restore the position". The
+/// A restart with valid persistent state restores the position. The
 /// decision depends on the session only, not on the wake cause: the session
 /// lives on the SD card, so unlike the X4 (RTC memory, zeroed on power-up) it
-/// also survives a cold boot, and R20 asks for a restore on any restart. The
+/// also survives a cold boot, so a restore happens on any restart. The
 /// cause is carried for logging. An invalid or missing session is a normal boot
-/// for every cause (T10: never an error, never a panic). T12 may add
+/// for every cause (never an error, never a panic). A later change may add
 /// `clear_session` after a restore to avoid boot loops on a bad position.
 pub fn plan_boot(cause: WakeCause, decision: BootDecision) -> BootPlan {
     match decision {
@@ -628,7 +628,7 @@ mod tests {
         log.borrow().clone()
     }
 
-    // -- R19: order ----------------------------------------------------------
+    // -- order ----------------------------------------------------------
 
     #[test]
     fn r19_full_sequence_trace_in_bsp_order() {
@@ -639,7 +639,7 @@ mod tests {
         assert_eq!(
             trace(&log),
             vec![
-                // R18: the position is written while SD is active, first
+                // the position is written while SD is active, first
                 Ev::Save(RailState::SdActive),
                 // wake source armed before anything irreversible (module
                 // comment: moved ahead of BSP :348-352 on purpose)
@@ -710,7 +710,7 @@ mod tests {
         assert!(pos(&log, &Ev::SdStop) < pos(&log, &Ev::Gpio27Low));
     }
 
-    // -- R18: save before power-down ----------------------------------------
+    // -- save before power-down ----------------------------------------
 
     #[test]
     fn r18_save_is_the_first_event_and_runs_with_sd_active_and_rail_high() {
@@ -811,7 +811,7 @@ mod tests {
         assert_eq!(p.state(), RailState::PoweredOff);
     }
 
-    // -- R19: failure matrix -------------------------------------------------
+    // -- failure matrix -------------------------------------------------
 
     fn assert_reached_safe_sleep(log: &Log, p: &Power, report: &SleepReport) {
         let t = trace(log);
@@ -967,7 +967,7 @@ mod tests {
         assert_eq!(p.state(), RailState::PoweredOff);
     }
 
-    // -- R19: wake spec ------------------------------------------------------
+    // -- wake spec ------------------------------------------------------
 
     #[test]
     fn r19_wake_spec_is_gpio2_active_low_with_pull_up_as_in_the_bsp() {
@@ -997,7 +997,7 @@ mod tests {
         assert!(trace(&log).contains(&Ev::Enter(WAKE_SPEC)));
     }
 
-    // -- R19: state guards ---------------------------------------------------
+    // -- state guards ---------------------------------------------------
 
     #[test]
     fn r19_a_rail_that_cannot_shut_down_aborts_without_any_side_effect() {
@@ -1092,7 +1092,7 @@ mod tests {
         assert!(none.restore().is_err());
     }
 
-    // -- R20: wake cause and boot plan ---------------------------------------
+    // -- wake cause and boot plan ---------------------------------------
 
     fn bits(key: bool, timer: bool, other: bool) -> WakeBits {
         WakeBits {
@@ -1161,7 +1161,7 @@ mod tests {
         assert_eq!((r.slot, r.seq, r.state.wake_count), (Slot::B, 9, 7));
     }
 
-    // -- R18 + R20 end to end: sleep, "reboot", restore ------------------------
+    // -- end to end: sleep, "reboot", restore ------------------------
 
     #[derive(Default)]
     struct MemStore {
@@ -1243,7 +1243,7 @@ mod tests {
         };
         let (report, ()) = s.enter_deep_sleep().unwrap();
         assert!(report.saved());
-        // after the cut nothing can be restored or saved any more (R7/R18)
+        // after the cut nothing can be restored or saved any more
         assert_eq!(
             restore_session(&p, &mut store),
             BootDecision::NormalBoot(NormalBootReason::SdNotActive(RailState::PoweredOff))

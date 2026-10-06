@@ -1,4 +1,4 @@
-// OnePage C61 memory placement (R14, R15): esp-hal PSRAM bring-up, a separate
+// OnePage C61 memory placement: esp-hal PSRAM bring-up, a separate
 // PSRAM heap, and budget-checked allocation entry points.
 //
 // Policy (rules, limits and the failure state machine are in
@@ -12,7 +12,7 @@
 //     `Box`/`Vec` would then fall into PSRAM as soon as the internal region is
 //     full (esp-alloc tries every region when no capability is requested).
 //     Runtime, executor, ISR-visible data and every DMA buffer would silently
-//     lose their internal-memory guarantee (R15).
+//     lose their internal-memory guarantee.
 //   * PSRAM is reachable only through `alloc_external(ExternalClass, ..)`
 //     (the enum has no DMA/ISR/runtime variant, so asking for those does not
 //     compile) or `alloc(MemClass, ..)`, which places by the budget rule.
@@ -297,7 +297,7 @@ pub fn alloc(class: MemClass, size: usize, align: usize) -> Result<MemBuf, MemEr
 }
 
 /// Allocate in PSRAM only. Takes `ExternalClass`, which has no DMA / ISR /
-/// runtime variant (R15); `Err(ClassLimit { limit: 0, .. })` when PSRAM is not
+/// runtime variant; `Err(ClassLimit { limit: 0, .. })` when PSRAM is not
 /// `Ready`.
 pub fn alloc_external(class: ExternalClass, size: usize, align: usize) -> Result<MemBuf, MemError> {
     alloc_in(Some(Region::Psram), class.into(), size, align)

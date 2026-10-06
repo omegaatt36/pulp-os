@@ -1,7 +1,5 @@
-// onepage-host-validation / render regression -- production strip + glyph rendering into a software
+// render regression -- production strip + glyph rendering into a software
 // framebuffer, portrait artifacts, full-frame vs stitched-strip equality.
-// (shared production logic shared production algorithm, firmware builds firmware stays buildable, portrait artifacts portrait artifact,
-// strip equality strip equality)
 //
 // Run: scripts/host-test.sh --test render
 //

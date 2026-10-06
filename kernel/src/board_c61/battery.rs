@@ -1,4 +1,4 @@
-// OnePage C61 battery (R16): esp-hal adapter over pulp_board_logic::battery.
+// OnePage C61 battery: esp-hal adapter over pulp_board_logic::battery.
 //
 // The pause -> settle -> sample -> resume sequence, the failure handling and
 // the voltage/percent maths are host-tested in the shared crate; this file maps
@@ -7,8 +7,8 @@
 //     board_c61.c:268-270), owned by the monitor (no other writer exists);
 //   * GPIO5 = ADC1_CH3 on the shared ADC1 (`board_c61::adc`);
 //   * delay = blocking busy-wait (`power::HalDelay`): one measurement blocks
-//     the caller for ~30 ms settle + 16 conversions. T12 decides which task
-//     calls it and how often (X4 reads every 30 s).
+//     the caller for ~30 ms settle + 16 conversions; the kernel's
+//     housekeeping poll calls it and owns the cadence (`C61Hw::battery_due`).
 //
 // Not verified on hardware: divider ratio (schematic says 1:1, 5.1 MOhm each),
 // ADC accuracy with a ~2.55 MOhm source, whether 30 ms is enough for the pin to

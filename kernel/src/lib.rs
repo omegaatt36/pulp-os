@@ -46,8 +46,8 @@ compile_error!(
 // type) so the kernel and the apps compile unchanged against `crate::board::*`.
 #[cfg(feature = "board-x4")]
 pub mod board;
-// OnePage C61 board support, built up task by task (T4-T11) and integrated in
-// T12 (`board_c61::api`, `board_c61::hw`). Pure logic lives in pulp-board-logic.
+// OnePage C61 board support (`board_c61::api`, `board_c61::hw`). Pure logic
+// lives in pulp-board-logic.
 #[cfg(feature = "board-onepage-c61")]
 pub mod board_c61;
 #[cfg(feature = "board-onepage-c61")]

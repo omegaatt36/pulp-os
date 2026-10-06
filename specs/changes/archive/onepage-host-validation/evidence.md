@@ -26,4 +26,15 @@
 3. **R1 的 linker-script 半邊**只被 link 失敗擊殺，專用的 `-T*.x` 掃描器未被 mutation 證明有效；原始 T1 紅燈未留存。
 4. **R7「full-frame」詮釋**尚未經使用者覆核。
 5. T1–T6a 的 test author／implementer 報告不在 `tmp-briefs/`（只保留 T6b 起）；那段證據只存在於 `progress.md` 的 ledger 文字。
-6. `scripts/check-host-boundary.sh` 的標頭註解在機械式去 ID 後變得不通順（如「boundary acceptance acceptance」、「firmware builds firmware builds」），僅註解、無行為影響。
+6. `scripts/check-host-boundary.sh` 的標頭註解在機械式去 ID 後變得不通順（如「boundary acceptance acceptance」、「firmware builds firmware builds」），僅註解、無行為影響。（2026-10-06 已改寫通順。）
+
+## 獨立重驗（2026-10-06，Linux host）
+
+branch `onepage` @80b1887d、toolchain nightly-2026-09-22、`../smol-epub` @832609d。
+
+- `CARGO_NET_OFFLINE=true scripts/host-test.sh --locked` exit 0：719 passed / 0 failed（含 fontpack／fontconv；`IANSUI_TTF` 取用 repo 根目錄的 Iansui-Regular.ttf，0 個 no-font skip）。
+- `scripts/check-host-preview.sh` exit 0：26 項全過。
+- `scripts/check-host-boundary.sh` exit 0：host graph 無 esp-*、無 `-T*.x` linker script（含正負控制），X4／C61 firmware link 通過。
+- R3 的回歸證據由 `scripts/run-software-acceptance.sh` exit 0（15/15 stages）覆蓋，見 c61-port evidence 的同日重驗記錄。
+
+Open items 1–5 維持原狀（untagged 歸檔、R3／R10 無 red-proof、R1 linker 半邊、R7 詮釋、早期報告未留存）。硬體全部未驗。

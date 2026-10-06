@@ -74,7 +74,7 @@ pub async fn input_task(mut input: InputDriver) -> ! {
 //   * the battery is NOT read here: it is owned by the kernel
 //     (`board_c61::hw::C61Hw::battery`) and measured from the housekeeping poll,
 //     because the sleep sequence needs it too (see hw.rs);
-//   * USB detect (GPIO11, R17) is sampled every iteration (3-sample debounce)
+//   * USB detect (GPIO11) is sampled every iteration (3-sample debounce)
 //     and published through `USB_PLUGGED`; there is no USB UI in this version.
 #[cfg(feature = "board-onepage-c61")]
 pub static USB_PLUGGED: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
