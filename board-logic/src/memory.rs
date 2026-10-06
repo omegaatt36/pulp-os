@@ -1177,7 +1177,8 @@ mod tests {
         let sum = PSRAM_CHAPTER_TEXT_BYTES
             + PSRAM_IMAGE_DATA_BYTES
             + PSRAM_PAGE_TABLE_BYTES
-            + PSRAM_ZIP_TOC_BYTES;
+            + PSRAM_ZIP_TOC_BYTES
+            + PSRAM_FONT_GLYPHS_BYTES;
         assert_eq!(PSRAM_HW_BYTES, 2 * 1024 * 1024);
         assert!(sum + PSRAM_RESERVE_BYTES <= PSRAM_HW_BYTES);
         // the pool is smaller than the sum of the class limits on purpose?
@@ -1285,6 +1286,7 @@ mod tests {
             MemClass::ImageData,
             MemClass::PageTable,
             MemClass::ZipToc,
+            MemClass::FontGlyphs,
         ] {
             assert!(c.allows_psram(), "{:?}", c);
             assert_eq!(MemClass::from(c.external().unwrap()), c);
@@ -1417,6 +1419,7 @@ mod tests {
             (MemClass::ImageData, PSRAM_IMAGE_DATA_BYTES),
             (MemClass::PageTable, PSRAM_PAGE_TABLE_BYTES),
             (MemClass::ZipToc, PSRAM_ZIP_TOC_BYTES),
+            (MemClass::FontGlyphs, PSRAM_FONT_GLYPHS_BYTES),
         ] {
             b.reserve(c, n, 4).unwrap();
         }

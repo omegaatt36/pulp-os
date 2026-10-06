@@ -225,6 +225,7 @@ printf '%-34s %9d B\n' "  chapter text limit" "$(c PSRAM_CHAPTER_TEXT_BYTES)"
 printf '%-34s %9d B\n' "  image data limit" "$(c PSRAM_IMAGE_DATA_BYTES)"
 printf '%-34s %9d B\n' "  page table limit" "$(c PSRAM_PAGE_TABLE_BYTES)"
 printf '%-34s %9d B\n' "  zip/toc limit" "$(c PSRAM_ZIP_TOC_BYTES)"
+printf '%-34s %9d B\n' "  font glyphs limit" "$(c PSRAM_FONT_GLYPHS_BYTES)"
 printf '%-34s %9d B\n' "  reserve (allocator/headroom)" "$(c PSRAM_RESERVE_BYTES)"
 printf '%-34s %9d B\n' "internal heap (main + reclaimed)" "$(c INTERNAL_HEAP_BYTES)"
 

@@ -103,6 +103,7 @@ mod imp {
                 Ok(b) => Ok(Self(Some(b))),
                 Err(e) => {
                     log::warn!("bigbuf: {:?} {} B refused: {:?}", class, len, e);
+                    memory::log_classes();
                     Err(BufError)
                 }
             }

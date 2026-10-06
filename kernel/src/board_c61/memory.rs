@@ -317,7 +317,28 @@ pub fn alloc_dma(size: usize) -> Result<MemBuf, MemError> {
     Ok(buf)
 }
 
-/// One log line per region and the PSRAM class table (for bring-up logs).
+/// One log line per PSRAM-capable class: bytes charged / class limit in the
+/// region the class is placed in right now. Answers "which class ran out"
+/// at a glance; `BigBuf` calls it when the budget refuses a request.
+pub fn log_classes() {
+    for class in MemClass::ALL.into_iter().filter(|c| c.allows_psram()) {
+        let (region, used, limit) = critical_section::with(|cs| {
+            let b = BUDGET.borrow_ref(cs);
+            let region = b.region_for(class);
+            (region, b.used(region, class), b.class_limit(region, class))
+        });
+        info!(
+            "memory class {:<12} {:?}: {} / {} B",
+            class.name(),
+            region,
+            used,
+            limit
+        );
+    }
+}
+
+/// One log line per region, the PSRAM class table and the heaps (for
+/// bring-up logs).
 pub fn log_report() {
     info!("{}", status().describe());
     for region in [Region::Internal, Region::Psram] {
@@ -328,6 +349,7 @@ pub fn log_report() {
             pool_limit(region)
         );
     }
+    log_classes();
     info!(
         "heap internal: used {} B, free {} B; psram heap: used {} B, free {} B",
         esp_alloc::HEAP.used(),

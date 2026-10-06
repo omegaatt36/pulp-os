@@ -45,6 +45,7 @@ fn constants() {
         ("PSRAM_IMAGE_DATA_BYTES", PSRAM_IMAGE_DATA_BYTES),
         ("PSRAM_PAGE_TABLE_BYTES", PSRAM_PAGE_TABLE_BYTES),
         ("PSRAM_ZIP_TOC_BYTES", PSRAM_ZIP_TOC_BYTES),
+        ("PSRAM_FONT_GLYPHS_BYTES", PSRAM_FONT_GLYPHS_BYTES),
         ("INTERNAL_DMA_BYTES", INTERNAL_DMA_BYTES),
         ("INTERNAL_ISR_BYTES", INTERNAL_ISR_BYTES),
         ("INTERNAL_RUNTIME_BYTES", INTERNAL_RUNTIME_BYTES),
@@ -52,6 +53,7 @@ fn constants() {
         ("INTERNAL_IMAGE_DATA_BYTES", INTERNAL_IMAGE_DATA_BYTES),
         ("INTERNAL_PAGE_TABLE_BYTES", INTERNAL_PAGE_TABLE_BYTES),
         ("INTERNAL_ZIP_TOC_BYTES", INTERNAL_ZIP_TOC_BYTES),
+        ("INTERNAL_FONT_GLYPHS_BYTES", INTERNAL_FONT_GLYPHS_BYTES),
         ("FLASH_MHZ", FLASH_MHZ as usize),
         ("PSRAM_MHZ", PSRAM_MHZ as usize),
     ];
@@ -88,6 +90,7 @@ fn inventory() {
         MemClass::ImageData,
         MemClass::PageTable,
         MemClass::ZipToc,
+        MemClass::FontGlyphs,
     ] {
         let sum: usize = INVENTORY
             .iter()
