@@ -118,6 +118,21 @@ impl FilesApp {
         self.page_size = compute_page_size(self.list_y);
     }
 
+    pub fn reset_storage(&mut self) {
+        self.on_exit();
+        self.total = 0;
+        self.scroll = 0;
+        self.selected = 0;
+        self.needs_load = false;
+        self.stale_cache = true;
+        self.error = None;
+        self.title_scan_idx = 0;
+        self.title_reload = false;
+        self.qa_count = 0;
+        self.pending_delete_file = false;
+        self.pending_delete_cache = false;
+    }
+
     // Session state accessors for RTC persistence
     #[inline]
     pub fn scroll(&self) -> usize {

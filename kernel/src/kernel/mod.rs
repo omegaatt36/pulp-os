@@ -13,11 +13,13 @@ pub mod config;
 pub mod console;
 pub mod dir_cache;
 pub mod handle;
+pub mod idle;
 #[cfg(feature = "board-x4")]
 pub mod rtc_session;
 pub mod scheduler;
 #[cfg(feature = "board-onepage-c61")]
 pub(crate) mod scheduler_c61;
+pub mod storage_change;
 pub mod tasks;
 pub mod timing;
 pub mod wake;

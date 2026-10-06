@@ -109,6 +109,7 @@ impl SettingsApp {
     fn load(&mut self, k: &mut KernelHandle<'_>) {
         let mut buf = [0u8; 512];
 
+        self.save_needed = false;
         self.settings = SystemSettings::defaults();
         self.wifi = WifiConfig::empty();
 

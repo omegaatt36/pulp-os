@@ -272,15 +272,12 @@ impl super::Kernel {
                 self.hw.card.health.on_card_event(CardEvent::Removed);
                 // dropping the volume discards FAT state: a file that was open
                 // for writing is not flushed (nothing can be written anyway)
-                self.sd = SdStorage::empty();
                 let _ = self.hw.power.card_removed();
-                self.sd_ok = false;
-                self.dir_cache.invalidate();
+                self.replace_storage(SdStorage::empty(), false, app_mgr);
                 warn!(
                     "sd: card removed ({})",
                     self.hw.card.health.status().message()
                 );
-                app_mgr.request_full_redraw();
             }
             Some(CardEvent::Inserted) => {
                 if self.hw.card.health.on_card_event(CardEvent::Inserted) {
@@ -293,20 +290,16 @@ impl super::Kernel {
                     if self.hw.card.control.speed_up().is_err() {
                         warn!("sd: could not restore the operating clock");
                     }
-                    self.sd = up.storage;
                     self.hw.card.health = up.health;
-                    self.sd_ok = self.sd.probe_ok();
-                    if self.sd_ok
-                        && let Err(e) = storage::ensure_pulp_dir_async(&self.sd).await
-                    {
+                    let sd_ok = up.storage.probe_ok();
+                    if sd_ok && let Err(e) = storage::ensure_pulp_dir_async(&up.storage).await {
                         warn!("sd: _PULP dir: {}", e);
                     }
-                    self.dir_cache.invalidate();
+                    self.replace_storage(up.storage, sd_ok, app_mgr);
                     info!(
                         "sd: card inserted ({})",
                         self.hw.card.health.status().message()
                     );
-                    app_mgr.request_full_redraw();
                 }
             }
             None => {}

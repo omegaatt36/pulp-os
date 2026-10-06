@@ -18,6 +18,9 @@ pub mod config;
 pub mod dir_cache;
 #[path = "../../kernel/src/kernel/handle.rs"]
 pub mod handle;
+#[path = "../../kernel/src/kernel/idle.rs"]
+#[allow(dead_code)]
+pub mod idle;
 #[path = "../../kernel/src/kernel/timing.rs"]
 #[allow(dead_code)]
 pub mod timing;
@@ -27,11 +30,10 @@ pub mod wake;
 #[allow(dead_code)]
 pub mod work_queue;
 
-pub mod rtc_session {
-    // placeholder for the RTC FAST session record named in AppLayer signatures
-    #[derive(Clone, Copy)]
-    pub struct RtcSession;
-}
+#[path = "../../kernel/src/kernel/rtc_session.rs"]
+pub mod rtc_session;
+#[path = "../../kernel/src/kernel/storage_change.rs"]
+pub mod storage_change;
 
 pub use crate::drivers::storage::StorageError;
 pub use crate::error::{Error, ErrorKind, Result, ResultExt};
@@ -47,6 +49,8 @@ pub use wake::uptime_secs;
 
 use crate::drivers::sdcard::SdStorage;
 use dir_cache::DirCache;
+
+pub const DEFAULT_GHOST_CLEAR_EVERY: u32 = config::DEFAULT_GHOST_CLEAR as u32;
 
 pub struct Kernel {
     pub(crate) sd: SdStorage,

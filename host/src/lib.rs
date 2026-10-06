@@ -1,7 +1,7 @@
 // Host validation entry. Production sources are included in place with
 // `#[path]`, so the host tests exercise exactly the code the firmware links:
 // kernel error / util / ui / board button+action+layout / app+bookmark+config+
-// handle+work_queue, drivers dir_entry+strip, and the app layer's reader,
+// handle+work_queue, drivers dir_entry+strip, and the apps, manager,
 // widgets and fonts. Only the hardware edge is a host stand-in (apps.rs,
 // board.rs, drivers.rs, kernel.rs, ui.rs, reader.rs, storage.rs); none of
 // them decides paging, wrapping, layout or bookmark behaviour.

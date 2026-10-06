@@ -30,6 +30,7 @@ smol-epub.workspace = true
 embassy-time = { workspace = true, features = ["std"] }
 embassy-sync.workspace = true
 embassy-executor.workspace = true
+embassy-futures.workspace = true
 critical-section = { workspace = true, features = ["std"] }
 embedded-graphics.workspace = true
 embedded-graphics-core.workspace = true

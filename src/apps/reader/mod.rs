@@ -461,6 +461,18 @@ impl ReaderApp {
         self.chrome_font = Some(font);
     }
 
+    pub fn reset_storage(&mut self) {
+        self.on_exit();
+        self.reset_paging();
+        self.filename_len = 0;
+        self.title_len = 0;
+        self.file_size = 0;
+        self.is_epub = false;
+        self.epub.work_gen = 0;
+        self.layout_identity = None;
+        self.state = State::NeedBookmark;
+    }
+
     pub fn has_bg_work(&self) -> bool {
         self.is_epub && self.epub.bg_cache != BgCacheState::Idle
     }

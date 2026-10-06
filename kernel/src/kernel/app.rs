@@ -460,6 +460,7 @@ pub trait AppLayer {
     fn active(&self) -> Self::Id;
     fn dispatch_event(&mut self, event: Event, bm: &mut BookmarkCache) -> Transition<Self::Id>;
     fn apply_transition(&mut self, t: Transition<Self::Id>, k: &mut KernelHandle<'_>);
+    fn storage_changed(&mut self, k: &mut KernelHandle<'_>);
 
     // background work (SD I/O, caching); async for epub streaming
     async fn run_background(&mut self, k: &mut KernelHandle<'_>);

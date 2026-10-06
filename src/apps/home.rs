@@ -111,6 +111,19 @@ impl HomeApp {
         self.item_regions = compute_item_regions(self.ui_fonts.heading.line_height);
     }
 
+    pub fn reset_storage(&mut self) {
+        self.on_exit();
+        self.state = HomeState::Menu;
+        self.selected = 0;
+        self.recent_book_len = 0;
+        self.needs_load_recent = false;
+        self.bm_count = 0;
+        self.bm_selected = 0;
+        self.bm_scroll = 0;
+        self.needs_load_bookmarks = false;
+        self.rebuild_item_count();
+    }
+
     // Session state accessors for RTC persistence
     #[inline]
     pub fn state_id(&self) -> u8 {

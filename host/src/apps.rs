@@ -1,7 +1,14 @@
-// host stand-in for src/apps/mod.rs: the reader, the settings app and the
-// widgets are the real files (settings is pure UI + config, no board deps);
-// the other apps are firmware-only (SD / display drivers). The AppId enum and
-// the aliases below are the only lines taken over from the real file.
+// Production apps and manager over the host board/storage seams. Upload is
+// firmware-only; AppId and the aliases mirror the offline firmware surface.
+#[path = "../../src/apps/files.rs"]
+#[allow(unexpected_cfgs)]
+pub mod files;
+#[path = "../../src/apps/home.rs"]
+#[allow(unexpected_cfgs)]
+pub mod home;
+#[path = "../../src/apps/manager.rs"]
+#[allow(unexpected_cfgs)]
+pub mod manager;
 #[path = "../../src/apps/reader/mod.rs"]
 #[allow(dead_code, unused_imports)]
 pub mod reader;

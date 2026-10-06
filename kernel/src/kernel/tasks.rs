@@ -156,52 +156,11 @@ pub fn set_idle_timeout(minutes: u16) {
 
 #[embassy_executor::task]
 pub async fn idle_timeout_task() -> ! {
-    let mut timeout_mins = IDLE_TIMEOUT_MINS.wait().await;
-
-    loop {
-        if timeout_mins == 0 {
-            timeout_mins = IDLE_TIMEOUT_MINS.wait().await;
-            continue;
-        }
-
-        let duration = Duration::from_secs(timeout_mins as u64 * 60);
-
-        let _ = IDLE_RESET.try_take();
-        if let Some(new) = IDLE_TIMEOUT_MINS.try_take() {
-            timeout_mins = new;
-            continue;
-        }
-
-        loop {
-            use embassy_futures::select::{Either3, select3};
-
-            match select3(
-                IDLE_RESET.wait(),
-                IDLE_TIMEOUT_MINS.wait(),
-                Timer::after(duration),
-            )
-            .await
-            {
-                Either3::First(()) => {
-                    continue;
-                }
-                Either3::Second(new_mins) => {
-                    timeout_mins = new_mins;
-                    break;
-                }
-                Either3::Third(()) => {
-                    IDLE_SLEEP_DUE.signal(());
-
-                    use embassy_futures::select::{Either, select};
-                    match select(IDLE_RESET.wait(), IDLE_TIMEOUT_MINS.wait()).await {
-                        Either::First(()) => {}
-                        Either::Second(new_mins) => {
-                            timeout_mins = new_mins;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    super::idle::run(
+        &super::idle::EmbassyClock,
+        &IDLE_TIMEOUT_MINS,
+        &IDLE_RESET,
+        &IDLE_SLEEP_DUE,
+    )
+    .await
 }

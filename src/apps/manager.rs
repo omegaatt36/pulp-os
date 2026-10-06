@@ -204,6 +204,22 @@ impl AppManager {
         self.sync_button_config();
     }
 
+    pub fn storage_changed(&mut self, k: &mut KernelHandle<'_>) {
+        self.reader.reset_storage();
+        self.files.reset_storage();
+        self.home.reset_storage();
+        self.settings.on_exit();
+        self.quick_menu.hide();
+        self.overlay_fonts.clear();
+        // A normal transition saves the outgoing app onto the current card.
+        // Its state belongs to the removed card, so discard the stack directly.
+        *self.launcher = Launcher::new();
+        self.load_eager_settings(k);
+        self.load_home_recent(k);
+        self.enter_initial(k);
+        self.request_full_redraw();
+    }
+
     // sync button mapper and label widget from settings
     pub fn sync_button_config(&mut self) {
         let swap = self.settings.system_settings().swap_buttons;
@@ -684,6 +700,10 @@ impl AppLayer for AppManager {
 
     fn apply_transition(&mut self, t: Transition, k: &mut KernelHandle<'_>) {
         AppManager::apply_transition(self, t, k);
+    }
+
+    fn storage_changed(&mut self, k: &mut KernelHandle<'_>) {
+        AppManager::storage_changed(self, k);
     }
 
     async fn run_background(&mut self, k: &mut KernelHandle<'_>) {
