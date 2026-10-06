@@ -64,6 +64,9 @@ pub fn append_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str, data: &[u8])
 pub fn read_chunk_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str, offset: u32, buf: &mut [u8]) -> R<usize> {
     sd.run_read(|fs| fs.read(&sub(dir), name, offset, buf))
 }
+pub fn optional_file_size_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> R<Option<u32>> {
+    sd.run_read(|fs| Ok(fs.get(&sub(dir), name).map(|data| data.len() as u32)))
+}
 pub fn file_size_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> R<u32> {
     sd.run_read(|fs| fs.size(&sub(dir), name))
 }

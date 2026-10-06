@@ -38,7 +38,7 @@ pub use app::{
 #[cfg(feature = "tree")]
 pub use app::SessionData;
 #[cfg(feature = "tree")]
-pub use bigbuf::{BigBuf, BufClass, BufError};
+pub use bigbuf::{BigBuf, BufClass, BufError, FONT_GLYPHS_PSRAM_BYTES};
 pub use bookmarks::BookmarkCache;
 pub use handle::KernelHandle;
 

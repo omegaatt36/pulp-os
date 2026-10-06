@@ -123,6 +123,11 @@ impl<'k> KernelHandle<'k> {
     }
 
     #[inline]
+    pub fn optional_file_size_app_subdir(&mut self, dir: &str, name: &str) -> Result<Option<u32>> {
+        storage::optional_file_size_in_pulp_subdir(&self.kernel.sd, dir, name)
+    }
+
+    #[inline]
     pub fn file_size_app_subdir(&mut self, dir: &str, name: &str) -> Result<u32> {
         storage::file_size_in_pulp_subdir(&self.kernel.sd, dir, name)
     }

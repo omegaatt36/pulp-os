@@ -2,7 +2,7 @@ mod epubs;
 mod images;
 mod paging;
 
-pub use pulp_kernel::util::decode_utf8_char;
+pub use pulp_kernel::util::{Utf8Iter, decode_utf8_char};
 
 use crate::apps::PendingSetting;
 use crate::fonts::bitmap::{self, BitmapFont};
@@ -32,9 +32,7 @@ use crate::kernel::work_queue::DecodedImage;
 use crate::ui::{Alignment, CONTENT_TOP, HEADER_W, Region, StackFmt, TITLE_Y_OFFSET};
 use smol_epub::cache;
 use smol_epub::epub::{self, EpubMeta, EpubSpine, EpubToc, TocSource};
-use smol_epub::html_strip::{
-    BOLD_OFF, BOLD_ON, HEADING_OFF, HEADING_ON, ITALIC_OFF, ITALIC_ON, MARKER,
-};
+use smol_epub::html_strip::MARKER;
 use smol_epub::zip::{self, ZipIndex};
 
 // chrome margin: used for header, status, progress bar, loading indicator.
@@ -196,6 +194,9 @@ impl LineSpan {
 // page index, content buffer, and read-ahead state
 pub(super) struct PageState {
     pub(super) offsets: [u32; MAX_PAGES],
+    // Marker state at each raw byte offset; bounded alongside the page table.
+    pub(super) style_flags: [u8; MAX_PAGES],
+    pub(super) indents: [u8; MAX_PAGES],
     pub(super) total_pages: usize,
     pub(super) fully_indexed: bool,
 
@@ -214,6 +215,8 @@ impl PageState {
     pub(super) const fn new() -> Self {
         Self {
             offsets: [0u32; MAX_PAGES],
+            style_flags: [0; MAX_PAGES],
+            indents: [0; MAX_PAGES],
             total_pages: 0,
             fully_indexed: false,
             page: 0,
@@ -322,6 +325,18 @@ impl Default for ReaderApp {
     }
 }
 
+// Increment when the pagination algorithm changes.
+const LAYOUT_VERSION: u16 = 1;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) struct LayoutIdentity {
+    body_px: u16,
+    heading_px: u16,
+    body: Option<fonts::cjk::BankIdentity>,
+    heading: Option<fonts::cjk::BankIdentity>,
+    version: u16,
+}
+
 pub struct ReaderApp {
     pub(super) filename: [u8; 32],
     pub(super) filename_len: usize,
@@ -346,6 +361,10 @@ pub struct ReaderApp {
     pub(super) defer_image_decode: bool,
 
     pub(super) fonts: Option<fonts::FontSet>,
+    pub(super) cjk: fonts::cjk::CjkState,
+    title_fonts: fonts::cjk::SurfaceFonts,
+    toc_fonts: fonts::cjk::SurfaceFonts,
+    render_fonts_released: bool,
     pub(super) font_line_h: u16,
     pub(super) font_ascent: u16,
     pub(super) max_lines: u8,
@@ -359,6 +378,7 @@ pub struct ReaderApp {
 
     pub(super) book_font_size_idx: u8,
     pub(super) applied_font_idx: u8,
+    pub(super) layout_identity: Option<LayoutIdentity>,
 
     pub(super) chrome_font: Option<&'static BitmapFont>,
     pub(super) qa_buf: [QuickAction; QA_MAX],
@@ -391,6 +411,10 @@ impl ReaderApp {
             defer_image_decode: false,
 
             fonts: None,
+            cjk: fonts::cjk::CjkState::new(),
+            title_fonts: fonts::cjk::SurfaceFonts::new(),
+            toc_fonts: fonts::cjk::SurfaceFonts::new(),
+            render_fonts_released: false,
             font_line_h: LINE_H,
             font_ascent: LINE_H,
             max_lines: LINES_PER_PAGE as u8,
@@ -403,6 +427,7 @@ impl ReaderApp {
 
             book_font_size_idx: 0,
             applied_font_idx: 0,
+            layout_identity: None,
 
             chrome_font: None,
 
@@ -843,6 +868,11 @@ impl App<AppId> for ReaderApp {
         self.apply_theme_layout();
         self.reset_paging();
         self.epub.ch_cache = BigBuf::empty();
+        self.cjk.clear();
+        self.layout_identity = None;
+        self.title_fonts.clear();
+        self.toc_fonts.clear();
+        self.render_fonts_released = false;
         self.file_size = 0;
         self.epub.chapter = session_position.map_or(0, |(chapter, _)| chapter);
         self.error = None;
@@ -869,6 +899,9 @@ impl App<AppId> for ReaderApp {
             self.epub.bg_cache = BgCacheState::Idle;
         }
 
+        self.cjk.clear();
+        self.title_fonts.clear();
+        self.toc_fonts.clear();
         self.pg.line_count = 0;
         self.pg.buf_len = 0;
         self.pg.prefetch_page = NO_PREFETCH;
@@ -886,11 +919,15 @@ impl App<AppId> for ReaderApp {
     }
 
     fn on_suspend(&mut self) {
+        self.cjk.clear();
+        self.title_fonts.clear();
+        self.toc_fonts.clear();
+        self.render_fonts_released = matches!(self.state, State::Ready | State::ShowToc);
         // background caching continues while suspended -- the worker
         // task runs independently and our work_gen stays valid
     }
 
-    fn on_resume(&mut self, ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {
+    fn on_resume(&mut self, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
         // Restore our generation so the worker considers in-flight
         // results current again (another app may have submitted work
         // under a different generation while we were suspended).
@@ -904,18 +941,22 @@ impl App<AppId> for ReaderApp {
         let font_changed = self.book_font_size_idx != self.applied_font_idx;
         self.apply_font_metrics();
         if font_changed {
-            self.reset_paging();
-            if self.is_epub && self.epub.chapters_cached {
-                self.state = State::NeedIndex;
-            } else {
-                self.state = State::NeedPage;
-            }
+            self.invalidate_layout();
+        }
+        if let Err(e) = self.check_layout_identity(k) {
+            self.enter_error(ctx, e);
         }
         ctx.mark_dirty(PAGE_REGION);
     }
 
     async fn background(&mut self, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
         loop {
+            if matches!(self.state, State::NeedIndex | State::NeedPage) {
+                if let Err(e) = self.check_layout_identity(k) {
+                    self.enter_error(ctx, e);
+                    break;
+                }
+            }
             match self.state {
                 State::NeedBookmark => {
                     if self.restore_offset.is_none() {
@@ -1077,7 +1118,10 @@ impl App<AppId> for ReaderApp {
                     self.epub_index_chapter();
 
                     if self.is_epub && self.epub.try_cache_chapter(k) {
-                        self.preindex_all_pages();
+                        if let Err(e) = self.preindex_all_pages(k) {
+                            self.enter_error(ctx, e);
+                            break;
+                        }
                     }
 
                     if want_last {
@@ -1100,7 +1144,7 @@ impl App<AppId> for ReaderApp {
                     if let Some(target_off) = self.restore_offset.take() {
                         self.pg.page = 0;
                         loop {
-                            match self.load_and_prefetch(k) {
+                            match self.load_and_prefetch(k, false) {
                                 Ok(()) => {}
                                 Err(e) => {
                                     self.enter_error(ctx, e);
@@ -1116,13 +1160,17 @@ impl App<AppId> for ReaderApp {
                             self.pg.page += 1;
                         }
                         if self.state != State::Error {
+                            if let Err(e) = self.prepare_page_fonts(k) {
+                                self.enter_error(ctx, e);
+                                break;
+                            }
                             self.defer_image_decode = false;
                             self.state = State::Ready;
                             ctx.clear_loading();
                             ctx.mark_dirty(PAGE_REGION);
                         }
                     } else {
-                        match self.load_and_prefetch(k) {
+                        match self.load_and_prefetch(k, true) {
                             Ok(()) => {
                                 self.defer_image_decode = false;
                                 self.state = State::Ready;
@@ -1378,11 +1426,7 @@ impl App<AppId> for ReaderApp {
             self.book_font_size_idx = value;
             self.apply_font_metrics();
             if self.state == State::Ready {
-                if self.is_epub && self.epub.chapters_cached {
-                    self.state = State::NeedIndex;
-                } else {
-                    self.state = State::NeedPage;
-                }
+                self.invalidate_layout();
             }
             self.rebuild_quick_actions();
         }
@@ -1404,16 +1448,74 @@ impl App<AppId> for ReaderApp {
         self.bg_work_tick(k);
     }
 
+    fn prepare_render(&mut self, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
+        if self.state == State::Ready && self.render_fonts_released {
+            let restored = if let Some(fs) = self.fonts {
+                let idx = usize::from(self.book_font_size_idx.min(4));
+                self.cjk
+                    .stage_metrics_with_flags(
+                        k,
+                        &self.pg.buf[..self.pg.buf_len],
+                        fs,
+                        fonts::cjk::BODY_PIXELS[idx],
+                        fonts::cjk::HEADING_PIXELS[idx],
+                        self.pg.style_flags[self.pg.page],
+                    )
+                    .and_then(|()| self.prepare_page_fonts(k))
+            } else {
+                Ok(())
+            };
+            if let Err(error) = restored {
+                self.enter_error(ctx, error);
+            }
+            self.render_fonts_released = false;
+        }
+        let mut title = fonts::cjk::VisibleText::new();
+        title.add(self.display_name(), fonts::chrome_font(), false);
+        self.title_fonts.prepare(k, &title);
+        drop(title);
+        if self.state == State::ShowToc {
+            self.toc_fonts.set_size(self.book_font_size_idx);
+            let mut labels = fonts::cjk::VisibleText::new();
+            if let Some(toc) = self.epub.toc.as_ref() {
+                let font = fonts::body_font(self.book_font_size_idx);
+                let visible = usize::from(self.text_area_h / self.font_line_h.max(1));
+                for entry in toc.entries.iter().skip(self.epub.toc_scroll).take(visible) {
+                    labels.add(entry.title_str(), font, false);
+                }
+            }
+            self.toc_fonts.prepare(k, &labels);
+        } else {
+            self.toc_fonts.clear();
+        }
+        if self.state != State::Error
+            && let Some(e) = self.title_fonts.error.or(self.toc_fonts.error)
+        {
+            self.enter_error(ctx, e);
+        }
+    }
+
     fn draw(&self, strip: &mut StripBuffer) {
         let cf = self.chrome_font;
 
-        draw_chrome_text(
-            strip,
-            HEADER_REGION,
-            self.display_name(),
-            Alignment::CenterLeft,
-            cf,
-        );
+        if cf.is_none() && self.display_name().is_ascii() {
+            draw_chrome_text(
+                strip,
+                HEADER_REGION,
+                self.display_name(),
+                Alignment::CenterLeft,
+                cf,
+            );
+        } else {
+            crate::apps::widgets::BitmapLabel::new(
+                HEADER_REGION,
+                self.display_name(),
+                cf.unwrap_or(fonts::chrome_font()),
+            )
+            .alignment(Alignment::CenterLeft)
+            .draw_prepared(strip, &self.title_fonts.view())
+            .unwrap();
+        }
 
         if self.state == State::ShowToc {
             draw_chrome_text(strip, STATUS_REGION, "Contents", Alignment::CenterRight, cf);
@@ -1508,9 +1610,9 @@ impl App<AppId> for ReaderApp {
             let ty = self.text_y as i32;
             if self.fonts.is_some() {
                 let font = fonts::body_font(self.book_font_size_idx);
-                let line_h = font.line_height as i32;
+                let line_h = self.font_line_h as i32;
                 let ascent = font.ascent as i32;
-                let vis_max = (self.text_area_h / font.line_height) as usize;
+                let vis_max = (self.text_area_h / self.font_line_h.max(1)) as usize;
                 let visible = vis_max.min(toc_len.saturating_sub(self.epub.toc_scroll));
                 for i in 0..visible {
                     let idx = self.epub.toc_scroll + i;
@@ -1539,7 +1641,17 @@ impl App<AppId> for ReaderApp {
                         cx += font.draw_char_fg(strip, '>', fg, cx, baseline) as i32;
                         cx += font.draw_char_fg(strip, ' ', fg, cx, baseline) as i32;
                     }
-                    font.draw_str_fg(strip, entry.title_str(), fg, cx, baseline);
+                    let prepared = self.toc_fonts.view();
+                    for ch in entry.title_str().chars() {
+                        cx += i32::from(prepared.draw_char_fg(
+                            strip,
+                            ch,
+                            fonts::Style::Regular,
+                            fg,
+                            cx,
+                            baseline,
+                        ));
+                    }
                 }
             } else {
                 let style = MonoTextStyle::new(&FONT_9X18, BinaryColor::On);
@@ -1566,6 +1678,12 @@ impl App<AppId> for ReaderApp {
         }
 
         if let Some(ref fs) = self.fonts {
+            let idx = self.book_font_size_idx.min(4) as usize;
+            let prepared = self.cjk.view(
+                *fs,
+                fonts::cjk::BODY_PIXELS[idx],
+                fonts::cjk::HEADING_PIXELS[idx],
+            );
             let line_h = self.font_line_h as i32;
             let ascent = self.font_ascent as i32;
 
@@ -1652,38 +1770,28 @@ impl App<AppId> for ReaderApp {
 
                     let line = &self.pg.buf[start..end];
                     let mut cx = self.text_margin as i32 + x_indent;
-                    let mut sty = span.style();
+                    let mut styles = fonts::StyleState::from_flags(span.flags);
                     let mut j = 0usize;
                     while j < line.len() {
                         let b = line[j];
                         if b == MARKER && j + 1 < line.len() {
-                            sty = match line[j + 1] {
-                                BOLD_ON => fonts::Style::Bold,
-                                ITALIC_ON => fonts::Style::Italic,
-                                HEADING_ON => fonts::Style::Heading,
-                                BOLD_OFF | ITALIC_OFF | HEADING_OFF => fonts::Style::Regular,
-                                _ => sty,
-                            };
+                            styles.apply_marker(line[j + 1]);
                             j += 2;
                             continue;
                         }
-                        if b >= 0xC0 {
-                            let (ch, seq_len) = decode_utf8_char(line, j);
-                            cx += fs.draw_char(strip, ch, sty, cx, baseline) as i32;
-                            j += seq_len;
-                            continue;
-                        }
                         if b >= 0x80 {
-                            // continuation byte mid-stream (already consumed
-                            // by a lead byte above, or stray), skip
-                            j += 1;
+                            let (ch, seq_len) = decode_utf8_char(line, j);
+                            cx +=
+                                prepared.draw_char(strip, ch, styles.style(), cx, baseline) as i32;
+                            j += seq_len;
                             continue;
                         }
                         if b < bitmap::FIRST_CHAR {
                             j += 1;
                             continue; // control char
                         }
-                        cx += fs.draw_char(strip, b as char, sty, cx, baseline) as i32;
+                        cx += prepared.draw_char(strip, b as char, styles.style(), cx, baseline)
+                            as i32;
                         j += 1;
                     }
                 }
@@ -1694,11 +1802,15 @@ impl App<AppId> for ReaderApp {
                 let span = self.pg.lines[i];
                 let start = span.start as usize;
                 let end = start + span.len as usize;
-                let text = core::str::from_utf8(&self.pg.buf[start..end]).unwrap_or("");
                 let y = self.text_y as i32 + i as i32 * LINE_H as i32 + LINE_H as i32;
-                Text::new(text, Point::new(self.text_margin as i32, y), style)
-                    .draw(strip)
-                    .unwrap();
+                let mut x = self.text_margin as i32;
+                for ch in Utf8Iter::new(&self.pg.buf[start..end]) {
+                    let mut cell = [0u8; 4];
+                    Text::new(ch.encode_utf8(&mut cell), Point::new(x, y), style)
+                        .draw(strip)
+                        .unwrap();
+                    x += FONT_9X18.character_size.width as i32;
+                }
             }
         }
 

@@ -135,6 +135,7 @@ pub struct AppManager {
     pub bumps: &'static mut ButtonFeedback,
 
     pub mapper: ButtonMapper,
+    overlay_fonts: fonts::cjk::SurfaceFonts,
 }
 
 impl AppManager {
@@ -158,6 +159,7 @@ impl AppManager {
             quick_menu,
             bumps,
             mapper,
+            overlay_fonts: fonts::cjk::SurfaceFonts::new(),
         }
     }
 
@@ -551,11 +553,23 @@ impl AppManager {
         self.sync_button_config();
     }
 
+    pub fn prepare_render(&mut self, k: &mut KernelHandle<'_>) {
+        let active = self.launcher.active();
+        with_app!(active, self, |app| app
+            .prepare_render(&mut self.launcher.ctx, k));
+        let mut labels = fonts::cjk::VisibleText::new();
+        self.quick_menu.collect_text(&mut labels);
+        self.bumps.collect_text(&mut labels);
+        self.overlay_fonts.prepare(k, &labels);
+    }
+
     pub fn draw(&self, strip: &mut StripBuffer) {
         let active = self.launcher.active();
         with_app_ref!(active, self, |app| app.draw(strip));
 
-        // loading indicator: after app content, before overlays
+        // loading indicator: after app content, before overlays; its text
+        // must stay Latin literals (the built-in font cannot render CJK),
+        // user content (titles, filenames) goes through the prepared path
         if self.launcher.ctx.loading_active() {
             let region = self.launcher.ctx.loading_region();
             if region.intersects(strip.logical_window()) {
@@ -569,10 +583,24 @@ impl AppManager {
         }
 
         if self.quick_menu.open {
-            self.quick_menu.draw(strip);
+            self.quick_menu
+                .draw_prepared(strip, &self.overlay_fonts.view());
         }
 
-        self.bumps.draw(strip);
+        self.bumps.draw_prepared(strip, &self.overlay_fonts.view());
+        if let Some(error) = self.overlay_fonts.error {
+            crate::apps::widgets::bitmap_label::draw_surface_error(
+                strip,
+                Region::new(
+                    8,
+                    crate::ui::CONTENT_TOP,
+                    SCREEN_W - 16,
+                    fonts::chrome_font().line_height,
+                ),
+                fonts::chrome_font(),
+                error,
+            );
+        }
     }
 
     pub fn propagate_fonts(&mut self) {
@@ -660,6 +688,10 @@ impl AppLayer for AppManager {
 
     async fn run_background(&mut self, k: &mut KernelHandle<'_>) {
         AppManager::run_background(self, k).await;
+    }
+
+    fn prepare_render(&mut self, k: &mut KernelHandle<'_>) {
+        AppManager::prepare_render(self, k);
     }
 
     fn draw(&self, strip: &mut StripBuffer) {

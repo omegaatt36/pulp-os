@@ -498,6 +498,42 @@ pub fn read_chunk_in_pulp_subdir(
     })
 }
 
+/// An optional file is absent only when FAT reports NotFound. Opening or
+/// reading metadata can otherwise fail even when the file exists.
+pub fn optional_file_size_in_pulp_subdir(
+    sd: &SdStorage,
+    dir: &str,
+    name: &str,
+) -> crate::error::Result<Option<u32>> {
+    poll_once(async {
+        let mut guard = borrow(sd)?;
+        let inner = &mut *guard;
+        let pulp = match inner.mgr.open_dir(inner.root, PULP_DIR).await {
+            Ok(handle) => handle,
+            Err(embedded_sdmmc::Error::NotFound) => return Ok(None),
+            Err(_) => return Err(Error::new(ErrorKind::OpenDir, "optional_file_size")),
+        };
+        let fonts = match inner.mgr.open_dir(pulp, dir).await {
+            Ok(handle) => handle,
+            Err(e) => {
+                let _ = inner.mgr.close_dir(pulp);
+                return match e {
+                    embedded_sdmmc::Error::NotFound => Ok(None),
+                    _ => Err(Error::new(ErrorKind::OpenDir, "optional_file_size")),
+                };
+            }
+        };
+        let result = match inner.mgr.find_directory_entry(fonts, name).await {
+            Ok(entry) => Ok(Some(entry.size)),
+            Err(embedded_sdmmc::Error::NotFound) => Ok(None),
+            Err(_) => Err(Error::new(ErrorKind::OpenFile, "optional_file_size")),
+        };
+        let _ = inner.mgr.close_dir(fonts);
+        let _ = inner.mgr.close_dir(pulp);
+        result
+    })
+}
+
 pub fn file_size_in_pulp_subdir(
     sd: &SdStorage,
     dir: &str,

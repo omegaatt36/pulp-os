@@ -1,0 +1,72 @@
+diff --git a/src/apps/reader/mod.rs b/src/apps/reader/mod.rs
+--- a/src/apps/reader/mod.rs
++++ b/src/apps/reader/mod.rs
+@@ -922,7 +922,7 @@
+         self.cjk.clear();
+         self.title_fonts.clear();
+         self.toc_fonts.clear();
+-        self.render_fonts_released = self.state == State::Ready;
++        self.render_fonts_released = matches!(self.state, State::Ready | State::ShowToc);
+         // background caching continues while suspended -- the worker
+         // task runs independently and our work_gen stays valid
+     }
+diff --git a/src/apps/reader/paging.rs b/src/apps/reader/paging.rs
+--- a/src/apps/reader/paging.rs
++++ b/src/apps/reader/paging.rs
+@@ -13,6 +13,11 @@
+     decode_utf8_char, inline_img_max_h,
+ };
+ 
++/// Page-start marker flag: an earlier window of this chapter staged fallback
++/// glyphs, so style and indent carried over the page boundary apply even to a
++/// window that holds only Latin text. Bits 0..=2 are bold, italic and heading.
++const CARRIED_FALLBACK: u8 = 1 << 7;
++
+ impl ReaderApp {
+     fn current_layout_identity(
+         &self,
+@@ -148,6 +153,7 @@
+                 fonts::cjk::BODY_PIXELS[idx],
+                 fonts::cjk::HEADING_PIXELS[idx],
+             );
++            let carried = view.has_fallback() || initial_flags & CARRIED_FALLBACK != 0;
+             let (c, count) = wrap_proportional(
+                 &self.pg.buf,
+                 n,
+@@ -156,16 +162,8 @@
+                 self.max_lines as usize,
+                 self.text_w,
+                 inline_img_max_h(self.text_area_h),
+-                if view.has_fallback() {
+-                    initial_flags
+-                } else {
+-                    0
+-                },
+-                if view.has_fallback() {
+-                    initial_indent
+-                } else {
+-                    0
+-                },
++                if carried { initial_flags } else { 0 },
++                if carried { initial_indent } else { 0 },
+                 at_eof,
+             )?;
+             self.record_continuation(c, initial_flags, initial_indent);
+@@ -179,6 +177,7 @@
+     }
+ 
+     fn record_continuation(&mut self, consumed: usize, flags: u8, mut indent: u8) {
++        let carried = flags & CARRIED_FALLBACK != 0 || self.cjk.has_fallback();
+         let mut styles = fonts::StyleState::from_flags(flags);
+         if self.pg.page + 1 >= MAX_PAGES {
+             return;
+@@ -205,7 +204,8 @@
+                 i += decode_utf8_char(buf, i).1;
+             }
+         }
+-        self.pg.style_flags[self.pg.page + 1] = styles.flags();
++        self.pg.style_flags[self.pg.page + 1] =
++            styles.flags() | if carried { CARRIED_FALLBACK } else { 0 };
+         self.pg.indents[self.pg.page + 1] = indent;
+     }
+ 

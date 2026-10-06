@@ -55,6 +55,7 @@ pub struct SettingsApp {
     loaded: bool,
     save_needed: bool,
     ui_fonts: fonts::UiFonts,
+    label_fonts: fonts::cjk::SurfaceFonts,
     items_top: u16,
 }
 
@@ -69,12 +70,14 @@ impl SettingsApp {
             loaded: false,
             save_needed: false,
             ui_fonts: uf,
+            label_fonts: fonts::cjk::SurfaceFonts::new(),
             items_top: TITLE_Y + uf.heading.line_height + HEADING_ITEMS_GAP,
         }
     }
 
     pub fn set_ui_font_size(&mut self, idx: u8) {
         self.ui_fonts = fonts::UiFonts::for_size(idx);
+        self.label_fonts.set_size(idx);
         self.items_top = TITLE_Y + self.ui_fonts.heading.line_height + HEADING_ITEMS_GAP;
     }
 
@@ -339,6 +342,12 @@ impl SettingsApp {
 }
 
 impl App<AppId> for SettingsApp {
+    fn on_exit(&mut self) {
+        self.label_fonts.clear();
+    }
+    fn on_suspend(&mut self) {
+        self.label_fonts.clear();
+    }
     fn on_enter(&mut self, ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {
         self.selected = 0;
         self.scroll = 0;
@@ -428,7 +437,38 @@ impl App<AppId> for SettingsApp {
         }
     }
 
+    fn prepare_render(&mut self, _ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
+        let mut labels = fonts::cjk::VisibleText::new();
+        labels.add("Settings", self.ui_fonts.heading, true);
+        if self.loaded {
+            let mut value = StackFmt::<20>::new();
+            for item in
+                self.scroll..(self.scroll + self.visible_items().min(NUM_ITEMS - self.scroll))
+            {
+                labels.add(Self::item_label(item), self.ui_fonts.body, false);
+                self.format_value(item, &mut value);
+                labels.add(value.as_str(), self.ui_fonts.body, false);
+            }
+        }
+        self.label_fonts.prepare(k, &labels);
+    }
+
     fn draw(&self, strip: &mut StripBuffer) {
+        if let Some(error) = self.label_fonts.error {
+            crate::apps::widgets::bitmap_label::draw_surface_error(
+                strip,
+                Region::new(
+                    8,
+                    crate::ui::CONTENT_TOP,
+                    crate::board::SCREEN_W - 16,
+                    self.ui_fonts.body.line_height,
+                ),
+                self.ui_fonts.body,
+                error,
+            );
+            return;
+        }
+
         // heading
         let title_region = Region::new(
             LARGE_MARGIN,
@@ -438,14 +478,14 @@ impl App<AppId> for SettingsApp {
         );
         BitmapLabel::new(title_region, "Settings", self.ui_fonts.heading)
             .alignment(Alignment::CenterLeft)
-            .draw(strip)
+            .draw_prepared(strip, &self.label_fonts.view())
             .unwrap();
 
         if !self.loaded {
             let r = Region::new(LABEL_X, self.items_top, 200, ROW_H);
             BitmapLabel::new(r, "Loading...", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
-                .draw(strip)
+                .draw_prepared(strip, &self.label_fonts.view())
                 .unwrap();
             return;
         }
@@ -466,14 +506,14 @@ impl App<AppId> for SettingsApp {
             )
             .alignment(Alignment::CenterLeft)
             .inverted(selected)
-            .draw(strip)
+            .draw_prepared(strip, &self.label_fonts.view())
             .unwrap();
 
             self.format_value(item_idx, &mut val_buf);
             BitmapLabel::new(self.value_region(vi), val_buf.as_str(), self.ui_fonts.body)
                 .alignment(Alignment::Center)
                 .inverted(selected)
-                .draw(strip)
+                .draw_prepared(strip, &self.label_fonts.view())
                 .unwrap();
         }
     }

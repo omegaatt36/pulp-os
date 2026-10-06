@@ -169,7 +169,34 @@ impl ButtonFeedback {
         }
     }
 
+    pub fn collect_text(&self, text: &mut crate::fonts::cjk::VisibleText) {
+        let font = self.font.unwrap_or(&font_data::REGULAR_BODY_SMALL);
+        for action in [
+            Action::Next,
+            Action::Prev,
+            Action::NextJump,
+            Action::PrevJump,
+            Action::Select,
+            Action::Back,
+        ] {
+            text.add(action_label(action), font, false);
+        }
+    }
     pub fn draw(&self, strip: &mut StripBuffer) {
+        self.draw_with_fonts(strip, None);
+    }
+    pub fn draw_prepared(
+        &self,
+        strip: &mut StripBuffer,
+        fonts: &crate::fonts::cjk::PreparedFonts<'_>,
+    ) {
+        self.draw_with_fonts(strip, Some(fonts));
+    }
+    fn draw_with_fonts(
+        &self,
+        strip: &mut StripBuffer,
+        fonts: Option<&crate::fonts::cjk::PreparedFonts<'_>>,
+    ) {
         let font = self.font.unwrap_or(&font_data::REGULAR_BODY_SMALL);
         let mapper = if self.swap {
             let mut m = ButtonMapper::new();
@@ -201,7 +228,19 @@ impl ButtonFeedback {
                 continue;
             }
 
-            font.draw_aligned(strip, r, label, Alignment::Center, BinaryColor::On);
+            if let Some(fonts) = fonts {
+                super::bitmap_label::draw_prepared_aligned(
+                    strip,
+                    r,
+                    label,
+                    font,
+                    Alignment::Center,
+                    BinaryColor::On,
+                    fonts,
+                );
+            } else {
+                font.draw_aligned(strip, r, label, Alignment::Center, BinaryColor::On);
+            }
         }
     }
 }

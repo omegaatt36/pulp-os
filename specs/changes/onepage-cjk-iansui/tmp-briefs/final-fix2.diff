@@ -1,0 +1,101 @@
+1972c1972
+< index e1b779d..b9f0725 100644
+---
+> index e1b779d..70c8035 100644
+2445c2445
+< @@ -391,25 +659,15 @@ pub(super) fn wrap_proportional(
+---
+> @@ -391,25 +659,19 @@ pub(super) fn wrap_proportional(
+2453a2454,2457
+> +    let mut space_flags = initial_flags;
+> +    // Lines start in the style that was active at their first byte whenever
+> +    // the window carries style across pages or stages fallback glyphs.
+> +    let line_start_flags = fonts.has_fallback() || initial_flags & CARRIED_FALLBACK != 0;
+2479c2483
+< @@ -418,7 +676,11 @@ pub(super) fn wrap_proportional(
+---
+> @@ -418,7 +680,11 @@ pub(super) fn wrap_proportional(
+2484c2488
+< +                    flags: if fonts.has_fallback() {
+---
+> +                    flags: if line_start_flags {
+2492c2496
+< @@ -438,7 +700,7 @@ pub(super) fn wrap_proportional(
+---
+> @@ -438,7 +704,7 @@ pub(super) fn wrap_proportional(
+2501c2505
+< @@ -474,23 +736,21 @@ pub(super) fn wrap_proportional(
+---
+> @@ -474,23 +740,22 @@ pub(super) fn wrap_proportional(
+2509a2514
+> +                    space_flags = line_flags;
+2530c2535
+< @@ -513,20 +773,24 @@ pub(super) fn wrap_proportional(
+---
+> @@ -513,79 +778,115 @@ pub(super) fn wrap_proportional(
+2538a2544
+> +            space_flags = line_flags;
+2559c2565,2569
+< @@ -537,55 +801,79 @@ pub(super) fn wrap_proportional(
+---
+>                  last_space = i + seq_len;
+> +                space_flags = styles.flags();
+>                  cursor_at_space = cursor_x;
+>                  i += seq_len;
+>                  continue;
+2568a2579
+> +                space_flags = styles.flags();
+2577a2589
+> +                    space_flags = line_flags;
+2623a2636
+> +                    space_flags = line_flags;
+2636a2650
+> +                        line_flags = space_flags;
+2639a2654
+> +                        line_flags = styles.flags();
+2642a2658
+> +                    space_flags = line_flags;
+2664c2680,2690
+< @@ -601,7 +889,7 @@ pub(super) fn wrap_proportional(
+---
+> @@ -593,15 +894,18 @@ pub(super) fn wrap_proportional(
+>              let adv = glyphs[(b' ' - FIRST_CHAR) as usize].advance as u32;
+>              cursor_x += adv;
+>              last_space = i + 1;
+> +            space_flags = styles.flags();
+>              cursor_at_space = cursor_x;
+>              if cursor_x > max_w {
+>                  emit!(line_start, i);
+>                  line_start = i + 1;
+> +                line_flags = styles.flags();
+>                  cursor_x = 0;
+2665a2692
+> +                space_flags = line_flags;
+2673c2700,2714
+< @@ -654,7 +942,7 @@ pub(super) fn wrap_proportional(
+---
+> @@ -639,9 +943,11 @@ pub(super) fn wrap_proportional(
+>                      emit!(line_start, last_space);
+>                      cursor_x -= cursor_at_space;
+>                      line_start = last_space;
+> +                    line_flags = space_flags;
+>                  } else {
+>                      emit!(line_start, word_start);
+>                      line_start = word_start;
+> +                    line_flags = styles.flags();
+>                      // recompute cursor_x from line_start..i
+>                      cursor_x = 0;
+>                      for k in line_start..i {
+> @@ -652,9 +958,10 @@ pub(super) fn wrap_proportional(
+>                      }
+>                  }
+2674a2716
+> +                space_flags = line_flags;
+2682c2724
+< @@ -664,18 +952,34 @@ pub(super) fn wrap_proportional(
+---
+> @@ -664,18 +971,34 @@ pub(super) fn wrap_proportional(
+2705c2747
+< +                flags: if fonts.has_fallback() {
+---
+> +                flags: if line_start_flags {

@@ -1,0 +1,5 @@
+9ecf45ddc7540780417aefcfa82533dc511cd00a0bbbff2d5d680c8adc09f27d  host/tests/cjk_reader.rs
+c54f7693bfaec43d1c621ac935f79993b43b91c00e6c1b7ed034bb33a81d7393  host/tests/cjk_support/mod.rs
+b30d488b882bac2cf17ba143607edddc5dd3a22497c64ab45d26b2669ace7357  host/src/reader.rs
+a22677952ef0a1cd1885bded29156f610b2e4a5b1fd7b8c19af844f40aedc57d  host/src/apps/probe.rs
+c9148c7d78095c22a5de0577d6c4d3c9cd2f6b2f434931acde40191dc90d6c37  specs/changes/onepage-cjk-iansui/tmp-briefs/t7-contract.md

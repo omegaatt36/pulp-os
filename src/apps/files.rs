@@ -71,6 +71,7 @@ pub struct FilesApp {
     stale_cache: bool,
     error: Option<Error>,
     ui_fonts: fonts::UiFonts,
+    label_fonts: fonts::cjk::SurfaceFonts,
     list_y: u16,
 
     title_scan_idx: usize,
@@ -98,6 +99,7 @@ impl FilesApp {
             stale_cache: false,
             error: None,
             ui_fonts: uf,
+            label_fonts: fonts::cjk::SurfaceFonts::new(),
             list_y,
             title_scan_idx: 0,
             title_scanning: false,
@@ -111,6 +113,7 @@ impl FilesApp {
 
     pub fn set_ui_font_size(&mut self, idx: u8) {
         self.ui_fonts = fonts::UiFonts::for_size(idx);
+        self.label_fonts.set_size(idx);
         self.list_y = TITLE_Y + self.ui_fonts.heading.line_height + HEADER_LIST_GAP;
         self.page_size = compute_page_size(self.list_y);
     }
@@ -288,11 +291,14 @@ impl App<AppId> for FilesApp {
     }
 
     fn on_exit(&mut self) {
+        self.label_fonts.clear();
         self.count = 0;
         self.title_scanning = false;
     }
 
-    fn on_suspend(&mut self) {}
+    fn on_suspend(&mut self) {
+        self.label_fonts.clear();
+    }
 
     fn on_resume(&mut self, ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {
         ctx.mark_dirty(Region::new(
@@ -450,12 +456,38 @@ impl App<AppId> for FilesApp {
         }
     }
 
+    fn prepare_render(&mut self, _ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
+        let mut labels = fonts::cjk::VisibleText::new();
+        labels.add("Files", self.ui_fonts.heading, true);
+        if self.error.is_none() {
+            for entry in self.entries.iter().take(self.count.min(self.page_size)) {
+                labels.add(entry.display_name(), self.ui_fonts.body, false);
+            }
+        }
+        self.label_fonts.prepare(k, &labels);
+    }
+
     fn draw(&self, strip: &mut StripBuffer) {
+        if let Some(error) = self.label_fonts.error {
+            crate::apps::widgets::bitmap_label::draw_surface_error(
+                strip,
+                Region::new(
+                    8,
+                    crate::ui::CONTENT_TOP,
+                    crate::board::SCREEN_W - 16,
+                    self.ui_fonts.body.line_height,
+                ),
+                self.ui_fonts.body,
+                error,
+            );
+            return;
+        }
+
         let header_region =
             Region::new(LIST_X, TITLE_Y, HEADER_W, self.ui_fonts.heading.line_height);
         BitmapLabel::new(header_region, "Files", self.ui_fonts.heading)
             .alignment(Alignment::CenterLeft)
-            .draw(strip)
+            .draw_prepared(strip, &self.label_fonts.view())
             .unwrap();
 
         if self.total > 0 {
@@ -465,21 +497,25 @@ impl App<AppId> for FilesApp {
             if self.title_scanning {
                 let _ = write!(status, " ...");
             }
-            status.draw(strip).unwrap();
+            status
+                .draw_prepared(strip, &self.label_fonts.view())
+                .unwrap();
         }
 
         if let Some(e) = self.error {
             let mut label = BitmapDynLabel::<32>::new(self.row_region(0), self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft);
             let _ = core::fmt::Write::write_fmt(&mut label, format_args!("{}", e));
-            label.draw(strip).unwrap();
+            label
+                .draw_prepared(strip, &self.label_fonts.view())
+                .unwrap();
             return;
         }
 
         if self.count == 0 && self.needs_load {
             BitmapLabel::new(self.row_region(0), "Loading...", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
-                .draw(strip)
+                .draw_prepared(strip, &self.label_fonts.view())
                 .unwrap();
             return;
         }
@@ -487,7 +523,7 @@ impl App<AppId> for FilesApp {
         if self.count == 0 && !self.needs_load {
             BitmapLabel::new(self.row_region(0), "No files found", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
-                .draw(strip)
+                .draw_prepared(strip, &self.label_fonts.view())
                 .unwrap();
             return;
         }
@@ -502,7 +538,7 @@ impl App<AppId> for FilesApp {
                 BitmapLabel::new(region, name, self.ui_fonts.body)
                     .alignment(Alignment::CenterLeft)
                     .inverted(i == self.selected)
-                    .draw(strip)
+                    .draw_prepared(strip, &self.label_fonts.view())
                     .unwrap();
             } else {
                 region

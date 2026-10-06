@@ -11,6 +11,7 @@ tree = ["pulp-kernel/tree"]
 board-onepage-c61 = []
 
 [dependencies]
+pulp-fontpack = { path = "@ROOT@/fontpack" }
 pulp-kernel = { path = "../kernel", default-features = false }
 pulp-board-logic = { path = "@ROOT@/board-logic" }
 smol-epub = { path = "@SMOL@", features = ["async"] }

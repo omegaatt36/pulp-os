@@ -1,0 +1,22 @@
+--- a/src/apps/reader/paging.rs
++++ b/src/apps/reader/paging.rs
+@@ -27,9 +27,17 @@
+     }
+ 
+     pub(super) fn invalidate_layout(&mut self) {
+-        let anchor = self.byte_offset();
++        // Before chapter indexing, the page table can still belong to the
++        // departed chapter. Only explicit restore positions apply to the target.
++        let anchor = if self.is_epub && self.state == State::NeedIndex {
++            self.session_position
++                .map(|(_, offset)| offset)
++                .or(self.restore_offset)
++        } else {
++            Some(self.byte_offset())
++        };
+         self.reset_paging();
+-        self.restore_offset = Some(anchor);
++        self.restore_offset = anchor;
+         self.cjk.clear();
+         self.render_fonts_released = false;
+         self.state = if self.is_epub && self.epub.chapters_cached {

@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "kernel", "board-logic", "host"]
+members = [".", "kernel", "board-logic", "host", "fontpack", "fontconv"]
 
 [workspace.dependencies]
 # chip selection (esp32c3 / esp32c61) is NOT set here; it comes from the
@@ -15,7 +15,7 @@ embedded-hal-bus   = "0.3.0"
 embedded-graphics-core = "0.4.1"
 embedded-graphics      = "0.8.2"
 embedded-sdmmc = { git = "https://github.com/hansmrtn/embedded-sdmmc-rs", branch = "async", features = ["async"] }
-smol-epub      = { path = "../smol-epub", features = ["async"] }
+smol-epub      = { path = "vendor/smol-epub", features = ["async"] }
 critical-section = "1.2.0"
 static_cell      = "2.1.1"
 nb  = "1.1.0"
@@ -82,6 +82,7 @@ board-x4          = ["pulp-kernel/board-x4"]
 board-onepage-c61 = ["pulp-kernel/board-onepage-c61"]
 
 [dependencies]
+pulp-fontpack = { path = "fontpack" }
 pulp-kernel = { path = "kernel" }
 
 esp-hal.workspace              = true

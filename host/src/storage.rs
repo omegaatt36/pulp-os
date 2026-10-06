@@ -488,6 +488,17 @@ impl VirtualStorage {
             .map(|(_, n)| n)
     }
 
+    pub fn optional_file_size_in_pulp_subdir(&self, dir: &str, name: &str) -> Result<Option<u32>> {
+        self.run(
+            StorageOp::FileSize,
+            &Target::pulp_sub(dir, name),
+            |fs, t| {
+                // Natural absence is distinct from the errors injected by run.
+                Ok(fs.len(&t.path))
+            },
+        )
+    }
+
     pub fn file_size_in_pulp_subdir(&self, dir: &str, name: &str) -> Result<u32> {
         self.size(&Target::pulp_sub(dir, name))
     }

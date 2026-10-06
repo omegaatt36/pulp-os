@@ -224,6 +224,29 @@ fn is_deflated(c: Compression, i: usize) -> bool {
     }
 }
 
+// A ZIP of arbitrary entries (any name, any bytes, any entry count), for the
+// tests that need documents the spec model cannot express: raw chapter bytes,
+// over-long TOC titles, archives with more entries than smol-epub indexes.
+// Same pinned layout as `build_epub`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawEntry {
+    pub name: String,
+    pub data: Vec<u8>,
+    pub deflate: bool,
+}
+
+pub fn build_zip(entries: &[RawEntry]) -> Vec<u8> {
+    let entries: Vec<zip::Entry> = entries
+        .iter()
+        .map(|e| zip::Entry {
+            name: e.name.clone(),
+            data: e.data.clone(),
+            deflate: e.deflate,
+        })
+        .collect();
+    zip::write(&entries)
+}
+
 pub fn build_epub(spec: &EpubSpec) -> Result<Vec<u8>, SpecError> {
     check(spec)?;
 

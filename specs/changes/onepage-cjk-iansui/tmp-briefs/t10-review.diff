@@ -1,0 +1,454 @@
+--- a/src/apps/reader/mod.rs
++++ b/src/apps/reader/mod.rs
+@@ -1496,14 +1496,24 @@
+     fn draw(&self, strip: &mut StripBuffer) {
+         let cf = self.chrome_font;
+ 
+-        crate::apps::widgets::BitmapLabel::new(
+-            HEADER_REGION,
+-            self.display_name(),
+-            cf.unwrap_or(fonts::chrome_font()),
+-        )
+-        .alignment(Alignment::CenterLeft)
+-        .draw_prepared(strip, &self.title_fonts.view())
+-        .unwrap();
++        if cf.is_none() && self.display_name().is_ascii() {
++            draw_chrome_text(
++                strip,
++                HEADER_REGION,
++                self.display_name(),
++                Alignment::CenterLeft,
++                cf,
++            );
++        } else {
++            crate::apps::widgets::BitmapLabel::new(
++                HEADER_REGION,
++                self.display_name(),
++                cf.unwrap_or(fonts::chrome_font()),
++            )
++            .alignment(Alignment::CenterLeft)
++            .draw_prepared(strip, &self.title_fonts.view())
++            .unwrap();
++        }
+ 
+         if self.state == State::ShowToc {
+             draw_chrome_text(strip, STATUS_REGION, "Contents", Alignment::CenterRight, cf);
+--- /dev/null
++++ b/host/src/bin/iansui-acceptance.rs
+@@ -0,0 +1,95 @@
++//! Export observations from the actual ReaderApp; this is not a golden oracle.
++use pulp_host::fixtures::{
++    Block, Chapter, Compression, EpubSpec, EpubVersion, Run, TocItem, build_epub,
++};
++use pulp_host::reader::{Phase, QA_TOC, Rig};
++use pulp_host::render::{render_full, render_stitched};
++use pulp_host::storage::VirtualStorage;
++
++const SIZES: [u16; 9] = [16, 19, 23, 27, 28, 32, 35, 38, 46];
++const SAMPLE: &str = "臺灣「繁體中文」，閱讀測試。山水之間，日月星辰。𪚥";
++
++fn export(r: &mut Rig, dir: &std::path::Path, name: &str) {
++    let reads = r.storage().read_log();
++    let fonts: Vec<_> = reads.iter().filter(|v| v.path.ends_with(".PFN")).collect();
++    println!(
++        "{name}: prepare all_ops={} font_ops={} font_requested={} font_returned={}",
++        reads.len(),
++        fonts.len(),
++        fonts.iter().map(|v| v.requested).sum::<usize>(),
++        fonts.iter().map(|v| v.returned).sum::<usize>()
++    );
++    r.storage().reset_reads();
++    let full = render_full(&|s| r.draw(s)).frame;
++    let full_reads = r.storage().read_count();
++    r.storage().reset_reads();
++    let stitched = render_stitched(&|s| r.draw(s)).frame;
++    let stitched_reads = r.storage().read_count();
++    assert_eq!(full.to_pbm(), stitched.to_pbm());
++    assert_eq!((full_reads, stitched_reads), (0, 0));
++    full.write_pbm(&dir.join(format!("{name}-full.pbm")))
++        .unwrap();
++    stitched
++        .write_pbm(&dir.join(format!("{name}-stitched.pbm")))
++        .unwrap();
++    println!(
++        "{name}: full_draw_reads={full_reads} stitched_draw_reads={stitched_reads} phase={:?}",
++        r.phase()
++    );
++}
++
++fn main() {
++    let dir = std::path::PathBuf::from(std::env::args().nth(1).expect("output directory"));
++    let packs = std::path::PathBuf::from(std::env::args().nth(2).expect("pack directory"));
++    std::fs::create_dir_all(&dir).unwrap();
++    std::fs::write(
++        dir.join("sample.txt"),
++        format!("臺灣閱讀測試\n中文章節\n{SAMPLE}"),
++    )
++    .unwrap();
++    let bytes = build_epub(&EpubSpec {
++        version: EpubVersion::V3,
++        title: "臺灣閱讀測試".into(),
++        author: "Acceptance".into(),
++        identifier: "iansui-observation".into(),
++        chapters: vec![Chapter {
++            title: "中文章節".into(),
++            blocks: vec![
++                Block::Heading("中文章節".into()),
++                Block::Paragraph(vec![Run::Text(SAMPLE.repeat(7))]),
++            ],
++        }],
++        toc: vec![TocItem {
++            title: "中文章節：臺灣山水".into(),
++            chapter: 0,
++            children: vec![],
++        }],
++        images: vec![],
++        cover: None,
++        compression: Compression::Stored,
++        numeric_entities: false,
++    })
++    .unwrap();
++    for idx in 0..5 {
++        let card = VirtualStorage::memory_with(&[("CJK.EPUB", bytes.as_slice())]);
++        card.ensure_pulp_dir().unwrap();
++        card.ensure_pulp_subdir("FONTS").unwrap();
++        for px in SIZES {
++            let name = format!("F{px:05}.PFN");
++            card.write_in_pulp_subdir("FONTS", &name, &std::fs::read(packs.join(&name)).unwrap())
++                .unwrap();
++        }
++        let mut r = Rig::new(card);
++        r.configure(idx, 0);
++        r.storage().reset_reads();
++        r.open("CJK.EPUB");
++        r.prepare_render();
++        assert_eq!(r.phase(), Phase::Ready);
++        export(&mut r, &dir, &format!("reader-size{idx}"));
++        r.storage().reset_reads();
++        r.quick_trigger(QA_TOC);
++        r.prepare_render();
++        assert_eq!(r.phase(), Phase::Toc);
++        export(&mut r, &dir, &format!("toc-size{idx}"));
++    }
++}
+--- /dev/null
++++ b/scripts/pbm-to-png.py
+@@ -0,0 +1,27 @@
++#!/usr/bin/env python3
++"""Convert binary P4 host observations to grayscale PNG using only stdlib."""
++import binascii
++from pathlib import Path
++import struct
++import sys
++import zlib
++
++
++def chunk(tag, payload):
++    return (struct.pack(">I", len(payload)) + tag + payload
++            + struct.pack(">I", binascii.crc32(tag + payload) & 0xffffffff))
++
++
++for path in Path(sys.argv[1]).glob("*.pbm"):
++    magic, shape, data = path.read_bytes().split(b"\n", 2)
++    width, height = map(int, shape.split())
++    stride = (width + 7) // 8
++    if magic != b"P4" or len(data) != stride * height:
++        raise ValueError(f"unsupported or truncated PBM: {path}")
++    rows = b"".join(b"\0" + bytes(
++        0 if data[y * stride + x // 8] & (128 >> (x % 8)) else 255
++        for x in range(width)) for y in range(height))
++    header = struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)
++    path.with_suffix(".png").write_bytes(
++        b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header)
++        + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+--- /dev/null
++++ b/specs/changes/onepage-cjk-iansui/install.md
+@@ -0,0 +1,58 @@
++# Iansui SD installation and validation
++
++Generated acceptance set: `target/accept-iansui/packs/`. Copy all nine
++`F00016.PFN`, `F00019.PFN`, `F00023.PFN`, `F00027.PFN`, `F00028.PFN`,
++`F00032.PFN`, `F00035.PFN`, `F00038.PFN`, `F00046.PFN`, plus `PROV.TXT`,
++`OFL.TXT` and `COVERAGE.TXT`, into `_PULP/FONTS/` at the SD card root.
++The nine pack files total 14,792,301 bytes. Keep the provenance and license.
++No removable device was written during acceptance.
++
++Recreate in an empty output directory from the local original source files:
++
++```sh
++CARGO_NET_OFFLINE=true cargo run -p pulp-fontconv --target aarch64-apple-darwin \
++  --config 'unstable.build-std=["std","panic_unwind"]' -- \
++  --font Iansui-Regular.ttf --license OFL.txt \
++  --upstream-url https://github.com/ButTaiwan/iansui --out target/iansui-install
++```
++
++Use your host triple instead of `aarch64-apple-darwin` on another system.
++Check source/pack hashes against `target/accept-iansui/packs/PROV.TXT` and
++`target/accept-iansui/pack-manifest.json`. Converter convention version is 1.
++The converter uses fontdue rasterization and the documented 1-bit threshold;
++its existing reproducibility tests check identical outputs.
++
++Recreate ReaderApp observations from the generated install set:
++
++```sh
++CARGO_NET_OFFLINE=true cargo run -p pulp-host --bin iansui-acceptance \
++  --target aarch64-apple-darwin \
++  --config 'unstable.build-std=["std","panic_unwind"]' -- \
++  target/accept-iansui/snapshots target/iansui-install
++python3 scripts/pbm-to-png.py target/accept-iansui/snapshots
++```
++
++The exporter prints separate logical preparation operation/byte counts and
++full/stitched draw counts. It requires equal pixels and zero draw reads.
++
++Safely eject the card, insert it into the device and reopen the book. Test all
++five size settings with Chinese headings, body, title and TOC labels. A missing
++optional pack produces size-specific hollow boxes. Install/reopen restores
++supported glyphs. Corrupt packs and actual I/O errors must show a recoverable
++error; replace the pack or restore storage and reopen. Do not edit font IDs:
++regenerated changed banks need changed identity for pagination invalidation.
++
++Each pack contains 12,665 Unicode scalars. The observation fixture uses 26
++unique non-whitespace scalars; 25 are covered. `𪚥` (U+2A6A5) is absent and
++renders a hollow box. This font does not cover all Unicode. Host snapshots
++under `target/accept-iansui/snapshots/` show the expected visible observation.
++The two heading occurrences come from the chapter title and explicit Heading
++block in the fixture. Full and stitched files are 480×800 and identical.
++
++Host read counts are logical VirtualStorage adapter calls and requested/returned
++bytes. They are not physical SD transactions or device latency measurements.
++Hardware validation remains necessary for SD timing, live PSRAM/internal heap
++usage, display update and scheduler behavior. C61 bitmap budget is 224 KiB within
++its 256 KiB class; metadata is about 80 KiB persistent / 96 KiB transient and
++unmeasured. The degraded 16 KiB class can reject dense CJK pages recoverably.
++X4 BigBuf has no class budget. Host success does not prove live heap sufficiency.
+--- /dev/null
++++ b/specs/changes/onepage-cjk-iansui/tmp-briefs/t10-impl-report.md
+@@ -0,0 +1,89 @@
++# Final acceptance implementation report
++
++Acceptance artifacts and required broad boundary are complete. Full English
++regression has a separate immutable pagination-oracle conflict requiring
++controller disposition; do not claim final acceptance PASS yet.
++
++## Ownership and baseline
++
++Initial diff `/private/tmp/t10-start.diff`; initial evidence
++`/private/tmp/t10-evidence-start.md`. Added exporter
++`host/src/bin/iansui-acceptance.rs`, stdlib PNG conversion
++`scripts/pbm-to-png.py`, install.md and target artifacts. Controller amended
++ownership to reader header drawing after isolated causality proof; snapshot
++`/private/tmp/t10-reader-start.rs`, isolated source `/private/tmp/t10-header-source`.
++Task-only review diff `tmp-briefs/t10-review.diff`.
++
++## Golden blocker investigation and authorized correction
++
++Original five changed framebuffer strip hashes predated T9. Restoring only old
++header drawing in isolated source produced exactly the original 3105-line pin
++`8cb6e31a70a32cdc05d30fab45ee0c7983da8cde6a55ba8bb45a0540f8d3f454`.
++Actual command: `CARGO_NET_OFFLINE=true READER_REG_SRC=/private/tmp/t10-header-source
++READER_REG_WORKDIR=/private/tmp/t10-header-regression bash
++scripts/check-reader-regression.sh tree --golden-only`; exit0,
++`target/accept-iansui/header-causality.log`.
++
++Cause: historical header `chrome_font=None` used FONT_9X18; T8 prepared header
++unconditionally selected generated chrome bitmap. Live minimal authorized
++branch uses original draw_chrome_text for ASCII title with absent chrome font;
++non-ASCII title retains prepared fallback. No TOC spacing change was implicated.
++Existing immutable golden provides actual RED and exact GREEN; no new oracle.
++`cjk_surfaces` 7/7 PASS (`header-cjk-green.log`), tree original golden PASS
++(`header-golden-green.log`). All source tests and pin remain unchanged.
++
++## Artifacts and commands
++
++`CARGO_NET_OFFLINE=true cargo run -p pulp-fontconv --target aarch64-apple-darwin
++--config 'unstable.build-std=["std","panic_unwind"]' -- --font Iansui-Regular.ttf
++--license OFL.txt --upstream-url https://github.com/ButTaiwan/iansui
++--out target/accept-iansui/packs`: exit0. `converter.log`.
++Nine packs: 16,19,23,27,28,32,35,38,46px; total14,792,301 bytes;
++12,665 scalars each. Individual bytes/hashes in pack-manifest.json and PROV.TXT.
++Font SHA256 `7f1aa62e9dcbf40d0ce41a5d3f1e5ea602e66c295778ac6fefb6b84d8ed08bd5`;
++OFL SHA256 `5d6d9d02d598daa2f178d0b577c55594892c5cf9c38566e2343cea049a371ac3`.
++Convention1, format1. Fixture coverage25/26, known missing𪚥 U+2A6A5 in all nine.
++No all-Unicode coverage claim.
++
++`CARGO_NET_OFFLINE=true cargo run -p pulp-host --bin iansui-acceptance
++--target aarch64-apple-darwin --config 'unstable.build-std=["std","panic_unwind"]'
++-- target/accept-iansui/snapshots target/accept-iansui/packs`: exit0;
++`export.log`. `python3 scripts/pbm-to-png.py target/accept-iansui/snapshots`.
++Twenty PBM plus twenty PNG, 480×800; actual ReaderApp body/heading/title/TOC at
++five sizes. Full/stitched equal, zero draw reads for every render. All full PNGs
++visually inspected, legible, no blank/clipping. Largest body observation has two
++pages. Duplicate heading is deliberate chapter title plus explicit Heading block.
++Preparation logical font ops/bytes separately recorded in evidence.md and log;
++not physical SD calls, no hardware latency claim. Install copy instructions in
++install.md; no removable SD written.
++
++## Final gates and remaining conflict
++
++One final required/offline boundary: exit0,706 tests; both offline firmware
++links PASS. Board logic exit0,321+3 tests. Fontpack no_std exit0.
++Logs `target/accept-iansui/final-{boundary,board,no-std}.log`; underlying link
++logs `target/accept-host-{x4,c61}.log`. No duplicate broad host suite.
++
++Offline regression both: exit1. Head83 PASS and original pin PASS. Tree fails
++immutable `txt_font_change_while_reading_keeps_the_page_table_baseline_quirk`:
++page1 vs expected3 at pagination.rs215. Its comment requires historical English
++page-table offsets after font change; current raw-anchor rebuild changes them.
++Controller notified; no pagination production or independent oracle edited.
++`final-regression.log`, detailed `$TMPDIR/pulp-reader-regression/tree/test.log`.
++
++## Failure matrix, memory and weakening
++
++Exact requirement map and exercised failure matrix in evidence.md. Existing
++actual independent RED/GREEN reports reused; no fresh decoder campaigns,
++mutants, reference oracle or expected snapshots. Tests read-only; separate
++controller-approved historical comment-ID hygiene disclosed in hygiene-report.md.
++No commits or spec IDs added to code. git diff --check PASS.
++
++C61 combined bitmap224KiB <=256KiB, CJK total compile-time <=336KiB;
++metadata~80KiB persistent/~96KiB transient unmeasured. Degraded16KiB dense-page
++failure recoverable; X4 BigBuf unbudgeted. Physical SD timing, display/schedulers,
++Files/Home/Settings runtime and live heap remain hardware limitations. Host does
++not establish PSRAM live heap sufficiency. Independent whole-change review pending.
++
++User disposition pending: all-text rebuild versus CJK-only rebuild. Task remains
++pending; artifact hash manifest `target/accept-iansui/SHA256SUMS` covers64files.
+--- a/specs/changes/onepage-cjk-iansui/evidence.md
++++ b/specs/changes/onepage-cjk-iansui/evidence.md
+@@ -1,27 +1,126 @@
+-# Acceptance evidence (in progress)
++# Acceptance evidence
+ 
+-This table records executed evidence, not a completion claim. Final whole-branch
+-review, firmware link and installation artifacts remain pending.
++This table records executed evidence, not a completion claim. Final gate results and artifacts are recorded below; whole-branch independent review remains separate.
+ 
+ | Requirement | Evidence | Status |
+ | --- | --- | --- |
+-| R1 host conversion | fontconv tests; converter provenance/license contracts in tmp-briefs/t2-contract.md | Core verified; final generated install set pending |
++| R1 host conversion | fontconv tests; converter provenance/license contracts in tmp-briefs/t2-contract.md | Verified; nine real generated packs, PROV/OFL/COVERAGE and install.md |
+ | R2 Unicode/large offsets | fontpack golden/lookup/reader tests, converter roundtrip | Verified before integration |
+-| R3 malformed pack | fontpack corrupt/reader_faults; real reader corrupt/error tests | Verified; broad final gate pending |
++| R3 malformed pack | fontpack corrupt/reader_faults; real reader corrupt/error tests | Verified; final boundary results below |
+ | R4 explicit missing glyph | fontpack missing tests; cjk_reader absent-scalar/optional-pack boxes | Verified under disclosed compatibility policy |
+ | R5 size consistency | literal five body/five heading pack metrics+pixels in cjk_reader | Verified |
+ | R6 prepare visible glyphs | page_cache focused8; reader literal bitmap assertions | Verified core+reader+widgets (cjk_surfaces, cjk_surface_fixes); Files/Home/Settings source-inspected only |
+-| R7 draw zero SD reads | cjk_reader/error/metadata draw read counts+full/stitched equality | Verified reader+title/TOC+widgets (draw read counts, full/stitched equality; cjk_surface_fixes memoization); other apps source-inspected only; final artifacts pending |
++| R7 draw zero SD reads | cjk_reader/error/metadata draw read counts+full/stitched equality | Verified reader+title/TOC+widgets (draw read counts, full/stitched equality; cjk_surface_fixes memoization); other apps source-inspected only; real full/stitched artifacts below |
+ | R8 memory bounds | page_cache reserved capacity accounting; board font_memory3; bounded BigBuf class source review | Budget arithmetic + compile-time asserts: FontGlyphs worst case 224 KiB ≤ 256 KiB C61 PSRAM class, inventory updated; internal-heap metadata ~80–96 KiB unmeasured; X4 BigBuf unbudgeted; C61 degraded 16 KiB ⇒ recoverable OutOfMemory for dense CJK |
+ | R9 recoverable failure | page_cache capacity/I/O retries; reader corrupt/read/metadata errors and reopen | Verified layers incl. reader title failure clears loading and requests redraw (cjk_surface_fixes T-A, during-load case only); final matrix pending |
+ | R10 kinsoku | narrow mixed literal fixtures+text conservation; long inseparable group recoverable error | Verified reader |
+-| R11 same raw position | reader page/back/bookmark and heading carry | Existing verified; changed-font resume pending |
++| R11 same raw position | reader page/back/bookmark and heading carry | Verified; cjk_identity 4 GREEN and chapter identity checks |
+ | R12 scalar boundaries | utf8 targets; smol targets; UI label tests | Reader/parser verified; BitmapDynLabel set_text/write_str verified (cjk_surfaces) |
+ | R13 malformed policy | maximal-subpart decoder/reader tests; numeric entity parser tests | Verified; policy in spec/proposal |
+ | R14 body/heading/TOC/title/UI | T7 reader coverage; frozen cjk_surfaces7 + production path inspection contract | T8 done: runtime evidence for reader title/TOC/widgets; Files/Home/Settings/manager/schedulers via source inspection + `cargo check-x4`/`check-c61` only (no link, no hardware); independent review APPROVE-WITH-FIXES, fixes verified |
+-| R15 incompatible layout cache | frozen cjk_identity4: actual3RED +1bookmark control PASS | Implementation pending |
+-| R16 acceptance artifacts | Required final real Iansui coverage/missing/snapshots/cache/SD report | Pending |
++| R15 incompatible layout cache | frozen cjk_identity4: actual3RED +1bookmark control PASS | CJK identity tests 4 GREEN; all-text vs CJK-only rebuild requirement conflict pending user disposition; full English regression FAIL |
++| R16 acceptance artifacts | Nine real packs; 20 full/stitched PBM + 20 PNG; fixture coverage, source/pack hashes, logical read counts and installation docs | Artifacts verified; gate results below |
+ 
+ Red-proof and weakening reports live in tmp-briefs and progress.md. Historical
+ mutants remain evidence only; 70 cancelled mutants were not executed or counted
+ as pass. No further mutant campaign is an acceptance condition.
++
++## Real-font observations and provenance
++
++Artifacts are under `target/accept-iansui/`: `packs/PROV.TXT`, `packs/OFL.TXT`,
++`packs/COVERAGE.TXT`, `pack-manifest.json`, `fixture-coverage.json`,
++`converter.log`, `export.log`, and `snapshots/`. Install/reproduction: `install.md`.
++Font SHA256 `7f1aa62e9dcbf40d0ce41a5d3f1e5ea602e66c295778ac6fefb6b84d8ed08bd5`;
++OFL SHA256 `5d6d9d02d598daa2f178d0b577c55594892c5cf9c38566e2343cea049a371ac3`.
++Convention version 1, pack format 1. Nine packs total 14,792,301 bytes;
++each contains 12,665 scalars. Fixture 25/26 covered; only absent scalar is
++𪚥 U+2A6A5. Coverage does not mean all Unicode is supported.
++
++Actual ReaderApp observations include body, chapter title + explicit Heading,
++Chinese chrome title and selected Chinese TOC at all five sizes. Each full PBM
++equals stitched PBM; all ten pairs are 480×800, with PNG copies inspected.
++No blank page or clipping observed; largest body fixture spans two pages.
++Snapshots are observations, not newly defined correctness oracles.
++
++| Size index | Reader prepare font ops / bytes | TOC prepare font ops / bytes | Full / stitched draw reads |
++| --- | --- | --- | --- |
++| 0 | 1216 / 27335 | 229 / 5139 | 0 / 0 |
++| 1 | 1216 / 27767 | 229 / 5290 | 0 / 0 |
++| 2 | 1216 / 28119 | 229 / 5415 | 0 / 0 |
++| 3 | 1216 / 28887 | 229 / 5681 | 0 / 0 |
++| 4 | 1510 / 36641 | 229 / 6059 | 0 / 0 |
++
++Reader preparation includes opening/layout/visible preparation, not only bitmap
++fetches. Requested bytes equal returned bytes in these runs. Counts are logical
++VirtualStorage adapter calls, not physical SD transactions; there is no hardware
++latency measurement. Body+UI bitmap budget is 224 KiB within C61 256 KiB class.
++Combined CJK compile-time total <=336 KiB; internal metadata ~80 KiB persistent,
++~96 KiB transient remains unmeasured. Degraded C61 16 KiB and X4 unbudgeted BigBuf
++limitations remain. Host tests do not prove device live heap sufficiency.
++
++## Exercised failure matrix
++
++| Case | Independent exercised evidence | Outcome |
++| --- | --- | --- |
++| Missing scalar | fontpack missing/page_cache hollow-square tests; cjk_reader absent_scalar; real 𪚥 snapshots | Explicit size-specific box |
++| Optional absent pack | cjk_reader uninstalled_pack; no-pack-policy-tests-report.md | Ready with boxes; install/reopen recovers |
++| Corrupt/version mismatch | fontpack corrupt/reader_faults; cjk_reader required_pack_failures | Recoverable error, no invisible Ready text |
++| Metadata capacity | page_cache metadata_capacity_failure; t6-impl-report.md actual GREEN | Old/partial pages hidden; retry recovers |
++| Bitmap capacity | page_cache bitmap_capacity_failure; board font_memory | Bounded allocation/read; retry recovers |
++| SD bitmap/lookup failure | page_cache lookup_and_bitmap_io_failures; cjk_reader required_pack_failures | Recoverable error; prepared draw source-free |
++| SD metadata failure | cjk_metadata_failure; t7-metadata-tests-report.md actual RED, t7-impl-report.md GREEN | Genuine errors propagate, absence distinguished |
++| Title load error / retry | cjk_surface_fixes; t8-fixes-tests-report.md RED, t8-fixes-impl-report.md GREEN | Loading clears, redraw requested; reopen recovers |
++| Incompatible body/heading layout | cjk_identity; t9-tests-report.md actual RED, t9-impl-report.md GREEN | Rebuild from raw anchor, preserve chapter |
++
++## English golden causality and weakening gate
++
++Five render-strip differences predated T9 and reproduced its task-start trace.
++Header-only isolated restoration reproduced the unchanged original golden pin,
++3105 lines SHA256 `8cb6e31a70a32cdc05d30fab45ee0c7983da8cde6a55ba8bb45a0540f8d3f454`.
++Root cause was changing absent chrome font from FONT_9X18 to generated bitmap
++chrome. The controller authorized preserving legacy ASCII/None header drawing;
++prepared CJK title drawing remains. `header-causality.log`,
++`header-golden-green.log`, `header-cjk-green.log` record actual results.
++No TOC spacing attribution, expected hash update or oracle redefinition occurred.
++
++Independent tests/oracles were read-only for final acceptance. Separately
++approved comment-only hygiene is disclosed in `tmp-briefs/hygiene-report.md`;
++comment-stripped executable equivalence was checked. Existing actual RED/GREEN
++reports supply correctness evidence; no fresh mutants or snapshot oracle was
++created. No commits or spec IDs were added to code.
++
++## Final gate results
++
++`IANSUI_REQUIRED=1 CARGO_NET_OFFLINE=true scripts/check-host-boundary.sh`: exit 0,
++706 host tests, no forbidden host dependencies/linker scripts, both X4 and C61
++firmware links PASS. Logs: `target/accept-iansui/final-boundary.log`,
++`target/accept-host.log`, `target/accept-host-x4.log`, `target/accept-host-c61.log`.
++`CARGO_NET_OFFLINE=true scripts/test-board-logic.sh`: exit 0, 321+3 tests;
++`target/accept-iansui/final-board.log`.
++`CARGO_NET_OFFLINE=true cargo check -p pulp-fontpack --no-default-features
++--target riscv32imac-unknown-none-elf`: exit 0; `final-no-std.log`.
++
++`CARGO_NET_OFFLINE=true scripts/check-reader-regression.sh both`: exit 1.
++Head: 83 tests PASS and exact original golden. Tree: immutable
++`txt_font_change_while_reading_keeps_the_page_table_baseline_quirk` fails
++page=1 versus expected=3 at pagination.rs:215; remaining pagination target
++16 PASS. This oracle explicitly preserves the English mid-read font-change
++page-table quirk; current raw-anchor rebuild changes it. Controller notified;
++no oracle or out-of-ownership pagination correction performed. Tree golden
++independently PASS after the authorized header fix, but full regression is not
++claimed PASS. Log `target/accept-iansui/final-regression.log`, detailed harness
++log at `$TMPDIR/pulp-reader-regression/tree/test.log`.
++
++Snapshot reproduction:
++
++```sh
++CARGO_NET_OFFLINE=true cargo run -p pulp-host --bin iansui-acceptance \
++  --target aarch64-apple-darwin \
++  --config 'unstable.build-std=["std","panic_unwind"]' -- \
++  target/accept-iansui/snapshots target/accept-iansui/packs
++python3 scripts/pbm-to-png.py target/accept-iansui/snapshots
++```
++
++Artifact hashes: `target/accept-iansui/SHA256SUMS` (64 files). User disposition
++is pending for the all-text rebuild requirement versus immutable historical
++English stale-offset oracle. No task-complete or global acceptance PASS claim.

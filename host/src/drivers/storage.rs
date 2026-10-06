@@ -75,6 +75,10 @@ pub fn read_chunk_in_pulp_subdir(
     borrow(sd)?.read_chunk_in_pulp_subdir(dir, name, offset, buf)
 }
 
+pub fn optional_file_size_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> R<Option<u32>> {
+    borrow(sd)?.optional_file_size_in_pulp_subdir(dir, name)
+}
+
 pub fn file_size_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> R<u32> {
     borrow(sd)?.file_size_in_pulp_subdir(dir, name)
 }

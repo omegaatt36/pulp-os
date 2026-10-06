@@ -5,6 +5,8 @@
 // the firmware (drivers::dir_entry) and `#[path]`-included by the host crate
 // (host/src/lib.rs), so firmware and host tests share one definition
 
+use crate::util::utf8_prefix_len;
+
 pub const PULP_DIR: &str = "_PULP";
 pub const TITLES_FILE: &str = "TITLES.BIN";
 pub const TITLE_CAP: usize = 64;
@@ -47,7 +49,7 @@ impl DirEntry {
     }
 
     pub fn set_title(&mut self, s: &[u8]) {
-        let n = s.len().min(TITLE_CAP);
+        let n = utf8_prefix_len(s, TITLE_CAP);
         self.title[..n].copy_from_slice(&s[..n]);
         self.title_len = n as u8;
     }
@@ -110,7 +112,7 @@ pub struct DirPage {
 pub fn title_line(filename: &str, title: &str, line: &mut [u8; 128]) -> Option<usize> {
     let name_bytes = filename.as_bytes();
     let title_bytes = title.as_bytes();
-    let title_len = title_bytes.len().min(TITLE_CAP);
+    let title_len = utf8_prefix_len(title_bytes, TITLE_CAP);
     let line_len = name_bytes.len() + 1 + title_len + 1; // name + \t + title + \n
     if line_len > 128 {
         return None;

@@ -54,6 +54,11 @@ pub fn text_w(a: &ReaderApp) -> u32 {
     a.text_w
 }
 
+// Host geometry override; adds no layout or pagination behavior.
+pub fn set_text_width(a: &mut ReaderApp, width: u32) {
+    a.text_w = width;
+}
+
 pub fn text_margin(a: &ReaderApp) -> u16 {
     a.text_margin
 }
@@ -161,4 +166,16 @@ pub fn has_bg_work(a: &ReaderApp) -> bool {
 
 pub fn theme_idx(a: &ReaderApp) -> u8 {
     a.reading_theme_idx
+}
+
+// the reader's page buffer size and monospace line width, the production consts
+pub const PAGE_BUF: usize = super::reader::PAGE_BUF;
+pub const CHARS_PER_LINE: usize = super::reader::CHARS_PER_LINE;
+
+// A firmware built without the Regular font data runs with `fonts == None`
+// (the state apply_font_metrics leaves when `HAS_REGULAR` is false), which
+// selects the monospace wrapper. The host build always has the font data, so
+// this clears the production field itself; the wrapping stays production code.
+pub fn drop_fonts(a: &mut ReaderApp) {
+    a.fonts = None;
 }

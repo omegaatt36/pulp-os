@@ -305,6 +305,8 @@ pub trait App<Id> {
 
     fn on_quick_cycle_update(&mut self, _id: u8, _value: u8, _ctx: &mut AppContext) {}
 
+    fn prepare_render(&mut self, _ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {}
+
     fn draw(&self, strip: &mut StripBuffer);
 
     async fn background(&mut self, _ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {}
@@ -463,6 +465,7 @@ pub trait AppLayer {
     async fn run_background(&mut self, k: &mut KernelHandle<'_>);
 
     // rendering
+    fn prepare_render(&mut self, k: &mut KernelHandle<'_>);
     fn draw(&self, strip: &mut StripBuffer);
     fn has_redraw(&self) -> bool;
     fn take_redraw(&mut self) -> Redraw;

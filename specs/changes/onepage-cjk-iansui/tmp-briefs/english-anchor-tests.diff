@@ -1,0 +1,93 @@
+diff --git i/scripts/reader-regression/os/tests/pagination.rs w/scripts/reader-regression/os/tests/pagination.rs
+index 9a89f28..80eeb20 100644
+--- i/scripts/reader-regression/os/tests/pagination.rs
++++ w/scripts/reader-regression/os/tests/pagination.rs
+@@ -186,6 +186,7 @@ fn txt_blank_lines_are_kept_and_long_tokens_are_split() {
+     }
+ }
+ 
++#[cfg(not(feature = "tree"))]
+ #[test]
+ fn txt_font_change_while_reading_keeps_the_page_table_baseline_quirk() {
+     // Baseline behaviour (identical in the pre-port code, see baseline.md T13): the
+@@ -218,6 +219,80 @@ fn txt_font_change_while_reading_keeps_the_page_table_baseline_quirk() {
+     }
+ }
+ 
++#[cfg(feature = "tree")]
++#[test]
++fn txt_live_font_change_preserves_raw_anchor_and_complete_source() {
++    // Literal English source; line wrapping may omit only ASCII whitespace.
++    let source = "The lighthouse keeper records every arrival in the ledger. Ships return at dawn, and the harbor bell marks their passage.\n".repeat(400);
++    let data = source.as_bytes();
++    for via_resume in [true, false] {
++        let mut r = txt_rig(data, 2, 1);
++        for _ in 0..6 {
++            r.press(Action::Next);
++        }
++        let anchor = r.pos().offset as usize;
++        assert!(anchor > 0 && source.is_char_boundary(anchor));
++        if via_resume {
++            r.suspend();
++            r.app.set_book_font_size(0);
++            r.resume();
++        } else {
++            use pulp_os_host::apps::App;
++            r.app.on_quick_cycle_update(1, 0, &mut r.ctx);
++            r.settle();
++        }
++        assert_eq!(
++            (probe::max_lines(&r.app), probe::font_line_h(&r.app),
++             probe::text_w(&r.app), probe::text_margin(&r.app),
++             probe::text_y(&r.app), probe::text_area_h(&r.app)),
++            GEOMETRY[0][1], "new configured geometry applies"
++        );
++        let selected = r.pos();
++        assert!(selected.offset as usize <= anchor);
++        r.press(Action::Next);
++        let next = r.pos();
++        assert!(next.offset as usize > anchor, "selected page must contain the previous raw anchor");
++        r.press(Action::Prev);
++        assert_eq!(r.pos(), selected, "back returns to the same source and layout");
++        r.press(Action::Next);
++        assert_eq!(r.pos(), next, "forward returns to the same source and layout");
++        r.walk_back();
++        let pages = r.walk_forward();
++        assert_eq!(pages[0].offset, 0);
++        let mut reconstructed = Vec::new();
++        let mut source_cursor = 0;
++        for (i, page) in pages.iter().enumerate() {
++            let start = page.offset as usize;
++            let end = pages.get(i + 1).map_or(data.len(), |p| p.offset as usize);
++            assert_eq!(start, source_cursor, "source intervals are contiguous");
++            assert!(start < end && end <= data.len());
++            assert!(source.is_char_boundary(start) && source.is_char_boundary(end));
++            assert!(page.lines.len() <= GEOMETRY[0][1].0);
++            let mut cursor = start;
++            for line in &page.lines {
++                let line_start = start + line.start as usize;
++                let line_end = line_start + line.len as usize;
++                assert!(cursor <= line_start && line_end <= end, "line spans neither overlap nor cross pages");
++                assert!(source.is_char_boundary(line_start) && source.is_char_boundary(line_end));
++                assert!(data[cursor..line_start].iter().all(u8::is_ascii_whitespace), "only wrapping whitespace may be omitted");
++                assert_eq!(line.bytes, data[line_start..line_end], "visible bytes match their original source span");
++                assert!(line_width(&r.app, 0, line) <= probe::text_w(&r.app));
++                reconstructed.extend_from_slice(&data[cursor..line_start]);
++                reconstructed.extend_from_slice(&line.bytes);
++                cursor = line_end;
++            }
++            assert!(data[cursor..end].iter().all(u8::is_ascii_whitespace), "page tail may omit only whitespace");
++            reconstructed.extend_from_slice(&data[cursor..end]);
++            source_cursor = end;
++        }
++        assert_eq!(source_cursor, data.len());
++        assert_eq!(reconstructed, data, "every source byte is accounted for exactly once");
++        let mut backward = r.walk_back();
++        backward.reverse();
++        assert_eq!(backward, pages, "whole-book navigation is reversible");
++    }
++}
++
+ #[test]
+ fn txt_reopening_after_a_font_change_repaginates_from_the_bookmark() {
+     let data = corpus();

@@ -246,7 +246,8 @@ impl super::Kernel {
         false
     }
 
-    fn render_full<A: AppLayer>(&mut self, app: &A) {
+    fn render_full<A: AppLayer>(&mut self, app: &mut A) {
+        app.prepare_render(&mut self.handle());
         let mut src = AppStrips {
             strip: &mut *self.strip,
             app,

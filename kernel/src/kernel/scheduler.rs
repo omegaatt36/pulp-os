@@ -107,6 +107,7 @@ impl super::Kernel {
         }
 
         {
+            app_mgr.prepare_render(&mut self.handle());
             let draw = |s: &mut StripBuffer| app_mgr.draw(s);
             self.epd
                 .full_refresh_async(self.strip, &mut self.delay, &draw)
@@ -164,7 +165,8 @@ impl super::Kernel {
             //   3. render() touches the EPD; during the waveform window
             //      busy_wait_with_background runs SD I/O because the
             //      EPD charge pump is driving pixels with no SPI commands
-            //   4. no SD I/O outside these three sites
+            //   4. prepare_render may read font packs immediately before
+            //      each draw; no other SD I/O happens outside these sites
             //
             // when input arrives during run_background, the background
             // future is dropped. this is safe: partial chapter cache
@@ -320,6 +322,7 @@ impl super::Kernel {
                     let r = r.align8();
 
                     let rs = {
+                        app_mgr.prepare_render(&mut self.handle());
                         let draw = |s: &mut StripBuffer| app_mgr.draw(s);
                         if self.red_stale {
                             self.epd.partial_phase1_bw_inv_red(
@@ -361,6 +364,7 @@ impl super::Kernel {
                         } else {
                             self.red_stale = false;
                             {
+                                app_mgr.prepare_render(&mut self.handle());
                                 let draw = |s: &mut StripBuffer| app_mgr.draw(s);
                                 self.epd.partial_phase3_sync(self.strip, &rs, &draw);
                             }
@@ -390,6 +394,7 @@ impl super::Kernel {
                 self.log_stats();
 
                 {
+                    app_mgr.prepare_render(&mut self.handle());
                     let draw = |s: &mut StripBuffer| app_mgr.draw(s);
                     self.epd
                         .write_full_frame(self.strip, &mut self.delay, &draw);

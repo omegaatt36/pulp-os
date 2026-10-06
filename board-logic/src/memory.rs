@@ -102,7 +102,7 @@ pub const PSRAM_HW_BYTES: usize = 2 * MIB;
 /// Below this the PSRAM is not worth the extra failure modes: degrade.
 pub const PSRAM_MIN_BYTES: usize = MIB;
 /// Never handed out: allocator metadata, fragmentation, T12 headroom.
-pub const PSRAM_RESERVE_BYTES: usize = 448 * KIB;
+pub const PSRAM_RESERVE_BYTES: usize = 192 * KIB;
 
 /// PSRAM class limits (PSRAM mode). Proposals sized from the inventory below
 /// (one 96 KiB chapter cache today; PSRAM lets several chapters stay
@@ -111,12 +111,14 @@ pub const PSRAM_CHAPTER_TEXT_BYTES: usize = 768 * KIB;
 pub const PSRAM_IMAGE_DATA_BYTES: usize = 512 * KIB;
 pub const PSRAM_PAGE_TABLE_BYTES: usize = 64 * KIB;
 pub const PSRAM_ZIP_TOC_BYTES: usize = 256 * KIB;
+pub const PSRAM_FONT_GLYPHS_BYTES: usize = 256 * KIB;
 
 const _: () = assert!(
     PSRAM_CHAPTER_TEXT_BYTES
         + PSRAM_IMAGE_DATA_BYTES
         + PSRAM_PAGE_TABLE_BYTES
         + PSRAM_ZIP_TOC_BYTES
+        + PSRAM_FONT_GLYPHS_BYTES
         + PSRAM_RESERVE_BYTES
         <= PSRAM_HW_BYTES
 );
@@ -138,6 +140,7 @@ pub const INTERNAL_CHAPTER_TEXT_BYTES: usize = 96 * KIB;
 pub const INTERNAL_IMAGE_DATA_BYTES: usize = 112 * KIB;
 pub const INTERNAL_PAGE_TABLE_BYTES: usize = 8 * KIB;
 pub const INTERNAL_ZIP_TOC_BYTES: usize = 32 * KIB;
+pub const INTERNAL_FONT_GLYPHS_BYTES: usize = 16 * KIB;
 
 /// Smallest main stack the image must keep after all statics (esp-hal's own
 /// link-time minimum is 8 KiB; the X4 firmware comments plan ~56 KB). The
@@ -192,9 +195,11 @@ pub enum MemClass {
     PageTable,
     /// ZIP central directory, entry index, EPUB TOC scratch (R14).
     ZipToc,
+    /// Immutable prepared font bitmap bytes; never DMA or ISR-visible.
+    FontGlyphs,
 }
 
-pub const CLASS_COUNT: usize = 7;
+pub const CLASS_COUNT: usize = 8;
 
 impl MemClass {
     pub const ALL: [MemClass; CLASS_COUNT] = [
@@ -205,6 +210,7 @@ impl MemClass {
         MemClass::ImageData,
         MemClass::PageTable,
         MemClass::ZipToc,
+        MemClass::FontGlyphs,
     ];
 
     const fn index(self) -> usize {
@@ -216,6 +222,7 @@ impl MemClass {
             MemClass::ImageData => 4,
             MemClass::PageTable => 5,
             MemClass::ZipToc => 6,
+            MemClass::FontGlyphs => 7,
         }
     }
 
@@ -223,7 +230,11 @@ impl MemClass {
     pub const fn allows_psram(self) -> bool {
         matches!(
             self,
-            MemClass::ChapterText | MemClass::ImageData | MemClass::PageTable | MemClass::ZipToc
+            MemClass::ChapterText
+                | MemClass::ImageData
+                | MemClass::PageTable
+                | MemClass::ZipToc
+                | MemClass::FontGlyphs
         )
     }
 
@@ -236,6 +247,7 @@ impl MemClass {
             MemClass::ImageData => "image-data",
             MemClass::PageTable => "page-table",
             MemClass::ZipToc => "zip-toc",
+            MemClass::FontGlyphs => "font-glyphs",
         }
     }
 
@@ -245,6 +257,7 @@ impl MemClass {
             MemClass::ImageData => Some(ExternalClass::ImageData),
             MemClass::PageTable => Some(ExternalClass::PageTable),
             MemClass::ZipToc => Some(ExternalClass::ZipToc),
+            MemClass::FontGlyphs => Some(ExternalClass::FontGlyphs),
             _ => None,
         }
     }
@@ -259,6 +272,8 @@ pub enum ExternalClass {
     ImageData,
     PageTable,
     ZipToc,
+    /// Immutable prepared font bitmap bytes; never DMA or ISR-visible.
+    FontGlyphs,
 }
 
 impl From<ExternalClass> for MemClass {
@@ -268,6 +283,7 @@ impl From<ExternalClass> for MemClass {
             ExternalClass::ImageData => MemClass::ImageData,
             ExternalClass::PageTable => MemClass::PageTable,
             ExternalClass::ZipToc => MemClass::ZipToc,
+            ExternalClass::FontGlyphs => MemClass::FontGlyphs,
         }
     }
 }
@@ -517,6 +533,7 @@ pub const fn class_limit(status: PsramStatus, region: Region, class: MemClass) -
             MemClass::ImageData => INTERNAL_IMAGE_DATA_BYTES,
             MemClass::PageTable => INTERNAL_PAGE_TABLE_BYTES,
             MemClass::ZipToc => INTERNAL_ZIP_TOC_BYTES,
+            MemClass::FontGlyphs => INTERNAL_FONT_GLYPHS_BYTES,
         },
         Region::Psram => {
             if !status.is_ready() {
@@ -527,6 +544,7 @@ pub const fn class_limit(status: PsramStatus, region: Region, class: MemClass) -
                 MemClass::ImageData => PSRAM_IMAGE_DATA_BYTES,
                 MemClass::PageTable => PSRAM_PAGE_TABLE_BYTES,
                 MemClass::ZipToc => PSRAM_ZIP_TOC_BYTES,
+                MemClass::FontGlyphs => PSRAM_FONT_GLYPHS_BYTES,
                 _ => 0,
             }
         }
@@ -994,6 +1012,15 @@ pub const INVENTORY: &[InventoryItem] = &[
     ),
     // --- PSRAM candidates (T12) ---
     item(
+        "reader font bitmap caches",
+        "src/fonts/cjk.rs PageCache bitmap backing (body + heading + 3 auxiliary)",
+        Heap,
+        224 * KIB,
+        MemClass::FontGlyphs,
+        Candidate,
+        "worst case 2 x 64 KiB reader roles + 3 x 32 KiB auxiliary surfaces (reader title, reader TOC, overlay; body role only); actual-sized backing. Metrics/slot tables stay in the internal heap, not a class: body <= 16 KiB metrics (32 KiB transient) + 2 x 16 KiB slots, auxiliary 3 x (4 KiB metrics + 4 KiB slots)",
+    ),
+    item(
         "chapter cache Vec",
         "src/apps/reader/epubs.rs ch_cache (CHAPTER_CACHE_MAX)",
         Heap,
@@ -1399,12 +1426,18 @@ mod tests {
 
     #[test]
     fn r14_pool_exhaustion_is_reported_when_the_class_still_has_room() {
-        // a smaller chip: 1 MiB -> pool = 1 MiB - reserve = 576 KiB < sum of limits
+        // a smaller chip: 1 MiB -> pool = 1 MiB - reserve < sum of limits
         let mut b = MemoryBudget::new();
         b.set_status(PsramStatus::Ready { bytes: MIB }).unwrap();
         let pool = b.pool_limit(Region::Psram);
         assert_eq!(pool, MIB - PSRAM_RESERVE_BYTES);
-        b.reserve(MemClass::ChapterText, pool - 16 * KIB, 4)
+        b.reserve(MemClass::ChapterText, PSRAM_CHAPTER_TEXT_BYTES, 4)
+            .unwrap();
+        b.reserve(
+            MemClass::ZipToc,
+            pool - PSRAM_CHAPTER_TEXT_BYTES - 16 * KIB,
+            4,
+        )
             .unwrap();
         // image-data has its whole 512 KiB left but the pool does not
         let e = b.reserve(MemClass::ImageData, 32 * KIB, 4).unwrap_err();

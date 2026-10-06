@@ -1,0 +1,20 @@
+[package]
+name         = "pulp-fontpack"
+edition      = "2024"
+rust-version = "1.95"
+version      = "0.1.0"
+description  = "SD font pack format (reader + writer): the single definition shared by the host converter and the firmware"
+license      = "MIT"
+publish      = false
+
+# No dependencies on purpose: the firmware links this very crate (reader), the
+# host converter links it with `builder` (writer); there is no second copy of
+# the format. Same shape as pulp-board-logic.
+# Host test command: `scripts/host-test.sh`.
+[features]
+default = []
+# Host-side pack writer (needs `alloc`). Off in firmware builds. The tests
+# need it, so they refuse to compile without it (see tests/common/mod.rs).
+builder = []
+
+[dependencies]

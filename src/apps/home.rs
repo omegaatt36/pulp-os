@@ -63,6 +63,7 @@ pub struct HomeApp {
     state: HomeState,
     selected: usize,
     ui_fonts: fonts::UiFonts,
+    label_fonts: fonts::cjk::SurfaceFonts,
     item_regions: [Region; MAX_ITEMS],
     item_count: usize,
 
@@ -90,6 +91,7 @@ impl HomeApp {
             state: HomeState::Menu,
             selected: 0,
             ui_fonts: uf,
+            label_fonts: fonts::cjk::SurfaceFonts::new(),
             item_regions: compute_item_regions(uf.heading.line_height),
             item_count: 3 + UPLOAD_ITEMS, // updated after load; may include Continue
             recent_book: [0u8; 32],
@@ -105,6 +107,7 @@ impl HomeApp {
 
     pub fn set_ui_font_size(&mut self, idx: u8) {
         self.ui_fonts = fonts::UiFonts::for_size(idx);
+        self.label_fonts.set_size(idx);
         self.item_regions = compute_item_regions(self.ui_fonts.heading.line_height);
     }
 
@@ -277,6 +280,12 @@ impl HomeApp {
 }
 
 impl App<AppId> for HomeApp {
+    fn on_exit(&mut self) {
+        self.label_fonts.clear();
+    }
+    fn on_suspend(&mut self) {
+        self.label_fonts.clear();
+    }
     fn on_enter(&mut self, ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {
         ctx.clear_message();
         self.state = HomeState::Menu;
@@ -343,7 +352,44 @@ impl App<AppId> for HomeApp {
         }
     }
 
+    fn prepare_render(&mut self, _ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
+        let mut labels = fonts::cjk::VisibleText::new();
+        match self.state {
+            HomeState::Menu => {
+                labels.add("pulp-os", self.ui_fonts.heading, true);
+                for i in 0..self.item_count {
+                    labels.add(self.item_label(i), self.ui_fonts.body, false);
+                }
+            }
+            HomeState::ShowBookmarks => {
+                labels.add("Bookmarks", self.ui_fonts.heading, true);
+                for entry in self.bm_entries.iter().skip(self.bm_scroll).take(
+                    self.bm_visible_lines()
+                        .min(self.bm_count.saturating_sub(self.bm_scroll)),
+                ) {
+                    labels.add(entry.display_name(), self.ui_fonts.body, false);
+                }
+            }
+        }
+        self.label_fonts.prepare(k, &labels);
+    }
+
     fn draw(&self, strip: &mut StripBuffer) {
+        if let Some(error) = self.label_fonts.error {
+            crate::apps::widgets::bitmap_label::draw_surface_error(
+                strip,
+                Region::new(
+                    8,
+                    crate::ui::CONTENT_TOP,
+                    crate::board::SCREEN_W - 16,
+                    self.ui_fonts.body.line_height,
+                ),
+                self.ui_fonts.body,
+                error,
+            );
+            return;
+        }
+
         match self.state {
             HomeState::Menu => self.draw_menu(strip),
             HomeState::ShowBookmarks => self.draw_bookmarks(strip),
@@ -489,7 +535,7 @@ impl HomeApp {
         );
         BitmapLabel::new(title_region, "pulp-os", self.ui_fonts.heading)
             .alignment(Alignment::Center)
-            .draw(strip)
+            .draw_prepared(strip, &self.label_fonts.view())
             .unwrap();
 
         for i in 0..self.item_count {
@@ -497,7 +543,7 @@ impl HomeApp {
             BitmapLabel::new(self.item_regions[i], label, self.ui_fonts.body)
                 .alignment(Alignment::Center)
                 .inverted(i == self.selected)
-                .draw(strip)
+                .draw_prepared(strip, &self.label_fonts.view())
                 .unwrap();
         }
     }
@@ -511,20 +557,22 @@ impl HomeApp {
         );
         BitmapLabel::new(header_region, "Bookmarks", self.ui_fonts.heading)
             .alignment(Alignment::CenterLeft)
-            .draw(strip)
+            .draw_prepared(strip, &self.label_fonts.view())
             .unwrap();
 
         if self.bm_count > 0 {
             let mut status = BitmapDynLabel::<20>::new(self.bm_status_region(), self.ui_fonts.body)
                 .alignment(Alignment::CenterRight);
             let _ = write!(status, "{}/{}", self.bm_selected + 1, self.bm_count);
-            status.draw(strip).unwrap();
+            status
+                .draw_prepared(strip, &self.label_fonts.view())
+                .unwrap();
         }
 
         if self.bm_count == 0 {
             BitmapLabel::new(self.bm_row_region(0), "No bookmarks", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
-                .draw(strip)
+                .draw_prepared(strip, &self.label_fonts.view())
                 .unwrap();
             return;
         }
@@ -542,7 +590,7 @@ impl HomeApp {
                 BitmapLabel::new(region, name, self.ui_fonts.body)
                     .alignment(Alignment::CenterLeft)
                     .inverted(idx == self.bm_selected)
-                    .draw(strip)
+                    .draw_prepared(strip, &self.label_fonts.view())
                     .unwrap();
             }
         }

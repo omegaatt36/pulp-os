@@ -1674,6 +1674,19 @@ name = "pulp-board-logic"
 version = "0.1.0"
 
 [[package]]
+name = "pulp-fontconv"
+version = "0.1.0"
+dependencies = [
+ "fontdue",
+ "pulp-fontpack",
+ "sha2",
+]
+
+[[package]]
+name = "pulp-fontpack"
+version = "0.1.0"
+
+[[package]]
 name = "pulp-host"
 version = "0.1.0"
 dependencies = [
@@ -1687,6 +1700,7 @@ dependencies = [
  "log",
  "miniz_oxide",
  "pulp-board-logic",
+ "pulp-fontpack",
  "smol-epub",
 ]
 
@@ -1733,6 +1747,7 @@ dependencies = [
  "esp-rtos",
  "fontdue",
  "log",
+ "pulp-fontpack",
  "pulp-kernel",
  "smol-epub",
  "static_cell",

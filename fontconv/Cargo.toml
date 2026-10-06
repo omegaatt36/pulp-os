@@ -1,0 +1,24 @@
+[package]
+name         = "pulp-fontconv"
+edition      = "2024"
+rust-version = "1.95"
+version      = "0.1.0"
+description  = "Host converter: TTF -> SD font packs (pulp-fontpack) with provenance, licence copy and coverage report"
+license      = "MIT"
+publish      = false
+
+# Host-only (std). Output format is defined by pulp-fontpack; rasterisation
+# convention is the firmware build.rs one (see specs/changes/onepage-cjk-iansui).
+# Host test command: `scripts/host-test.sh`.
+
+[lib]
+name = "pulp_fontconv"
+
+[[bin]]
+name = "pulp-fontconv"
+
+[dependencies]
+pulp-fontpack = { path = "../fontpack", features = ["builder"] }
+fontdue       = "0.9"
+# default features off: matches the lock entry (default features pull const-oid)
+sha2          = { version = "0.11", default-features = false }

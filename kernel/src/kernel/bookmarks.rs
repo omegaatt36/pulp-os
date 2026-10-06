@@ -9,6 +9,7 @@
 use crate::drivers::dir_entry::TITLE_CAP;
 use crate::drivers::sdcard::SdStorage;
 use crate::drivers::storage;
+use crate::util::utf8_prefix_len;
 // FNV-1a hash with ASCII case folding, used for bookmark filename lookups.
 pub fn fnv1a_icase(data: &[u8]) -> u32 {
     let mut h: u32 = 0x811c_9dc5;
@@ -142,7 +143,7 @@ impl BmListEntry {
     }
 
     pub fn set_title(&mut self, s: &[u8]) {
-        let n = s.len().min(TITLE_CAP);
+        let n = utf8_prefix_len(s, TITLE_CAP);
         self.title[..n].copy_from_slice(&s[..n]);
         self.title_len = n as u8;
     }

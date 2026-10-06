@@ -1,0 +1,32 @@
+--- a/src/apps/reader/paging.rs
++++ b/src/apps/reader/paging.rs
+@@ -38,6 +38,9 @@
+         };
+         self.reset_paging();
+         self.restore_offset = anchor;
++        // An explicit rebuild already preserves the source anchor. Establish
++        // the new identity when wrapping instead of invalidating twice.
++        self.layout_identity = None;
+         self.cjk.clear();
+         self.render_fonts_released = false;
+         self.state = if self.is_epub && self.epub.chapters_cached {
+@@ -67,6 +70,9 @@
+         n: usize,
+         at_eof: bool,
+     ) -> crate::error::Result<usize> {
++        if self.layout_identity.is_none() {
++            self.layout_identity = Some(self.current_layout_identity(k)?);
++        }
+         if self.fonts.is_none() && fonts::font_data::HAS_REGULAR {
+             // An explicitly selected mono path keeps its original cell layout.
+             return Ok(self.wrap_monospace(n));
+@@ -109,9 +115,6 @@
+                 fonts::cjk::HEADING_PIXELS[idx],
+                 initial_flags,
+             )?;
+-            if self.cjk.has_fallback() && self.layout_identity.is_none() {
+-                self.layout_identity = Some(self.current_layout_identity(k)?);
+-            }
+             let view = self.cjk.view(
+                 fs,
+                 fonts::cjk::BODY_PIXELS[idx],

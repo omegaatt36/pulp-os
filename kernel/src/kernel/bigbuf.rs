@@ -21,7 +21,12 @@ pub enum BufClass {
     ChapterText,
     ImageData,
     ZipToc,
+    FontGlyphs,
 }
+
+/// C61 PSRAM budget of the `FontGlyphs` class; callers size their worst case
+/// against it on every board.
+pub const FONT_GLYPHS_PSRAM_BYTES: usize = pulp_board_logic::memory::PSRAM_FONT_GLYPHS_BYTES;
 
 /// The allocation failed (heap exhausted, or over the memory budget).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -40,10 +45,17 @@ mod imp {
             Self(Vec::new())
         }
 
-        pub fn zeroed(_class: BufClass, len: usize) -> Result<Self, BufError> {
+        pub fn zeroed(class: BufClass, len: usize) -> Result<Self, BufError> {
             let mut v = Vec::new();
             v.try_reserve_exact(len).map_err(|_| BufError)?;
-            v.resize(len, 0);
+            // Font cache budgets must see the full reserved backing, including
+            // any extra capacity granted by the allocator.
+            let exposed_len = if class == BufClass::FontGlyphs {
+                v.capacity()
+            } else {
+                len
+            };
+            v.resize(exposed_len, 0);
             Ok(Self(v))
         }
 
@@ -86,6 +98,7 @@ mod imp {
                 BufClass::ChapterText => MemClass::ChapterText,
                 BufClass::ImageData => MemClass::ImageData,
                 BufClass::ZipToc => MemClass::ZipToc,
+                BufClass::FontGlyphs => MemClass::FontGlyphs,
             };
             match memory::alloc(class, len, ALIGN) {
                 Ok(b) => Ok(Self(Some(b))),
@@ -150,6 +163,17 @@ impl Deref for BigBuf {
 impl DerefMut for BigBuf {
     #[inline]
     fn deref_mut(&mut self) -> &mut [u8] {
+        self.as_mut_slice()
+    }
+}
+
+impl AsRef<[u8]> for BigBuf {
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+impl AsMut<[u8]> for BigBuf {
+    fn as_mut(&mut self) -> &mut [u8] {
         self.as_mut_slice()
     }
 }

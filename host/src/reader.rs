@@ -22,7 +22,8 @@ use crate::kernel::config::{self, SystemSettings};
 use crate::storage::VirtualStorage;
 
 pub use crate::apps::probe::{
-    LineInfo, Phase, QA_FONT_SIZE, QA_NEXT_CHAPTER, QA_PREV_CHAPTER, QA_TOC,
+    CHARS_PER_LINE, LineInfo, PAGE_BUF, Phase, QA_FONT_SIZE, QA_NEXT_CHAPTER, QA_PREV_CHAPTER,
+    QA_TOC,
 };
 pub use crate::board::action::Action;
 
@@ -95,6 +96,7 @@ pub struct Rig {
     k: Kernel,
     ctx: AppContext,
     app: Box<ReaderApp>,
+    text_width_override: Option<u32>,
 }
 
 impl Rig {
@@ -106,6 +108,7 @@ impl Rig {
             k,
             ctx: AppContext::new(),
             app: Box::new(ReaderApp::new()),
+            text_width_override: None,
         }
     }
 
@@ -126,6 +129,19 @@ impl Rig {
     pub fn configure(&mut self, book_font: u8, theme: u8) {
         self.app.set_book_font_size(book_font);
         self.app.set_reading_theme(theme);
+        self.apply_text_width();
+    }
+
+    // Geometry only: wrapping and page offsets remain production ReaderApp logic.
+    pub fn set_text_width(&mut self, width: u32) {
+        self.text_width_override = Some(width);
+        self.apply_text_width();
+    }
+
+    fn apply_text_width(&mut self) {
+        if let Some(width) = self.text_width_override {
+            probe::set_text_width(&mut self.app, width);
+        }
     }
 
     pub fn open(&mut self, name: &str) {
@@ -133,17 +149,32 @@ impl Rig {
         let mut h = self.k.handle();
         self.app.on_enter(&mut self.ctx, &mut h);
         drop(h);
+        self.apply_text_width();
+        self.settle();
+    }
+
+    // `open` for a reader whose font data is absent (`fonts == None`): the
+    // monospace layout path (see probe::drop_fonts)
+    pub fn open_monospace(&mut self, name: &str) {
+        self.ctx.set_message(name.as_bytes());
+        let mut h = self.k.handle();
+        self.app.on_enter(&mut self.ctx, &mut h);
+        drop(h);
+        probe::drop_fonts(&mut self.app);
+        self.apply_text_width();
         self.settle();
     }
 
     pub fn press(&mut self, a: Action) {
         self.app.on_event(ActionEvent::Press(a), &mut self.ctx);
+        self.apply_text_width();
         self.settle();
     }
 
     // one scheduler tick: the reader's `background`, then the worker task gets
     // its turn (the firmware's main task awaits there)
     fn tick(&mut self) {
+        self.apply_text_width();
         let mut h = self.k.handle();
         block_on(self.app.background(&mut self.ctx, &mut h));
         drop(h);
@@ -164,6 +195,34 @@ impl Rig {
             "reader did not settle, state {}",
             probe::state_name(&self.app)
         );
+    }
+
+    pub fn prepare_render(&mut self) {
+        self.app.prepare_render(&mut self.ctx, &mut self.k.handle());
+    }
+
+    // AppContext forwarders: the scheduler's view of the loading overlay and of
+    // the pending redraw request (no logic)
+    pub fn loading_active(&self) -> bool {
+        self.ctx.loading_active()
+    }
+
+    pub fn has_redraw(&self) -> bool {
+        self.ctx.has_redraw()
+    }
+
+    pub fn take_redraw(&mut self) {
+        let _ = self.ctx.take_redraw();
+    }
+
+    // App::on_enter alone, without `settle`: the firmware renders (and so
+    // prepares) between background ticks while the book is still loading
+    pub fn enter(&mut self, name: &str) {
+        self.ctx.set_message(name.as_bytes());
+        let mut h = self.k.handle();
+        self.app.on_enter(&mut self.ctx, &mut h);
+        drop(h);
+        self.apply_text_width();
     }
 
     pub fn phase(&self) -> Phase {
@@ -261,6 +320,27 @@ impl Rig {
 
     pub fn quick_trigger(&mut self, id: u8) {
         probe::quick_trigger(&mut self.app, id, &mut self.ctx);
+        self.apply_text_width();
+        self.settle();
+    }
+
+    pub fn suspend(&mut self) {
+        self.app.on_suspend();
+    }
+
+    // The app manager resumes the retained reader, then the scheduler runs it.
+    pub fn resume(&mut self) {
+        let mut h = self.k.handle();
+        self.app.on_resume(&mut self.ctx, &mut h);
+        drop(h);
+        self.apply_text_width();
+        self.settle();
+    }
+
+    // The quick-action overlay forwards the selected cycle value to the app.
+    pub fn quick_cycle(&mut self, id: u8, value: u8) {
+        self.app.on_quick_cycle_update(id, value, &mut self.ctx);
+        self.apply_text_width();
         self.settle();
     }
 

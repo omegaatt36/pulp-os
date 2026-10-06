@@ -24,6 +24,7 @@ board-x4 = []
 board-onepage-c61 = []
 
 [dependencies]
+pulp-fontpack = { path = "../fontpack" }
 pulp-board-logic = { path = "../board-logic" }
 smol-epub.workspace = true
 embassy-time = { workspace = true, features = ["std"] }

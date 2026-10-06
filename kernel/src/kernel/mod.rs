@@ -33,7 +33,7 @@ pub use app::{
     App, AppContext, AppIdType, AppLayer, Launcher, NavEvent, PendingSetting, QuickAction,
     QuickActionKind, RECENT_FILE, Redraw, SessionData, Transition,
 };
-pub use bigbuf::{BigBuf, BufClass, BufError};
+pub use bigbuf::{BigBuf, BufClass, BufError, FONT_GLYPHS_PSRAM_BYTES};
 pub use bookmarks::BookmarkCache;
 pub use console::BootConsole;
 pub use handle::KernelHandle;

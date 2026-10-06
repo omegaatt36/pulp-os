@@ -14,6 +14,7 @@ use crate::error::{Error, ErrorKind};
 use crate::kernel::KernelHandle;
 use crate::kernel::work_queue;
 use crate::kernel::{BigBuf, BufClass};
+use pulp_kernel::util::utf8_prefix_len;
 
 use super::{BgCacheState, CHAPTER_CACHE_MAX, EOCD_TAIL, EpubState, PAGE_BUF, ReaderApp, ZipIndex};
 
@@ -172,7 +173,7 @@ impl EpubState {
         hdr.epub_size = self.archive_size;
         hdr.name_hash = self.name_hash;
 
-        let tlen = title.len().min(cache::TITLE_CAP);
+        let tlen = utf8_prefix_len(title, cache::TITLE_CAP);
         hdr.title[..tlen].copy_from_slice(&title[..tlen]);
         hdr.title_len = tlen as u8;
         let nlen = filename.len().min(cache::NAME_CAP);
