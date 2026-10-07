@@ -6,6 +6,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub const STAMP: &str = "BUNDLE.JSON";
 pub const FORMAT: &str = "pulp-cjk-bundle-v1";
@@ -14,6 +15,10 @@ pub struct TempDir {
     pub path: PathBuf,
 }
 
+// The clock alone is not unique: macOS reports microseconds, so threads of one
+// process asking in the same microsecond would share a directory.
+static TEMP_DIR_SEQ: AtomicU64 = AtomicU64::new(0);
+
 impl TempDir {
     pub fn new_in(parent: &Path, prefix: &str) -> std::io::Result<Self> {
         let ts = std::time::SystemTime::now()
@@ -21,7 +26,8 @@ impl TempDir {
             .unwrap()
             .as_nanos();
         let pid = std::process::id();
-        let path = parent.join(format!("{prefix}{pid}_{ts}"));
+        let seq = TEMP_DIR_SEQ.fetch_add(1, Ordering::Relaxed);
+        let path = parent.join(format!("{prefix}{pid}_{ts}_{seq}"));
         fs::create_dir_all(&path)?;
         Ok(Self { path })
     }
