@@ -15,7 +15,8 @@
 #   5. boundary / equivalence checks (board selection, host boundary,
 #      offline radio, C61 raw-GPIO)
 #   6. C61 ELF memory budget                       report-c61-memory.sh
-#   7. cargo fmt --check
+#   7. C61 + wifi link / radio set / memory budget check-wifi-build.sh
+#   8. cargo fmt --check
 # Finally prints the hardware acceptance status: what has NOT been verified on hardware.
 #
 # The firmware builds share one target root with check-offline-boundary.sh and
@@ -75,6 +76,8 @@ stage "host boundary probes"          env ACCEPT_TARGET_ROOT="$root" scripts/che
 stage "offline radio boundary"        env OFFLINE_CHECK_TARGET_ROOT="$root" scripts/check-offline-boundary.sh
 stage "C61 free of C3 raw GPIO"       env C61_TARGET_DIR="$c61_dir" X4_ELF="$x4_elf" scripts/check-c61-no-c3-raw-gpio.sh
 stage "C61 ELF memory budget"         env C61_ELF="$c61_elf" scripts/report-c61-memory.sh
+# builds its own enabled C61 / X4 ELFs (cargo clean -p esp-radio) and runs the offline boundary again
+stage "C61 + wifi link and budget"    env WIFI_CHECK_TARGET_ROOT="$root/wifi-build" scripts/check-wifi-build.sh
 # -p, not --all: --all also checks path dependencies (../smol-epub is another repo)
 stage "cargo fmt --check"             cargo fmt -p pulp-os -p pulp-kernel -p pulp-board-logic -- --check
 
@@ -94,7 +97,15 @@ UNVERIFIED  battery sampling and USB detect polarity (BSP code vs README conflic
 UNVERIFIED  deep sleep, GPIO2 wake (arm-before-poweroff differs from BSP), GPIO27/GPIO10 pad state
 UNVERIFIED  sleep/active current, session restore across a real power cycle
 UNVERIFIED  X4 on hardware (ported to HAL 1.2: SPI, sleep, startup)
+UNVERIFIED  Wi-Fi upload (C61): association and DHCP IPv4 against a real router
+UNVERIFIED  Wi-Fi upload: HTTP page / file list / upload / delete content from a real client
+UNVERIFIED  Wi-Fi upload: mDNS pulp.local answered to real queries
+UNVERIFIED  Wi-Fi upload: re-entry after BACK / failure / timeout (radio release, heap high-water)
+UNVERIFIED  Wi-Fi upload: radio runtime internal heap, stack high-water, PSRAM split
+UNVERIFIED  Wi-Fi upload: current draw (associated idle, serving, after exit)
+UNVERIFIED  Wi-Fi upload: HTTP request to a silent peer (30 s socket timeout)
 Procedure and record template: see specs/changes/archive/onepage-c61-port/.
+Wi-Fi upload procedure and tracking table: specs/changes/archive/onepage-wifi-upload/hardware-acceptance.md
 EOF
 
 exit "$fail"

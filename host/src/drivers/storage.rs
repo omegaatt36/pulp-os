@@ -28,6 +28,14 @@ pub fn read_file_start(sd: &SdStorage, name: &str, buf: &mut [u8]) -> R<(u32, us
     borrow(sd)?.read_file_start(name, buf)
 }
 
+pub fn write_file(sd: &SdStorage, name: &str, data: &[u8]) -> R<()> {
+    borrow(sd)?.write_file(name, data)
+}
+
+pub fn append_root_file(sd: &SdStorage, name: &str, data: &[u8]) -> R<()> {
+    borrow(sd)?.append_root_file(name, data)
+}
+
 pub fn delete_file(sd: &SdStorage, name: &str) -> R<()> {
     borrow(sd)?.delete_file(name)
 }

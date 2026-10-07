@@ -9,7 +9,8 @@
 //   -> _PULP dir -> EPD driver -> Kernel + AppManager -> boot (session
 //   restore, first full refresh) -> tasks -> run.
 //
-// Offline only: no radio, no Wi-Fi (`wifi` + this board is a compile_error!).
+// Offline by default: the radio is linked only with `--features wifi`
+// (`cargo build-c61-wifi`).
 // Hardware behaviour is unverified, see the "not verified" lists in
 // board_c61/*.rs.
 

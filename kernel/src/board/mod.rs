@@ -37,6 +37,31 @@ pub type SharedSpiDevice = CriticalSectionDevice<'static, SpiBus, Output<'static
 pub type SdSpiDevice = CriticalSectionDevice<'static, SpiBus, raw_gpio::RawOutputPin, Delay>;
 pub type Epd = DisplayDriver<SharedSpiDevice, Output<'static>, Output<'static>, Input<'static>>;
 
+// Whole-screen refresh of a `draw` closure; same signature as the C61
+// `board::{full_refresh_screen, partial_refresh_screen}` (see board_c61/api.rs).
+pub async fn full_refresh_screen<F>(
+    epd: &mut Epd,
+    strip: &mut StripBuffer,
+    delay: &mut Delay,
+    draw: &F,
+) where
+    F: Fn(&mut StripBuffer),
+{
+    epd.full_refresh_async(strip, delay, draw).await;
+}
+
+pub async fn partial_refresh_screen<F>(
+    epd: &mut Epd,
+    strip: &mut StripBuffer,
+    delay: &mut Delay,
+    draw: &F,
+) where
+    F: Fn(&mut StripBuffer),
+{
+    epd.partial_refresh_async(strip, delay, 0, 0, SCREEN_W, SCREEN_H, draw)
+        .await;
+}
+
 static SPI_BUS: StaticCell<Mutex<RefCell<SpiBus>>> = StaticCell::new();
 
 // cached ref to the SPI bus mutex, set once in Board::init

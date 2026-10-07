@@ -1,5 +1,5 @@
 # Wi-Fi upload is optional and OFF by default (offline firmware, no radio
-# linked). `*-x4-wifi` aliases add `--features wifi` (X4 only for now).
+# linked). `*-wifi` aliases add `--features wifi`.
 # Boards (exactly one board feature per build; see README.txt):
 #   X4  : cargo build-x4   -> riscv32imc,  esp32c3
 #   C61 : cargo build-c61  -> riscv32imac, esp32c61: builds both images, the full
@@ -16,6 +16,8 @@ run-x4-wifi   = "run --release --target riscv32imc-unknown-none-elf --features b
 build-c61 = "build --release --target riscv32imac-unknown-none-elf --features board-onepage-c61"
 run-c61   = "run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61 --bin pulp-os-c61"
 run-c61-boot = "run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61 --bin pulp-os-c61-boot"
+build-c61-wifi = "build --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,wifi"
+run-c61-wifi   = "run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,wifi --bin pulp-os-c61"
 check-c61 = "check --release --target riscv32imac-unknown-none-elf --features board-onepage-c61"
 
 [target.riscv32imc-unknown-none-elf]

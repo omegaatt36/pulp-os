@@ -27,10 +27,11 @@ use esp_hal::{
     time::Instant,
 };
 use pulp_board_logic::power::DelayMs;
-use pulp_board_logic::ssd1677::{self, BusyPin, DisplayError, EpdBus};
+use pulp_board_logic::ssd1677::{self, BusyPin, DisplayError, EpdBus, Rotation, StripSource};
 use pulp_board_logic::strip::{StripCore, draw_bringup_pattern};
 
 use super::spi::EpdSpiDevice;
+use crate::drivers::strip::StripBuffer;
 use crate::error::{Error, ErrorKind};
 
 pub use pulp_board_logic::ssd1677::{BUSY_TIMEOUT_MS, CoreStrips};
@@ -110,4 +111,18 @@ pub fn full_refresh_test_pattern(epd: &mut Epd) -> Result<(), Error> {
         draw: draw_bringup_pattern,
     };
     epd.full_refresh(&mut src).map_err(display_error)
+}
+
+/// Feeds the driver one strip at a time from a `draw` closure.
+pub struct FnStrips<'a, F: Fn(&mut StripBuffer)> {
+    pub strip: &'a mut StripBuffer,
+    pub draw: F,
+}
+
+impl<F: Fn(&mut StripBuffer)> StripSource for FnStrips<'_, F> {
+    fn render_strip(&mut self, rotation: Rotation, idx: u16) -> &[u8] {
+        self.strip.begin_strip(rotation, idx);
+        (self.draw)(self.strip);
+        self.strip.data()
+    }
 }

@@ -126,9 +126,30 @@ const _: () = assert!(
 /// Internal heap plan (what the `heap_allocator!` calls add up to): a
 /// main-RAM part and the bootloader-reclaimed dram2 part, like the X4's
 /// 110_592 + 64_000.
+///
+/// `INTERNAL_HEAP_MAIN_BYTES` / `INTERNAL_HEAP_BYTES` are the offline build.
+/// The Wi-Fi build links the radio's static RAM (+68 KB on the C61), so it
+/// permanently shrinks the main part to `INTERNAL_HEAP_MAIN_BYTES_WIFI`; the
+/// firmware, the `MemoryBudget` and the ELF report all pick the variant through
+/// `internal_heap_main_bytes` / `internal_heap_bytes`.
 pub const INTERNAL_HEAP_MAIN_BYTES: usize = 96 * KIB;
+pub const INTERNAL_HEAP_MAIN_BYTES_WIFI: usize = 52 * KIB;
 pub const INTERNAL_HEAP_RECLAIMED_BYTES: usize = 64_000;
 pub const INTERNAL_HEAP_BYTES: usize = INTERNAL_HEAP_MAIN_BYTES + INTERNAL_HEAP_RECLAIMED_BYTES;
+
+/// Main-RAM part of the internal heap for the offline (`false`) or Wi-Fi (`true`) build.
+pub const fn internal_heap_main_bytes(wifi: bool) -> usize {
+    if wifi {
+        INTERNAL_HEAP_MAIN_BYTES_WIFI
+    } else {
+        INTERNAL_HEAP_MAIN_BYTES
+    }
+}
+
+/// Whole internal heap (main + bootloader-reclaimed) of the chosen build.
+pub const fn internal_heap_bytes(wifi: bool) -> usize {
+    internal_heap_main_bytes(wifi) + INTERNAL_HEAP_RECLAIMED_BYTES
+}
 
 /// Internal limits per class. `Dma`/`IsrData`/`Runtime` are internal-only;
 /// the other four are the degraded-mode limits (PSRAM unavailable): the X4
@@ -152,6 +173,7 @@ pub const STACK_MIN_BYTES: usize = 48 * 1024;
 pub const STATIC_RAM_MAX_BYTES: usize = C61_RAM_LEN - STACK_MIN_BYTES;
 
 const _: () = assert!(INTERNAL_HEAP_MAIN_BYTES < STATIC_RAM_MAX_BYTES);
+const _: () = assert!(INTERNAL_HEAP_MAIN_BYTES_WIFI < INTERNAL_HEAP_MAIN_BYTES);
 const _: () = assert!(INTERNAL_HEAP_RECLAIMED_BYTES <= C61_RECLAIMED_LEN);
 const _: () = assert!(C61_RAM_END - C61_RAM_START == C61_RAM_LEN + C61_RECLAIMED_LEN);
 
@@ -551,10 +573,16 @@ pub const fn class_limit(status: PsramStatus, region: Region, class: MemClass) -
     }
 }
 
-/// Pool (sum over all classes) limit of `region` for the given status.
+/// Pool (sum over all classes) limit of `region` for the given status, offline build.
 pub const fn pool_limit(status: PsramStatus, region: Region) -> usize {
+    pool_limit_for(false, status, region)
+}
+
+/// Pool limit of `region` for the offline (`wifi = false`) or Wi-Fi build: the
+/// internal pool is that build's whole internal heap.
+pub const fn pool_limit_for(wifi: bool, status: PsramStatus, region: Region) -> usize {
     match region {
-        Region::Internal => INTERNAL_HEAP_BYTES,
+        Region::Internal => internal_heap_bytes(wifi),
         Region::Psram => {
             let bytes = psram_heap_bytes(status);
             if bytes > PSRAM_RESERVE_BYTES {
@@ -568,15 +596,24 @@ pub const fn pool_limit(status: PsramStatus, region: Region) -> usize {
 
 #[derive(Debug)]
 pub struct MemoryBudget {
+    wifi: bool,
     status: PsramStatus,
     used: [[usize; CLASS_COUNT]; 2],
     pool_used: [usize; 2],
 }
 
 impl MemoryBudget {
-    /// Starts in `NotInitialised`: internal limits only (fail safe).
+    /// Offline build; starts in `NotInitialised`: internal limits only (fail safe).
     pub const fn new() -> Self {
+        Self::for_build(false)
+    }
+
+    /// Budget of the offline (`false`) or Wi-Fi (`true`) build: the internal
+    /// pool is that build's internal heap, so it cannot admit more than the
+    /// firmware actually allocated.
+    pub const fn for_build(wifi: bool) -> Self {
         Self {
+            wifi,
             status: PsramStatus::NotInitialised,
             used: [[0; CLASS_COUNT]; 2],
             pool_used: [0; 2],
@@ -626,7 +663,7 @@ impl MemoryBudget {
     }
 
     pub const fn pool_limit(&self, region: Region) -> usize {
-        pool_limit(self.status, region)
+        pool_limit_for(self.wifi, self.status, region)
     }
 
     /// Reserve with automatic placement (`region_for`).

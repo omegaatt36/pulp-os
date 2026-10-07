@@ -34,6 +34,7 @@ building
         cargo build-x4 --locked      xteink x4, esp32c3, riscv32imc
         cargo run-x4                 build + flash + monitor (espflash)
         cargo build-x4-wifi --locked x4 with wifi upload (--features wifi)
+        cargo build-c61-wifi --locked c61 with wifi upload (--features wifi)
 
         cargo build-c61 --locked     onepage c61, esp32c61, riscv32imac;
                                      builds both images: pulp-os-c61 (full
@@ -61,11 +62,23 @@ building
     wifi upload is optional and off by default for every board: the
     default (offline) firmware does not link esp-radio / embassy-net, has
     no Upload menu entry, and cannot enter upload mode. `--features wifi`
-    (or the *-x4-wifi aliases) adds it; x4 only, c61 rejects it at compile
-    time until the radio is ported. settings.txt still round-trips the
-    wifi_ssid / wifi_pass keys so credentials are not lost. check:
+    (or the *-wifi aliases) adds it. esp-radio is built at opt-level 3
+    (package override in Cargo.toml), the rest stays at 's'. settings.txt
+    still round-trips the
+    wifi_ssid / wifi_pass keys so credentials are not lost. the c61 wifi
+    build shrinks the main internal heap from 96 KiB to 52 KiB
+    (INTERNAL_HEAP_MAIN_BYTES_WIFI) to fit the radio's statics; the
+    offline build keeps 96 KiB. check:
 
-        scripts/check-offline-boundary.sh
+        scripts/check-offline-boundary.sh   offline: no radio crates / symbols
+        scripts/check-wifi-build.sh         wifi: radio set, opt-level, link of
+                                            both boards, offline boundary,
+                                            IPv4-only smoltcp, c61 memory
+                                            budget (report-c61-memory.sh)
+
+    c61 wifi hardware acceptance (association, DHCP, HTTP, mDNS, re-entry,
+    current; none run on hardware, all tracked as UNVERIFIED):
+    specs/changes/archive/onepage-wifi-upload/hardware-acceptance.md
 
     status: the c61 build is the full offline firmware
     (src/bin/main_c61.rs: reader, files, settings, bookmarks, home,
@@ -179,7 +192,12 @@ directory layout
         home.rs             launcher menu + bookmarks browser
         files.rs            SD file browser + background title scanner
         settings.rs         settings UI
-        upload.rs           wifi upload server
+        upload/             wifi upload server (wifi feature only)
+          mod.rs            radio / network wiring, TCP accept, screens
+          session.rs        one session: credentials, association, DHCP, serve
+          connect.rs        credential check, stage limits, error text
+          http.rs           GET / and /files, POST /upload and /delete
+          mdns.rs           pulp.local responder
         reader/
           mod.rs            state machine, lifecycle, draw, quick actions
           paging.rs         text wrapping, page navigation, load/prefetch

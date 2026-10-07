@@ -36,7 +36,7 @@ use pulp_board_logic::ssd1677::{Rotation, StripSource};
 
 use super::app::{AppLayer, Redraw};
 use super::tasks;
-use crate::board_c61::epd::Epd;
+use crate::board_c61::epd::{Epd, FnStrips};
 use crate::board_c61::power::Gpio27Rail;
 use crate::board_c61::sd::{self, CardEvent};
 use crate::board_c61::session::{self, SdSessionStore};
@@ -74,19 +74,6 @@ fn draw_sleep_screen(strip: &mut StripBuffer) {
 
     let style = MonoTextStyle::new(&FONT_9X18, BinaryColor::On);
     let _ = Text::new("(sleep)", Point::new(210, 400), style).draw(strip);
-}
-
-struct FnStrips<'a, F: Fn(&mut StripBuffer)> {
-    strip: &'a mut StripBuffer,
-    draw: F,
-}
-
-impl<F: Fn(&mut StripBuffer)> StripSource for FnStrips<'_, F> {
-    fn render_strip(&mut self, rotation: Rotation, idx: u16) -> &[u8] {
-        self.strip.begin_strip(rotation, idx);
-        (self.draw)(self.strip);
-        self.strip.data()
-    }
 }
 
 // controller init through the GPIO27 policy (software reset only); false when
@@ -201,7 +188,10 @@ impl super::Kernel {
     // cannot be applied, so bad data cannot loop at boot
     fn restore_session<A: AppLayer>(&mut self, app_mgr: &mut A, state: &SessionState) -> bool {
         let env = RestoreEnv {
-            upload_available: false, // the C61 firmware is offline-only
+            // Upload is active only inside the special-mode call (the scheduler
+            // pops it right after), so a saved session never contains it; the
+            // app layer's id mapper has no Upload entry in either build.
+            upload_available: false,
         };
         let sd = &self.sd;
         let applicable = check_restorable(state, env, |name| {

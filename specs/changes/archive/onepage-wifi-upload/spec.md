@@ -18,6 +18,8 @@ IF credentials 缺失／不合法、association 失敗或 DHCP 逾時 THEN THE S
 ### R6: HTTP service
 WHILE upload 已連線 THE SYSTEM SHALL 提供既有 HTTP upload／list／delete 行為。
 
+[human, 2026-10-07, final review 修復決定] delete 須保留合法、無路徑的 FAT 8.3 檔名相容性（含 `A(B).TXT` 等既有檔名），不得套用 upload 的較窄 sanitize 字元集合。upload sanitize 行為維持原樣（例如 `A(B).TXT` 上傳仍保存為 `AB.TXT`）；非法路徑與超長 body 仍須拒絕且不得修改 SD。
+
 ### R7: 上傳內容
 WHEN 上傳成功 THE SYSTEM SHALL 在 SD 保存與輸入位元組一致的檔案。
 

@@ -1720,6 +1720,7 @@ dependencies = [
  "embassy-time",
  "embedded-graphics",
  "embedded-graphics-core",
+ "embedded-io-async 0.7.0",
  "fontdue",
  "log",
  "miniz_oxide",

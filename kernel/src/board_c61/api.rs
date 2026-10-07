@@ -22,6 +22,39 @@ pub use super::epd::Epd;
 pub use crate::drivers::sdcard::{SdStorage, SyncSdCard};
 pub use crate::drivers::strip::StripBuffer;
 
+use super::epd::FnStrips;
+
+// Whole-screen refresh of a `draw` closure, same signature as the X4
+// `board::{full_refresh_screen, partial_refresh_screen}` so code outside the
+// scheduler (the upload mode) draws without a per-board branch. The C61 has no
+// partial refresh and the blocking driver needs no delay handle, so both are one
+// full refresh. A failed refresh is only logged (no recovery outside the
+// scheduler); the caller's next refresh tries again.
+pub async fn full_refresh_screen<F>(
+    epd: &mut Epd,
+    strip: &mut StripBuffer,
+    _delay: &mut esp_hal::delay::Delay,
+    draw: &F,
+) where
+    F: Fn(&mut StripBuffer),
+{
+    let mut src = FnStrips { strip, draw };
+    if let Err(e) = epd.full_refresh(&mut src) {
+        log::warn!("display: full refresh failed: {}", e.as_str());
+    }
+}
+
+pub async fn partial_refresh_screen<F>(
+    epd: &mut Epd,
+    strip: &mut StripBuffer,
+    delay: &mut esp_hal::delay::Delay,
+    draw: &F,
+) where
+    F: Fn(&mut StripBuffer),
+{
+    full_refresh_screen(epd, strip, delay, draw).await;
+}
+
 // logical screen size (portrait via 270-degree rotation of the 800x480 panel)
 pub const SCREEN_W: u16 = HEIGHT; // 480
 pub const SCREEN_H: u16 = WIDTH; // 800

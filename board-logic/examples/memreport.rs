@@ -2,7 +2,10 @@
 // rules of `pulp_board_logic::memory` (the code the firmware links) to numbers
 // the script extracted from a linked ELF.
 //
-//   memreport constants          print the budget constants as NAME=value
+//   memreport constants offline|wifi
+//                                print the budget constants as NAME=value; the internal
+//                                heap values (INTERNAL_HEAP_MAIN_BYTES, INTERNAL_HEAP_BYTES)
+//                                are those of the chosen build variant
 //   memreport inventory          print the large-allocation inventory as a markdown table
 //   memreport check < facts      check facts read from stdin, exit 1 on a fault
 //
@@ -21,7 +24,7 @@ fn hex(s: &str) -> usize {
     })
 }
 
-fn constants() {
+fn constants(wifi: bool) {
     let kv: &[(&str, usize)] = &[
         ("C61_RAM_START", C61_RAM_START),
         ("C61_RAM_LEN", C61_RAM_LEN),
@@ -32,12 +35,12 @@ fn constants() {
         ("C61_EXTMEM_END", C61_EXTMEM_END),
         ("STACK_MIN_BYTES", STACK_MIN_BYTES),
         ("STATIC_RAM_MAX_BYTES", STATIC_RAM_MAX_BYTES),
-        ("INTERNAL_HEAP_MAIN_BYTES", INTERNAL_HEAP_MAIN_BYTES),
+        ("INTERNAL_HEAP_MAIN_BYTES", internal_heap_main_bytes(wifi)),
         (
             "INTERNAL_HEAP_RECLAIMED_BYTES",
             INTERNAL_HEAP_RECLAIMED_BYTES,
         ),
-        ("INTERNAL_HEAP_BYTES", INTERNAL_HEAP_BYTES),
+        ("INTERNAL_HEAP_BYTES", internal_heap_bytes(wifi)),
         ("PSRAM_HW_BYTES", PSRAM_HW_BYTES),
         ("PSRAM_MIN_BYTES", PSRAM_MIN_BYTES),
         ("PSRAM_RESERVE_BYTES", PSRAM_RESERVE_BYTES),
@@ -57,6 +60,7 @@ fn constants() {
         ("FLASH_MHZ", FLASH_MHZ as usize),
         ("PSRAM_MHZ", PSRAM_MHZ as usize),
     ];
+    println!("BUILD_VARIANT={}", if wifi { "wifi" } else { "offline" });
     for (k, v) in kv {
         println!("{k}={v}");
     }
@@ -185,7 +189,14 @@ fn check() -> bool {
 
 fn main() {
     match std::env::args().nth(1).as_deref() {
-        Some("constants") => constants(),
+        Some("constants") => match std::env::args().nth(2).as_deref() {
+            Some("offline") => constants(false),
+            Some("wifi") => constants(true),
+            _ => {
+                eprintln!("usage: memreport constants offline|wifi");
+                std::process::exit(2);
+            }
+        },
         Some("inventory") => inventory(),
         Some("check") => {
             if !check() {
@@ -193,7 +204,7 @@ fn main() {
             }
         }
         _ => {
-            eprintln!("usage: memreport constants | inventory | check < facts");
+            eprintln!("usage: memreport constants offline|wifi | inventory | check < facts");
             std::process::exit(2);
         }
     }

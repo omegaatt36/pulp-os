@@ -1,5 +1,6 @@
 // Production apps and manager over the host board/storage seams. Upload is
-// firmware-only; AppId and the aliases mirror the offline firmware surface.
+// firmware-only except its connect, http, mdns and session layers; AppId and the aliases
+// mirror the offline firmware surface.
 #[path = "../../src/apps/files.rs"]
 #[allow(unexpected_cfgs)]
 pub mod files;
@@ -15,9 +16,25 @@ pub mod reader;
 #[path = "apps/settings.rs"]
 #[allow(dead_code, unused_imports)]
 pub mod settings;
+#[path = "../../src/apps/upload/connect.rs"]
+#[allow(dead_code)]
+pub mod upload_connect;
+#[path = "../../src/apps/upload/http.rs"]
+#[allow(dead_code)]
+pub mod upload_http;
+#[path = "../../src/apps/upload/mdns.rs"]
+#[allow(dead_code)]
+pub mod upload_mdns;
+#[path = "../../src/apps/upload/session.rs"]
+#[allow(dead_code)]
+pub mod upload_session;
 #[path = "../../src/apps/widgets/mod.rs"]
 #[allow(dead_code)]
 pub mod widgets;
+
+// session.rs reaches connect.rs as `super::connect` (the firmware module name)
+#[allow(unused_imports)]
+use self::upload_connect as connect;
 
 // read-only view of ReaderApp's pub(super) state for crate::reader::Rig
 pub(crate) mod probe;

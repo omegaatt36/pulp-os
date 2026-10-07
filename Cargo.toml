@@ -54,7 +54,7 @@ required-features = ["board-onepage-c61"]
 # ---------------
 # Exactly one board feature must be enabled (compile_error! in
 # kernel/src/lib.rs). There is deliberately no default feature.
-#   X4  : cargo build-x4   (riscv32imc,  esp32c3)
+#   X4: cargo build-x4   (riscv32imc,  esp32c3)
 #   C61 : cargo build-c61  (riscv32imac, esp32c61)
 # The *chip* is selected by the build target through the target-specific
 # dependency tables below, not by the board feature. Reason: Cargo features
@@ -69,14 +69,14 @@ default = []
 # Wi-Fi upload stack (optional boundary). Off by default for every board:
 # without it esp-radio / embassy-net / embedded-io-async are not linked, the
 # Upload app, its home-menu entry and the WIFI peripheral steal are compiled
-# out (R4, R5). Build an X4 with upload via `cargo build-x4-wifi`.
-# Not ported to OnePage C61 yet (src/lib.rs rejects wifi + board-onepage-c61).
+# out . Build with upload via `cargo build-x4-wifi` / `cargo build-c61-wifi`.
 wifi = [
   "dep:esp-radio",
   "dep:embassy-net",
   "dep:embedded-io-async",
   "esp-rtos/esp-radio",
   "esp-rtos/esp-alloc",
+  "pulp-kernel/wifi",
 ]
 
 board-x4          = ["pulp-kernel/board-x4"]
@@ -105,7 +105,7 @@ esp-radio = { version = "=1.0.0-beta.1", optional = true, default-features = fal
   "log-04",
   "esp-alloc",
 ] }
-embassy-net       = { version = "0.8", optional = true, features = ["dhcpv4", "medium-ethernet", "tcp", "udp"] }
+embassy-net       = { version = "0.8", optional = true, features = ["dhcpv4", "medium-ethernet", "multicast", "tcp", "udp"] }
 embedded-io-async = { version = "0.7", optional = true }
 
 esp-bootloader-esp-idf = { version = "=0.6.0", features = ["log-04"] }
@@ -150,3 +150,11 @@ incremental      = false
 lto              = 'fat'
 opt-level        = 's'
 overflow-checks  = false
+
+# esp-radio documents that the radio blobs require optimization level 2 or 3
+# (esp-radio src/lib.rs, "Optimization level"); the global level stays 's'.
+[profile.dev.package.esp-radio]
+opt-level = 3
+
+[profile.release.package.esp-radio]
+opt-level = 3

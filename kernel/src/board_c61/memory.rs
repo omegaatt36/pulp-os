@@ -40,17 +40,27 @@ use esp_hal::peripherals::PSRAM;
 use esp_hal::psram::{FlashFreq, Psram, PsramConfig, SpiRamFreq};
 use log::{error, info, warn};
 pub use pulp_board_logic::memory::{
-    ExternalClass, INTERNAL_HEAP_MAIN_BYTES, INTERNAL_HEAP_RECLAIMED_BYTES, MemClass, MemError,
-    MemoryBudget, PSRAM_CHAPTER_TEXT_BYTES, PsramFault, PsramStatus, Region, Reservation,
+    ExternalClass, INTERNAL_HEAP_RECLAIMED_BYTES, MemClass, MemError, MemoryBudget,
+    PSRAM_CHAPTER_TEXT_BYTES, PsramFault, PsramStatus, Region, Reservation,
 };
 use pulp_board_logic::memory::{
     FLASH_MHZ, PSRAM_HW_BYTES, PSRAM_MHZ, PSRAM_MIN_BYTES, WordMem, evaluate_psram,
-    range_is_internal, selftest, window_fault,
+    internal_heap_main_bytes, range_is_internal, selftest, window_fault,
 };
+
+/// This build is the Wi-Fi variant (the radio's static RAM leaves room for a
+/// smaller main heap, see board-logic `INTERNAL_HEAP_MAIN_BYTES_WIFI`).
+const WIFI: bool = cfg!(feature = "wifi");
+
+/// Main-RAM internal heap the firmware must register (`heap_allocator!`). The
+/// firmware and `BUDGET` both take the variant from `WIFI`, so the budget can
+/// never admit more internal memory than the heap that was actually added.
+pub const INTERNAL_HEAP_MAIN_BYTES: usize = internal_heap_main_bytes(WIFI);
 
 /// PSRAM-only heap. Never the global allocator (see the policy above).
 static PSRAM_HEAP: EspHeap = EspHeap::empty();
-static BUDGET: Mutex<RefCell<MemoryBudget>> = Mutex::new(RefCell::new(MemoryBudget::new()));
+static BUDGET: Mutex<RefCell<MemoryBudget>> =
+    Mutex::new(RefCell::new(MemoryBudget::for_build(WIFI)));
 static INIT_DONE: AtomicBool = AtomicBool::new(false);
 
 /// DMA buffers are 4-byte aligned on the C61: internal RAM is not cached

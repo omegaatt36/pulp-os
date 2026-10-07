@@ -27,7 +27,7 @@ board-onepage-c61 = []
 pulp-fontpack = { path = "../fontpack" }
 pulp-board-logic = { path = "../board-logic" }
 smol-epub.workspace = true
-embassy-time = { workspace = true, features = ["std"] }
+embassy-time = { workspace = true, features = ["std", "generic-queue-8"] }
 embassy-sync.workspace = true
 embassy-executor.workspace = true
 embassy-futures.workspace = true
@@ -35,6 +35,7 @@ critical-section = { workspace = true, features = ["std"] }
 embedded-graphics.workspace = true
 embedded-graphics-core.workspace = true
 log.workspace = true
+embedded-io-async = "0.7"
 miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
 
 [build-dependencies]

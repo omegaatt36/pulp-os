@@ -1,0 +1,69 @@
+   Compiling compiler_builtins v0.1.160 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
+   Compiling core v0.0.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/core)
+   Compiling libc v0.2.189
+   Compiling object v0.39.1
+   Compiling std v0.0.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/std)
+   Compiling test v0.0.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/test)
+   Compiling rustc-std-workspace-core v1.99.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/rustc-std-workspace-core)
+   Compiling alloc v0.0.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/alloc)
+   Compiling adler2 v2.0.1
+   Compiling memchr v2.8.3
+   Compiling cfg-if v1.0.4
+   Compiling rustc-demangle v0.1.28
+   Compiling rustc-literal-escaper v0.0.8
+   Compiling unwind v0.0.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/unwind)
+   Compiling rustc-std-workspace-alloc v1.99.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/rustc-std-workspace-alloc)
+   Compiling panic_unwind v0.0.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/panic_unwind)
+   Compiling panic_abort v0.0.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/panic_abort)
+   Compiling gimli v0.34.0
+   Compiling hashbrown v0.17.1
+   Compiling std_detect v0.1.5 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/std_detect)
+   Compiling miniz_oxide v0.9.1
+   Compiling addr2line v0.27.1
+   Compiling rustc-std-workspace-std v1.99.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/rustc-std-workspace-std)
+   Compiling proc_macro v0.0.0 (/Users/raiven_kao/.rustup/toolchains/nightly-2026-09-22-aarch64-apple-darwin/lib/rustlib/src/rust/library/proc_macro)
+   Compiling getopts v0.2.24
+   Compiling pulp-board-logic v0.1.0 (/tmp/wifi-budget-mutant-3ygyadrh/board-logic)
+warning: field `wifi` is never read
+   --> src/memory.rs:599:5
+    |
+598 | pub struct MemoryBudget {
+    |            ------------ field in this struct
+599 |     wifi: bool,
+    |     ^^^^
+    |
+    = note: `MemoryBudget` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `pulp-board-logic` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.22s
+     Running tests/wifi_budget.rs (/tmp/wifi-budget-mutant-3ygyadrh/board-logic/target/aarch64-apple-darwin/debug/build/pulp-board-logic/235cf78bc7bdb207/out/wifi_budget-235cf78bc7bdb207)
+
+running 9 tests
+test internal_heap_is_main_plus_reclaimed_for_both_variants ... ok
+test offline_budget_is_unchanged ... ok
+test wifi_main_heap_is_smaller_and_granule_aligned ... ok
+test offline_budget_accepts_internal_reservations_above_wifi_ceiling ... ok
+test wifi_stack_headroom_meets_the_minimum ... ok
+test wifi_statics_with_shrunk_heap_fit_the_static_budget ... ok
+test wifi_variant_main_heap_is_52_kib ... ok
+test wifi_without_heap_shrink_would_exceed_the_static_budget ... ok
+test build_budget_enforces_aggregate_internal_capacity_across_classes ... FAILED
+
+failures:
+
+---- build_budget_enforces_aggregate_internal_capacity_across_classes stdout ----
+
+thread 'build_budget_enforces_aggregate_internal_capacity_across_classes' (2601138) panicked at tests/wifi_budget.rs:96:13:
+assertion `left == right` failed: wifi true, status NotInitialised: capacity
+  left: 162304
+ right: 117248
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    build_budget_enforces_aggregate_internal_capacity_across_classes
+
+test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test wifi_budget`

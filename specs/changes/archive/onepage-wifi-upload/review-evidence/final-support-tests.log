@@ -1,0 +1,107 @@
+   Compiling pulp-host v0.1.0 (/Users/raiven_kao/dev/pulp-os/host)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1.60s
+     Running tests/upload_connect.rs (target/aarch64-apple-darwin/debug/build/pulp-host/78bc1d2c0e18f4b9/out/upload_connect-78bc1d2c0e18f4b9)
+
+running 9 tests
+test default_limits_use_the_named_timeouts ... ok
+test named_timeouts_are_finite_and_nonzero_with_contract_values ... ok
+test empty_ssid_is_missing_credentials_regardless_of_password ... ok
+test ssid_over_32_bytes_is_invalid ... ok
+test password_outside_8_to_63_bytes_is_invalid ... ok
+test password_boundaries_8_and_63_are_ok ... ok
+test every_error_has_displayable_distinct_text ... ok
+test lengths_are_counted_in_bytes_not_chars ... ok
+test ssid_up_to_32_bytes_with_valid_password_is_ok ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/upload_mdns.rs (target/aarch64-apple-darwin/debug/build/pulp-host/5fc9cf478963189d/out/upload_mdns-5fc9cf478963189d)
+
+running 58 tests
+test any_type_matches ... ok
+test constants_match_the_contract ... ok
+test edns_opt_and_known_answer_do_not_prevent_a_reply ... ok
+test any_matching_question_wins_not_only_the_first ... ok
+test declared_question_count_beyond_the_actual_does_not_reply ... ok
+test every_prefix_of_a_valid_query_is_rejected_without_panic ... ok
+test fewer_questions_declared_than_present_is_fine ... ok
+test bytes_differing_only_by_high_bit_do_not_match ... ok
+test a_failed_send_does_not_end_serve_and_later_queries_are_answered ... ok
+test forward_pointers_are_malformed ... ok
+test forward_pointer_in_a_later_question_is_malformed ... ok
+test failures_in_the_middle_and_every_send_failing_do_not_end_serve ... ok
+test ip_label_has_no_leading_zeros ... ok
+test ip_label_ignores_stale_buffer_contents ... ok
+test ip_label_named_examples ... ok
+test longest_label_fits_exactly ... ok
+test label_followed_by_pointer_back_to_its_own_start_loops_and_terminates ... ok
+test named_casings_match ... ok
+test nonzero_opcodes_are_not_queries ... ok
+test only_aaaa_questions_do_not_match ... ok
+test over_long_names_do_not_match ... ok
+test other_qtypes_do_not_match ... ok
+test non_matching_names_do_not_match ... ok
+test pointer_to_a_pointer_is_followed ... ok
+test prefixes_of_multi_question_and_compressed_packets_are_rejected_until_complete ... ok
+test qu_bit_class_matches ... ok
+test pointer_to_a_label_suffix_of_an_earlier_question_is_followed ... ok
+test other_qclasses_do_not_match ... ok
+test nonzero_query_id_and_benign_flag_bits_still_match_but_reply_id_is_zero ... ok
+test pointer_into_the_header_is_not_a_name ... ok
+test record_counts_are_not_validated_against_the_bytes_that_follow ... ok
+test recv_failure_after_a_failed_send_still_reports_the_recv_error ... ok
+test reply_matches_the_query_layout_assumed_by_the_parser ... ok
+test recv_failure_ends_serve_with_that_error_after_earlier_queries_were_answered ... ok
+test recv_failure_on_the_very_first_call_returns_immediately ... ok
+test replies_carry_the_ip_passed_to_serve_and_a_new_call_uses_the_new_ip ... ok
+test reply_name_is_lowercase_whatever_the_query_case ... ok
+test reserved_label_types_do_not_match ... ok
+test responses_are_not_queries ... ok
+test second_question_may_use_a_compression_pointer_to_the_first ... ok
+test self_pointing_name_is_malformed_and_terminates ... ok
+test serve_answers_each_query_and_survives_noise ... ok
+test serve_does_not_answer_its_own_looped_back_responses ... ok
+test short_packets_do_not_reply ... ok
+test serve_ignores_a_variety_of_non_queries ... ok
+test serve_with_no_traffic_never_returns_and_never_sends ... ok
+test standard_a_query_gets_a_fully_checked_reply_for_many_ips ... ok
+test truncated_additional_records_still_reply ... ok
+test serve_answers_a_query_between_long_noise_stretches ... ok
+test serve_answers_after_a_long_run_of_non_matching_packets ... ok
+test truncated_or_dangling_pointers_do_not_reply ... ok
+test zero_qdcount_is_not_a_question ... ok
+test name_labels_compare_case_insensitively_exhaustively ... ok
+test single_byte_substitutions_in_the_name_do_not_match ... ok
+test mutated_real_queries_never_panic_or_hang ... ok
+test ip_label_digit_boundaries_in_every_octet_position ... ok
+test random_bodies_behind_a_query_header_never_panic_or_hang ... ok
+test random_bytes_never_panic_or_hang ... ok
+
+test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/upload_session.rs (target/aarch64-apple-darwin/debug/build/pulp-host/a0437fe44ff686f8/out/upload_session-a0437fe44ff686f8)
+
+running 20 tests
+test back_already_ready_returns_promptly_exited_associating ... ok
+test acquire_failure_is_reported_and_nothing_else_runs ... ok
+test acquire_while_token_held_fails_without_panic_and_leaves_owner_intact ... ok
+test back_already_ready_with_pending_dhcp_stage_is_bounded_and_released ... ok
+test association_error_releases_and_skips_later_stages ... ok
+test back_while_associating_cancels_and_releases ... ok
+test back_while_serving_cancels_and_releases ... ok
+test back_while_waiting_for_dhcp_cancels_and_releases ... ok
+test empty_password_fails_before_acquire ... ok
+test radio_unavailable_has_displayable_distinct_text ... ok
+test missing_credentials_fail_before_acquire ... ok
+test stages_run_in_order_once_and_dhcp_value_reaches_serve ... ok
+test invalid_credentials_fail_before_acquire ... ok
+test cancelled_serve_future_is_dropped_and_never_polled_again ... ok
+test association_timeout_releases_within_bound ... ok
+test cancelled_pending_stages_are_dropped_in_every_phase ... ok
+test dhcp_timeout_releases_within_bound ... ok
+test one_hundred_consecutive_sessions_never_see_a_stale_owner ... ok
+test dhcp_budget_is_independent_of_association_time ... ok
+test timeout_duration_follows_configured_limits ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+

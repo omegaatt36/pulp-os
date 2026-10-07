@@ -13,8 +13,3 @@ pub use pulp_kernel::{board, drivers, kernel};
 pub mod apps;
 pub mod fonts;
 pub mod ui;
-
-#[cfg(all(feature = "wifi", feature = "board-onepage-c61"))]
-compile_error!(
-    "feature `wifi` is not ported to board-onepage-c61 yet; the OnePage C61 firmware is offline-only (use `cargo build-c61`)."
-);

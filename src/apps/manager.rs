@@ -797,14 +797,10 @@ impl AppLayer for AppManager {
         delay: &mut Delay,
         sd: &SdStorage,
     ) {
-        // Safety: WIFI is not owned by any other driver.  Upload mode
-        // runs in isolation (the scheduler exits the main dispatch loop
-        // first) and tears down the radio stack before returning.  The
-        // peripheral is not accessed again until the next upload session.
-        let wifi = unsafe { esp_hal::peripherals::WIFI::steal() };
-
+        // Upload mode runs in isolation (the scheduler leaves the main
+        // dispatch loop first) and has released the radio and the network
+        // interface when it returns.
         crate::apps::upload::run_upload_mode(
-            wifi,
             epd,
             strip,
             delay,

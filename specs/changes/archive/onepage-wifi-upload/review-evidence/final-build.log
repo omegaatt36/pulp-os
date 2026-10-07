@@ -1,0 +1,264 @@
+
+== C61 + wifi: dependency set  ==
+ok    c61 wifi: esp-hal 1.2.0
+ok    c61 wifi: esp-rtos 0.4.0
+ok    c61 wifi: esp-alloc 0.11.0
+ok    c61 wifi: esp-radio 1.0.0-beta.1
+ok    c61 wifi: esp-bootloader-esp-idf 0.6.0
+ok    c61 wifi: embassy-net 0.8.0
+ok    c61 wifi: esp-radio-rtos-driver 0.4.2
+ok    c61 wifi: esp-phy 0.3.0
+ok    c61 wifi: esp-wifi-sys-esp32c61 0.3.0
+ok    c61 wifi: esp-radio has feature esp32c61
+ok    c61 wifi: esp-radio lacks feature esp32c3
+ok    c61 wifi: smoltcp lacks feature proto-ipv6
+
+== X4 + wifi: no stale radio / RTOS  ==
+ok    x4 wifi: esp-radio 1.0.0-beta.1
+ok    x4 wifi: esp-rtos 0.4.0
+ok    x4 wifi: esp-radio is not a stale version
+ok    x4 wifi: esp-rtos is not a stale version
+
+== C61 + wifi: link and ELF  ==
+ok    c61 wifi: build/link succeeded
+ok    c61 wifi: ELF exists (target/wifi-build/offline-boundary/c61-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61)
+ok    c61 wifi: radio/net symbols found (376)
+ok    c61 wifi: symbol esp_wifi_start
+ok    c61 wifi: symbol esp_wifi_init_internal
+ok    c61 wifi: symbol esp_wifi_connect_internal
+
+== C61 + wifi: radio optimization  ==
+ok    c61 wifi: esp_radio compiled with opt-level=3
+
+== X4 + wifi: build and radio optimization  ==
+ok    x4 wifi: build/link succeeded
+ok    x4 wifi: esp_radio compiled with opt-level=3
+
+== Wi-Fi disabled : scripts/check-offline-boundary.sh ==
+== X4 offline (default)
+ok    x4 offline: esp-radio not in dependency graph
+ok    x4 offline: esp-radio-rtos-driver not in dependency graph
+ok    x4 offline: embassy-net not in dependency graph
+ok    x4 offline: smoltcp not in dependency graph
+ok    x4 offline: esp-wifi-sys not in dependency graph
+ok    x4 offline: esp-wifi-sys-esp32c61 not in dependency graph
+ok    x4 offline: no radio/net symbols
+ok    x4 offline: no upload-mode strings
+ok    x4 offline: no 'Upload' menu label
+== X4 + wifi (positive control)
+ok    x4 wifi: esp-radio in dependency graph
+ok    x4 wifi: radio/net symbols found (359)
+ok    x4 wifi: upload-mode strings found (6)
+ok    x4 wifi: 'Upload' menu label found
+== C61 offline (default)
+ok    c61 offline: esp-radio not in dependency graph
+ok    c61 offline: esp-radio-rtos-driver not in dependency graph
+ok    c61 offline: embassy-net not in dependency graph
+ok    c61 offline: smoltcp not in dependency graph
+ok    c61 offline: esp-wifi-sys not in dependency graph
+ok    c61 offline: esp-wifi-sys-esp32c61 not in dependency graph
+ok    c61 full firmware: no radio/net symbols
+ok    c61 full firmware: no upload-mode strings
+ok    c61 full firmware: no 'Upload' menu label
+ok    c61 boot image: no radio/net symbols
+ok    c61 boot image: no upload-mode strings
+ok    c61 boot image: no 'Upload' menu label
+== C61 + wifi (positive control)
+ok    c61 wifi: esp-radio in dependency graph
+ok    c61 wifi: radio/net symbols found (376)
+ok    offline boundary (X4 / C61 disabled absent; X4 / C61 enabled positive controls)
+
+== C61 + wifi: memory baseline ==
+elf: target/wifi-build/offline-boundary/c61-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61
+features: board-onepage-c61,wifi
+rustc: rustc 1.100.0-nightly (1303417c4 2026-09-21)
+esp-radio: 1.0.0-beta.1
+
+-- size
+   text	   data	    bss	    dec	    hex	filename
+1474512	  37928	 184000	1696440	 19e2b8	target/wifi-build/offline-boundary/c61-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61
+
+-- scripts/report-c61-memory.sh (exit 0)
+ELF: target/wifi-build/offline-boundary/c61-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61 (16267836 bytes)
+
+== size -A (sections with non-zero size, no debug info) ==
+target/wifi-build/offline-boundary/c61-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61  :
+section                    size         addr
+.trap                      2656   1082130432
+.rwtext                   13368   1082133088
+.rwtext.wifi              30704   1082146456
+.data                     37564   1082177160
+.data.wifi                  364   1082214728
+.bss                     120000   1082215096
+.flash.appdesc              256   1107296288
+.rodata                  499256   1107296544
+.rodata.wifi              54080   1107795800
+.text_gap                    36   1107849880
+.text                    822196   1107849916
+.stack                    51960   1082335096
+.dram2_uninit             64000   1082387056
+.eh_frame                  9568            0
+Total                  12785590
+
+
+
+== readelf -S -W (allocated sections) ==
+There are 31 section headers, starting at offset 0xf83564:
+
+Section Headers:
+  1 .trap             PROGBITS        40800000 001000 000a60 00  AX  0   0 256
+  2 .rwtext           PROGBITS        40800a60 001a60 003438 00  AX  0   0  4
+  3 .rwtext.wifi      PROGBITS        40803e98 004e98 0077f0 00  AX  0   0  2
+  4 .data             PROGBITS        4080b688 00c688 0092bc 00 WAMR  0   0  8
+  5 .data.wifi        PROGBITS        40814948 015948 00016c 00  WA  0   0  8
+  6 .bss              NOBITS          40814ab8 015ab4 01d4c0 00  WA  0   0  8
+  7 .noinit           NOBITS          40831f78 015ab4 000000 00  WA  0   0  4
+  8 .flash.appdesc    PROGBITS        42000020 016020 000100 00  AR  0   0  4
+  9 .rodata_merge     PROGBITS        42000120 016120 000000 00   A  0   0  4
+  10 .rodata           PROGBITS        42000120 016120 079e38 00 AMS  0   0  8
+  11 .rodata.wifi      PROGBITS        42079f58 08ff58 00d340 00   A  0   0  4
+  12 .text_gap         NOBITS          42087298 09d298 000024 00   A  0   0  1
+  13 .text             PROGBITS        420872bc 09d2bc 0c8bb4 00  AX  0   0  4
+  14 .stack            NOBITS          40831f78 165f78 00caf8 00   A  0   0  4
+  15 .dram2_uninit     NOBITS          4083ea70 166a70 00fa00 00  WA  0   0  4
+
+== readelf -l -W (segments) ==
+Program Headers:
+  Type           Offset   VirtAddr   PhysAddr   FileSiz MemSiz  Flg Align
+  LOAD           0x001000 0x40800000 0x40800000 0x0b688 0x0b688 R E 0x1000
+  LOAD           0x00c688 0x4080b688 0x4080b688 0x0942c 0x268f0 RW  0x1000
+  LOAD           0x016020 0x42000020 0x42000020 0x87278 0x8729c R   0x1000
+  LOAD           0x09d2bc 0x420872bc 0x420872bc 0xc8bb4 0xc8bb4 R E 0x1000
+  LOAD           0x165f78 0x40831f78 0x40831f78 0x00000 0x0caf8 R   0x1000
+  LOAD           0x166a70 0x4083ea70 0x4083ea70 0x00000 0x0fa00 RW  0x1000
+  GNU_STACK      0x000000 0x00000000 0x00000000 0x00000 0x00000 RW  0x0
+ Section to Segment mapping:
+  Segment Sections...
+   00     .trap .rwtext .rwtext.wifi 
+   01     .data .data.wifi .bss 
+   02     .flash.appdesc .rodata_merge .rodata .rodata.wifi .text_gap 
+   03     .text 
+   04     .noinit .stack 
+   05     .dram2_uninit 
+   06     
+   07     .riscv.attributes 
+   None   .espressif.metadata .eh_frame .debug_loc .debug_abbrev .debug_info .debug_aranges .debug_ranges .debug_str .comment .debug_frame .debug_line .symtab .shstrtab .strtab 
+
+== budget constants (pulp_board_logic::memory), build variant: wifi ==
+BUILD_VARIANT=wifi
+C61_RAM_START=1082130432
+C61_RAM_LEN=256624
+C61_RECLAIMED_START=1082387056
+C61_RECLAIMED_LEN=65536
+C61_RAM_END=1082452592
+C61_EXTMEM_START=1107296256
+C61_EXTMEM_END=1174405120
+STACK_MIN_BYTES=49152
+STATIC_RAM_MAX_BYTES=207472
+INTERNAL_HEAP_MAIN_BYTES=53248
+INTERNAL_HEAP_RECLAIMED_BYTES=64000
+INTERNAL_HEAP_BYTES=117248
+PSRAM_HW_BYTES=2097152
+PSRAM_MIN_BYTES=1048576
+PSRAM_RESERVE_BYTES=196608
+PSRAM_CHAPTER_TEXT_BYTES=786432
+PSRAM_IMAGE_DATA_BYTES=524288
+PSRAM_PAGE_TABLE_BYTES=65536
+PSRAM_ZIP_TOC_BYTES=262144
+PSRAM_FONT_GLYPHS_BYTES=262144
+INTERNAL_DMA_BYTES=16384
+INTERNAL_ISR_BYTES=4096
+INTERNAL_RUNTIME_BYTES=32768
+INTERNAL_CHAPTER_TEXT_BYTES=98304
+INTERNAL_IMAGE_DATA_BYTES=114688
+INTERNAL_PAGE_TABLE_BYTES=8192
+INTERNAL_ZIP_TOC_BYTES=32768
+INTERNAL_FONT_GLYPHS_BYTES=16384
+FLASH_MHZ=40
+PSRAM_MHZ=40
+
+== checks (pulp_board_logic::memory::{check_image, section_placement_ok, range_is_internal}) ==
+ok   image: statics 204664 B (79.7% of 256624 B main RAM), stack 51960 B, headroom over 49152 B minimum = 2808 B
+ok   section .trap                  0x40800000 +0x000a60 R InternalRam
+ok   section .rwtext                0x40800a60 +0x003438 R InternalRam
+ok   section .rwtext.wifi           0x40803e98 +0x0077f0 R InternalRam
+ok   section .data                  0x4080b688 +0x0092bc W InternalRam
+ok   section .data.wifi             0x40814948 +0x00016c W InternalRam
+ok   section .bss                   0x40814ab8 +0x01d4c0 W InternalRam
+ok   section .noinit                0x40831f78 +0x000000 W InternalRam
+ok   section .flash.appdesc         0x42000020 +0x000100 R ExternalMapped
+ok   section .rodata_merge          0x42000120 +0x000000 R ExternalMapped
+ok   section .rodata                0x42000120 +0x079e38 R ExternalMapped
+ok   section .rodata.wifi           0x42079f58 +0x00d340 R ExternalMapped
+ok   section .text_gap              0x42087298 +0x000024 R ExternalMapped
+ok   section .text                  0x420872bc +0x0c8bb4 R ExternalMapped
+ok   section .stack                 0x40831f78 +0x00caf8 R InternalRam
+ok   section .dram2_uninit          0x4083ea70 +0x00fa00 W InternalRam
+ok   dma     pulp_kernel::board_c61::spi::init::DESCRIPTORS 0x4082c9e8 +0x001c internal RAM
+ok   dma     pulp_kernel::board_c61::spi::init::BUFFER  0x4082a88c +0x1000 internal RAM
+ok   dma     pulp_kernel::board_c61::spi::init::DESCRIPTORS 0x4082ca04 +0x001c internal RAM
+ok   dma     pulp_kernel::board_c61::spi::init::BUFFER  0x4082b88c +0x1000 internal RAM
+ok    image / section / DMA rules
+ok    found 4 SPI DMA symbols (2 BUFFER + 2 DESCRIPTORS expected)
+ok    source: no psram_allocator!/External region outside board_c61::memory
+ok    source: exactly one External region registration (private PSRAM_HEAP)
+ok    source: the only add_region call is PSRAM_HEAP.add_region (never esp_alloc::HEAP)
+ok    _stack_end=0x40831f78 _stack_start=0x4083ea70 match the .stack section
+ok    _stack_start == C61_RECLAIMED_START (end of memory.x RAM)
+ok    main heap static of 53248 B present (inside .bss)
+ok    .dram2_uninit = 64000 B = INTERNAL_HEAP_RECLAIMED_BYTES (bootloader-reclaimed region)
+ok    no data/bss symbol inside the flash/PSRAM window
+
+== memory map literals vs esp-hal ld/esp32c61/memory.x ==
+memory.x: /Users/raiven_kao/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-hal-1.2.0/ld/esp32c61/memory.x
+ok    RAM ORIGIN 0x40800000
+ok    RAM LENGTH 0x3EA70
+ok    dram2 end 0x4084EA70
+ok    DROM window 0x42000000..0x46000000
+
+== internal RAM summary ==
+HP SRAM usable (memory.x RAM + dram2_seg)               322160 B
+  RAM (linker main region)                              256624 B
+    statics (.trap .rwtext .data .bss .noinit)          204656 B  (79.7% of RAM)
+    .stack (= RAM - statics)                             51960 B
+    STACK_MIN_BYTES                                      49152 B
+    stack headroom over STACK_MIN_BYTES                   2808 B
+    statics budget (STATIC_RAM_MAX_BYTES)               207472 B
+    statics budget left                                   2816 B
+  dram2_seg used by .dram2_uninit (heap)                 64000 B  (97% of dram2_seg)
+image bytes (.text .rodata .rwtext .trap .data .appdesc)   1375296 B
+note: Berkeley 'size' counts .stack in 'text' on this target (section flags A,
+      not W), so its text column is not a code-size figure; use the line above.
+      The actual stack use (high water mark) is NOT measured: hardware only.
+
+== PSRAM plan (2 MiB part; not verified on hardware) ==
+PSRAM_HW_BYTES                       2097152 B
+  chapter text limit                  786432 B
+  image data limit                    524288 B
+  page table limit                     65536 B
+  zip/toc limit                       262144 B
+  font glyphs limit                   262144 B
+  reserve (allocator/headroom)        196608 B
+internal heap (main + reclaimed)      117248 B
+
+== largest static objects (nm --size-sort, b/B/d/D, top 12) ==
+   64000  4083ea70  b  pulp_os_c61::__main::____embassy_main_task::____embassy_main_task_inner_function::{closure#0}::HEAP
+   53248  4081824c  b  pulp_os_c61::__main::____embassy_main_task::____embassy_main_task_inner_function::{closure#0}::HEAP
+   20656  4080de38  d  pulp_os_c61::READER
+   19704  40825250  b  pulp_os_c61::__main::__embassy_main::POOL
+   10764  40815840  b  pulp_os_c61::DIR_CACHE
+    5256  4082f9c8  B  g_cnxMgr
+    4096  4082b88c  b  pulp_kernel::board_c61::spi::init::BUFFER
+    4096  4082a88c  b  pulp_kernel::board_c61::spi::init::BUFFER
+    4014  4080ce88  d  pulp_os_c61::STRIP
+    1928  4082c890  b  .L_MergedGlobals.1935
+    1928  40814ae0  b  pulp_os_c61::HOME
+    1920  4082a108  b  esp_phy::PHY_STATE
+
+RESULT: all memory budget checks ok
+
+ok    baseline has size text/data/bss (target/wifi-build/wifi-memory-baseline.txt)
+ok    baseline carries the report verdict
+ok    report-c61-memory.sh on the enabled ELF: all budget checks ok
+
+RESULT: wifi build checks ok

@@ -119,8 +119,13 @@ memreport() {
 }
 
 # --- 3. budget constants (single source: board-logic/src/memory.rs) -----------------
-hr "budget constants (pulp_board_logic::memory)"
-if ! memreport constants >"$mdir/consts" 2>"$mdir/consts.err"; then
+# Build variant from the ELF itself: the Wi-Fi build links the radio driver, the offline
+# build does not (same probe as check-offline-boundary.sh). The variant picks the internal
+# heap plan; the main-heap check in section 4 then fails if the ELF's heap is not the one
+# planned for the variant it contains, so a mismatch cannot pass silently.
+if nm "$elf" | awk '$2 != "A" && $2 != "a"' | grep -qiE 'esp_radio|esp_wifi'; then variant=wifi; else variant=offline; fi
+hr "budget constants (pulp_board_logic::memory), build variant: $variant"
+if ! memreport constants "$variant" >"$mdir/consts" 2>"$mdir/consts.err"; then
   bad "memreport failed to build/run: $(tail -3 "$mdir/consts.err")"; exit 1
 fi
 cat "$mdir/consts"

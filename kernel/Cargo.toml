@@ -42,3 +42,6 @@ esp-alloc = { workspace = true, features = ["esp32c61"] }
 default = []
 board-x4          = []
 board-onepage-c61 = []
+# Wi-Fi build of the firmware (forwarded by the root `wifi` feature): selects the
+# smaller C61 internal heap plan and the matching MemoryBudget.
+wifi              = []
