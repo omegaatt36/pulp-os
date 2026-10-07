@@ -99,7 +99,7 @@ smol-epub.workspace            = true
 
 esp-rtos = { version = "=0.4.0", features = ["embassy", "log-04"] }
 
-# wifi / networking (used by apps/upload.rs); optional, enabled via `wifi`
+# wifi / networking (used by apps/upload/); optional, enabled via `wifi`
 esp-radio = { version = "=1.0.0-beta.1", optional = true, default-features = false, features = [
   "wifi",
   "log-04",

@@ -25,7 +25,7 @@
 - 板子：ESP32-C61HR2／16 MB flash／2 MB PSRAM；初始 flash40 MHz、PSRAM40 MHz。GPIO27 是 EPD reset **兼 SD/MIC power**，SD 初始化後不能再掉電。
 - BSP 是 ESP-IDF C，使用它的 pin map／操作順序，不引入 IDF runtime。BSP USB detect 文件與實作極性矛盾，以 schematic／實測定案；CrossPoint SDK submodule 目前未初始化。
 - Pulp 原 X4 release build 已通過隔離驗證。C61 的 HAL／RTOS／PSRAM 最小程式，以及 Wi-Fi／DHCP／TCP／UDP 最小程式可連結；完整 Pulp 尚未移植。
-- [Wi-Fi 支援與版本證據](../references/onepage-wifi-support.md)：原 radio0.17／RTOS0.2 沒有 C61 feature；HAL1.2 對應候選 radio1.0.0-beta.1，舊 upload API 需遷移。
+- [Wi-Fi 支援與版本證據](../references/onepage-wifi-support.md)：原 radio0.17／RTOS0.2 沒有 C61 feature；目前採用 radio1.0.0-beta.1／RTOS0.4.0，upload 已遷移並歸檔，仍無實機驗證。
 - 本地 stable compiler1.99.0 與 RISC-V core1.98.1 不一致。分析用重建 core／alloc 繞過；T1 必須建立正式可重現工具鏈，不能依賴此 workaround 或 `/tmp` 產物。
 - `smol-epub` 現有 test suite 是 0 unit tests／4 ignored doctests，需新增具體功能驗收。path dependency 的 Git revision 不由 Cargo.lock 固定。
 - 本地 `Iansui-Regular.ttf` 是未追蹤輸入；後續 agent 以 font-path 使用，不假設它會隨 clone 出現。
