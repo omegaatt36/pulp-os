@@ -297,6 +297,28 @@ pub async fn stream_strip_entry_async<R: AsyncReadAt, W: AsyncWriteChunk>(
     reader: &mut R,
     writer: &mut W,
 ) -> Result<u32, &'static str> {
+    stream_strip_entry_async_with_scratch(
+        entry,
+        local_offset,
+        reader,
+        writer,
+        crate::scratch::HeapScratch::zeroed,
+    )
+    .await
+}
+
+/// Strip a streamed chapter with caller-selected layout-aware inflate scratch.
+pub async fn stream_strip_entry_async_with_scratch<R: AsyncReadAt, W: AsyncWriteChunk, S, C>(
+    entry: &ZipEntry,
+    local_offset: u32,
+    reader: &mut R,
+    writer: &mut W,
+    mut scratch: C,
+) -> Result<u32, &'static str>
+where
+    S: crate::scratch::ScratchStorage,
+    C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
+{
     // skip local file header
     let mut header = [0u8; 30];
     read_all_async(reader, local_offset, &mut header).await?;
@@ -305,7 +327,9 @@ pub async fn stream_strip_entry_async<R: AsyncReadAt, W: AsyncWriteChunk>(
 
     match entry.method {
         METHOD_STORED => stream_stored_async(entry, data_offset, reader, writer).await,
-        METHOD_DEFLATE => stream_deflate_async(entry, data_offset, reader, writer).await,
+        METHOD_DEFLATE => {
+            stream_deflate_async(entry, data_offset, reader, writer, &mut scratch).await
+        }
         _ => Err("cache: unsupported compression method"),
     }
 }
@@ -362,14 +386,19 @@ async fn stream_stored_async<R: AsyncReadAt, W: AsyncWriteChunk>(
     Ok(total_written)
 }
 
-async fn stream_deflate_async<R: AsyncReadAt, W: AsyncWriteChunk>(
+async fn stream_deflate_async<R: AsyncReadAt, W: AsyncWriteChunk, S, C>(
     entry: &ZipEntry,
     data_offset: u32,
     reader: &mut R,
     writer: &mut W,
-) -> Result<u32, &'static str> {
+    scratch: &mut C,
+) -> Result<u32, &'static str>
+where
+    S: crate::scratch::ScratchStorage,
+    C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
+{
     use miniz_oxide::inflate::TINFLStatus;
-    use miniz_oxide::inflate::core::{DecompressorOxide, decompress, inflate_flags};
+    use miniz_oxide::inflate::core::{decompress, inflate_flags};
 
     let comp_size = entry.comp_size as usize;
     let uncomp_size = entry.uncomp_size;
@@ -380,20 +409,11 @@ async fn stream_deflate_async<R: AsyncReadAt, W: AsyncWriteChunk>(
         uncomp_size
     );
 
-    // ~11 KB DecompressorOxide
-    let decomp_ptr =
-        unsafe { alloc::alloc::alloc_zeroed(core::alloc::Layout::new::<DecompressorOxide>()) };
-    if decomp_ptr.is_null() {
-        return Err("cache: OOM for decompressor");
-    }
-    let mut decomp = unsafe { Box::from_raw(decomp_ptr as *mut DecompressorOxide) };
-
-    // 32 KB circular dictionary
-    let mut window = Vec::new();
-    window
-        .try_reserve_exact(WINDOW_SIZE)
-        .map_err(|_| "cache: OOM for window")?;
-    window.resize(WINDOW_SIZE, 0);
+    let mut decomp = crate::scratch::Decompressor::new(scratch)?;
+    let mut window = crate::scratch::ScratchBytes::new(
+        scratch,
+        core::alloc::Layout::array::<u8>(WINDOW_SIZE).unwrap(),
+    )?;
 
     // 4 KB read buffer
     let mut rbuf = Vec::new();

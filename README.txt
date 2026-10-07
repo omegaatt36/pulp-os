@@ -5,6 +5,59 @@ bare-metal e-reader operating system for the XTEink X4 board
 framebuffer, no dyn dispatch. async runtime via Embassy on
 esp-rtos.
 
+C61 memory diagnostics
+    Large decoder scratch buffers use explicit memory class budgets.
+    Font metadata and runtime state remain in internal RAM.
+    Heap and stack logs include PSRAM allocation current, free and peak bytes.
+    Reservation logs include per-class high-water values.
+    Reservation peaks can include requests that the allocator later rejects.
+    They are distinct from physical allocation peaks.
+    esp-alloc 0.11 does not expose the largest free block through its public API.
+    The firmware does not allocate probe blocks to estimate fragmentation.
+    Hardware peak usage and latency remain unverified.
+
+CJK font installation
+    Build one selected font with the pinned source in fonts/cjk.json:
+
+        python3 scripts/build-cjk-fonts.py
+
+    Copy target/cjk-sd/_PULP/FONTS to _PULP/FONTS on the SD card.
+    Replace the previous FONTS directory to remove packs from the old font.
+    Keep PROV.TXT, COVERAGE.TXT, BUNDLE.JSON and the license file.
+    The firmware loads these SD packs. It has no font selection menu.
+
+    The manifest selects one TTF/OTF, its license, upstream URL, source
+    version and pixel sizes. Paths are relative to the manifest directory.
+    Every source file has a pinned SHA256. No network download is required.
+    The Iansui version is a source hash identifier, not an upstream release tag.
+
+    To use another font, provide a manifest with that font and its actual
+    license. Use --manifest <file> and --out <bundle-directory>.
+    Keep all nine sizes for the current firmware: 16,19,23,27,28,32,35,38,46.
+    Optional require_chars has path and sha256 fields for a UTF-8 coverage
+    fixture. Missing required characters fail the bundle build.
+    Glyph coverage, baseline, dense pages and heading metrics need validation
+    for each replacement font. CJK bold and italic use the regular pack.
+
+    The converter writes OFL.TXT for SIL OFL 1.1 and LICENSE.TXT otherwise.
+    Direct converter calls retain the OFL default for compatibility.
+    For other licenses, pass --license-name <actual-license-name>.
+
+    The builder checks Cargo dependencies before it reuses cached packs.
+    The cache key includes the manifest, converter binary, source files,
+    Cargo.lock, Cargo configuration and rustc version.
+    Each cache hit checks every output hash. Corrupt cache files cause a
+    rebuild. The builder replaces only directories with its BUNDLE.JSON.
+    Use --cache <directory> to choose another cache location.
+
+    Commit source fonts, licenses and manifests. Keep generated packs and
+    caches under target/. Publish the selected bundle as a release artifact.
+    The duplicate archived Iansui ZIP was removed after byte comparison.
+
+    Run the bundle tests with the real alternate-font fixture:
+
+        python3 -m unittest discover -s scripts/tests -p test_build_cjk_fonts.py
+
 hardware
     mcu         ESP32-C3, single-core RISC-V RV32IMC, 160 MHz
     ram         400 KB DRAM; ~172 KB heap (108 KB main + 64 KB reclaimed)

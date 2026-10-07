@@ -11,7 +11,6 @@
 
 extern crate alloc;
 
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::DecodedImage;
@@ -65,6 +64,29 @@ pub fn decode_png_fit_with_buffer<B, A>(
     allocate: A,
 ) -> Result<DecodedImage<B>, &'static str>
 where
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
+    decode_png_fit_with_scratch(
+        data,
+        max_w,
+        max_h,
+        allocate,
+        crate::scratch::HeapScratch::zeroed,
+    )
+}
+
+/// Decode an in-memory PNG with caller-selected layout-aware IDAT scratch.
+pub fn decode_png_fit_with_scratch<B, A, S, C>(
+    data: &[u8],
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+    mut scratch: C,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    S: crate::scratch::ScratchStorage,
+    C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
     B: AsMut<[u8]>,
     A: FnOnce(usize) -> Result<B, &'static str>,
 {
@@ -149,19 +171,11 @@ where
 
     // streaming decompressor (~11KB heap-allocated)
 
-    let decomp_layout = core::alloc::Layout::new::<miniz_oxide::inflate::core::DecompressorOxide>();
-    let decomp_ptr = unsafe { alloc::alloc::alloc_zeroed(decomp_layout) };
-    if decomp_ptr.is_null() {
-        return Err("png: OOM for decompressor");
-    }
-    let mut decomp =
-        unsafe { Box::from_raw(decomp_ptr as *mut miniz_oxide::inflate::core::DecompressorOxide) };
-
-    // 32KB circular dictionary for wrapping-mode inflate
-    let mut dict = Vec::new();
-    dict.try_reserve_exact(DICT_SIZE)
-        .map_err(|_| "png: OOM for dictionary")?;
-    dict.resize(DICT_SIZE, 0u8);
+    let mut decomp = crate::scratch::Decompressor::new(&mut scratch)?;
+    let mut dict = crate::scratch::ScratchBytes::new(
+        &mut scratch,
+        core::alloc::Layout::array::<u8>(DICT_SIZE).unwrap(),
+    )?;
 
     let mut in_pos: usize = 0;
     let mut dict_pos: usize = 0; // cumulative output pos
@@ -322,36 +336,37 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> ReadExact for Stor
 }
 
 // reads sequentially from a DEFLATE-compressed ZIP entry via a user-supplied closure
-struct DeflateSource<F> {
+struct DeflateSource<F, S: crate::scratch::ScratchStorage> {
     read_fn: F,
     file_pos: u32,
     comp_left: usize,
     rbuf: Vec<u8>,
     in_avail: usize,
-    decomp: Box<miniz_oxide::inflate::core::DecompressorOxide>,
-    window: Vec<u8>,
+    decomp: crate::scratch::Decompressor<S>,
+    window: crate::scratch::ScratchBytes<S>,
     dict_pos: usize,
     read_pos: usize,
     avail: usize,
     done: bool,
 }
 
-impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> DeflateSource<F> {
-    fn new(read_fn: F, data_offset: u32, comp_size: u32) -> Result<Self, &'static str> {
-        use miniz_oxide::inflate::core::DecompressorOxide;
-
-        let decomp_ptr =
-            unsafe { alloc::alloc::alloc_zeroed(core::alloc::Layout::new::<DecompressorOxide>()) };
-        if decomp_ptr.is_null() {
-            return Err("png: OOM for DEFLATE decompressor");
-        }
-        let decomp = unsafe { Box::from_raw(decomp_ptr as *mut DecompressorOxide) };
-
-        let mut window = Vec::new();
-        window
-            .try_reserve_exact(ZIP_DEFLATE_WINDOW)
-            .map_err(|_| "png: OOM for DEFLATE window")?;
-        window.resize(ZIP_DEFLATE_WINDOW, 0);
+impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>, S: crate::scratch::ScratchStorage>
+    DeflateSource<F, S>
+{
+    fn new<A>(
+        read_fn: F,
+        data_offset: u32,
+        comp_size: u32,
+        scratch: &mut A,
+    ) -> Result<Self, &'static str>
+    where
+        A: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
+    {
+        let decomp = crate::scratch::Decompressor::new(scratch)?;
+        let window = crate::scratch::ScratchBytes::new(
+            scratch,
+            core::alloc::Layout::array::<u8>(ZIP_DEFLATE_WINDOW).unwrap(),
+        )?;
 
         let mut rbuf = Vec::new();
         rbuf.try_reserve_exact(STREAMING_READ_BUF)
@@ -434,7 +449,9 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> DeflateSource<F> {
     }
 }
 
-impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> ReadExact for DeflateSource<F> {
+impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>, S: crate::scratch::ScratchStorage>
+    ReadExact for DeflateSource<F, S>
+{
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), &'static str> {
         let mut total = 0usize;
         while total < buf.len() {
@@ -496,6 +513,34 @@ where
     B: AsMut<[u8]>,
     A: FnOnce(usize) -> Result<B, &'static str>,
 {
+    decode_png_streaming_with_scratch(
+        read_fn,
+        data_offset,
+        data_size,
+        max_w,
+        max_h,
+        allocate,
+        crate::scratch::HeapScratch::zeroed,
+    )
+}
+
+/// Decode with caller-selected layout-aware IDAT scratch.
+pub fn decode_png_streaming_with_scratch<F, B, A, S, C>(
+    read_fn: F,
+    data_offset: u32,
+    data_size: u32,
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+    mut scratch: C,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
+    S: crate::scratch::ScratchStorage,
+    C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
     if max_w == 0 || max_h == 0 {
         return Err("png: zero output bounds");
     }
@@ -504,7 +549,7 @@ where
         offset: data_offset,
         end: data_offset + data_size,
     };
-    decode_png_from(&mut src, max_w, max_h, allocate)
+    decode_png_from(&mut src, max_w, max_h, allocate, &mut scratch)
 }
 
 /// Backward-compatible alias for [`decode_png_streaming`].
@@ -557,11 +602,39 @@ where
     B: AsMut<[u8]>,
     A: FnOnce(usize) -> Result<B, &'static str>,
 {
+    decode_png_deflate_streaming_with_scratch(
+        read_fn,
+        data_offset,
+        comp_size,
+        max_w,
+        max_h,
+        allocate,
+        crate::scratch::HeapScratch::zeroed,
+    )
+}
+
+/// Decode with caller-selected layout-aware ZIP and IDAT scratch.
+pub fn decode_png_deflate_streaming_with_scratch<F, B, A, S, C>(
+    read_fn: F,
+    data_offset: u32,
+    comp_size: u32,
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+    mut scratch: C,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
+    S: crate::scratch::ScratchStorage,
+    C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
     if max_w == 0 || max_h == 0 {
         return Err("png: zero output bounds");
     }
-    let mut src = DeflateSource::new(read_fn, data_offset, comp_size)?;
-    decode_png_from(&mut src, max_w, max_h, allocate)
+    let mut src = DeflateSource::new(read_fn, data_offset, comp_size, &mut scratch)?;
+    decode_png_from(&mut src, max_w, max_h, allocate, &mut scratch)
 }
 
 /// Backward-compatible alias for [`decode_png_deflate_streaming`].
@@ -632,13 +705,16 @@ where
 /// Core streaming PNG decoder; generic over byte source.
 /// Reads chunks sequentially, feeds IDAT into zlib row-by-row;
 /// never holds the full PNG in RAM.
-fn decode_png_from<R: ReadExact, B, A>(
+fn decode_png_from<R: ReadExact, B, A, S, C>(
     src: &mut R,
     max_w: u16,
     max_h: u16,
     allocate: A,
+    scratch: &mut C,
 ) -> Result<DecodedImage<B>, &'static str>
 where
+    S: crate::scratch::ScratchStorage,
+    C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
     B: AsMut<[u8]>,
     A: FnOnce(usize) -> Result<B, &'static str>,
 {
@@ -780,17 +856,11 @@ where
     let mut row_pos: usize = 0;
 
     // streaming zlib decompressor for IDAT data
-    let decomp_layout = core::alloc::Layout::new::<miniz_oxide::inflate::core::DecompressorOxide>();
-    let decomp_ptr = unsafe { alloc::alloc::alloc_zeroed(decomp_layout) };
-    if decomp_ptr.is_null() {
-        return Err("png: OOM for decompressor");
-    }
-    let mut decomp =
-        unsafe { Box::from_raw(decomp_ptr as *mut miniz_oxide::inflate::core::DecompressorOxide) };
-    let mut dict = Vec::new();
-    dict.try_reserve_exact(DICT_SIZE)
-        .map_err(|_| "png: OOM for dictionary")?;
-    dict.resize(DICT_SIZE, 0u8);
+    let mut decomp = crate::scratch::Decompressor::new(scratch)?;
+    let mut dict = crate::scratch::ScratchBytes::new(
+        scratch,
+        core::alloc::Layout::array::<u8>(DICT_SIZE).unwrap(),
+    )?;
     let mut dict_pos: usize = 0;
     let mut src_y: usize = 0;
     let mut out_y: usize = 0;

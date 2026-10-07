@@ -152,6 +152,23 @@ impl Default for EpubToc {
 }
 
 impl EpubToc {
+    /// Allocate an empty TOC fallibly, initializing entries directly in place.
+    pub fn try_new() -> Result<alloc::boxed::Box<Self>, &'static str> {
+        let layout = core::alloc::Layout::new::<Self>();
+        // SAFETY: EpubToc contains only integer arrays and a count. Zero is
+        // valid for every field; each unresolved spine index is set below.
+        let ptr = unsafe { alloc::alloc::alloc_zeroed(layout) }.cast::<Self>();
+        if ptr.is_null() {
+            return Err("epub: out of memory for TOC");
+        }
+        // SAFETY: this allocation has Self's layout, initialized fields, and
+        // uses the global allocator expected by Box. No large stack temporary.
+        let mut toc = unsafe { alloc::boxed::Box::from_raw(ptr) };
+        for entry in &mut toc.entries {
+            entry.spine_idx = 0xffff;
+        }
+        Ok(toc)
+    }
     /// Create a new, empty table of contents.
     pub const fn new() -> Self {
         Self {

@@ -332,19 +332,48 @@ pub fn alloc_dma(size: usize) -> Result<MemBuf, MemError> {
 /// at a glance; `BigBuf` calls it when the budget refuses a request.
 pub fn log_classes() {
     for class in MemClass::ALL.into_iter().filter(|c| c.allows_psram()) {
-        let (region, used, limit) = critical_section::with(|cs| {
+        let (region, used, peak, limit) = critical_section::with(|cs| {
             let b = BUDGET.borrow_ref(cs);
             let region = b.region_for(class);
-            (region, b.used(region, class), b.class_limit(region, class))
+            (
+                region,
+                b.used(region, class),
+                b.peak(region, class),
+                b.class_limit(region, class),
+            )
         });
         info!(
-            "memory class {:<12} {:?}: {} / {} B",
+            "memory class {:<12} {:?}: reserved {} / {} B, peak {} B",
             class.name(),
             region,
             used,
-            limit
+            limit,
+            peak
         );
     }
+}
+
+/// Physical PSRAM heap usage and reservation high water. Reservation peaks
+/// include allocator refusals; heap peaks come from esp-alloc independently.
+pub fn log_usage() {
+    let stats = PSRAM_HEAP.stats();
+    let (used, peak, limit) = critical_section::with(|cs| {
+        let b = BUDGET.borrow_ref(cs);
+        (
+            b.pool_used(Region::Psram),
+            b.pool_peak(Region::Psram),
+            b.pool_limit(Region::Psram),
+        )
+    });
+    info!(
+        "heap psram: used {} B, free {} B, peak {} B; reserved {} / {} B, peak {} B",
+        stats.current_usage,
+        stats.size - stats.current_usage,
+        stats.max_usage,
+        used,
+        limit,
+        peak
+    );
 }
 
 /// One log line per region, the PSRAM class table and the heaps (for
@@ -367,4 +396,5 @@ pub fn log_report() {
         PSRAM_HEAP.used(),
         PSRAM_HEAP.free()
     );
+    log_usage();
 }

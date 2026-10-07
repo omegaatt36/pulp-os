@@ -7,20 +7,31 @@ Generated acceptance set: `target/accept-iansui/packs/`. Copy all nine
 The nine pack files total 14,792,301 bytes. Keep the provenance and license.
 No removable device was written during acceptance.
 
-Recreate in an empty output directory from the local original source files:
+Current reproducible installation workflow:
 
 ```sh
-CARGO_NET_OFFLINE=true cargo run -p pulp-fontconv --target aarch64-apple-darwin \
-  --config 'unstable.build-std=["std","panic_unwind"]' -- \
-  --font Iansui-Regular.ttf --license OFL.txt \
-  --upstream-url https://github.com/ButTaiwan/iansui --out target/iansui-install
+python3 scripts/build-cjk-fonts.py
 ```
 
-Use your host triple instead of `aarch64-apple-darwin` on another system.
-Check source/pack hashes against `target/accept-iansui/packs/PROV.TXT` and
-`target/accept-iansui/pack-manifest.json`. Converter convention version is 1.
-The converter uses fontdue rasterization and the documented 1-bit threshold;
-its existing reproducibility tests check identical outputs.
+Copy `target/cjk-sd/_PULP/FONTS/` to `_PULP/FONTS/` on the SD card.
+Replace the old directory before installation. Keep all reports and license files.
+`fonts/cjk.json` pins the original font and license by SHA256.
+Its source version is a hash identifier, not an upstream release tag.
+The duplicate `iansui.zip` was removed after exact comparison with both originals.
+
+The builder reuses packs only after it checks every cached output hash.
+Manifest, converter, toolchain or dependency changes produce a new cache key.
+`BUNDLE.JSON` records these inputs and the hashes of all converter outputs.
+The generated bundle and cache remain under `target/` and outside Git.
+
+For another TTF/OTF, use `--manifest <file>` to select one font per bundle.
+Paths are relative to the manifest. Record the actual license name and text.
+The current firmware needs all nine sizes in the default manifest.
+No runtime font selector is required. Validate coverage and layout for each font.
+Non-OFL licenses use `LICENSE.TXT`; the legacy converter default remains OFL.
+
+Converter convention version is 1. The converter uses fontdue rasterization
+and the documented 1-bit threshold. Existing tests check identical outputs.
 
 Recreate ReaderApp observations from the generated install set:
 
@@ -28,7 +39,7 @@ Recreate ReaderApp observations from the generated install set:
 CARGO_NET_OFFLINE=true cargo run -p pulp-host --bin iansui-acceptance \
   --target aarch64-apple-darwin \
   --config 'unstable.build-std=["std","panic_unwind"]' -- \
-  target/accept-iansui/snapshots target/iansui-install
+  target/accept-iansui/snapshots target/cjk-sd/_PULP/FONTS
 python3 scripts/pbm-to-png.py target/accept-iansui/snapshots
 ```
 

@@ -243,7 +243,7 @@ impl ReaderApp {
                     allocate_image_buffer,
                 )
             } else if is_jpeg {
-                smol_epub::jpeg::decode_jpeg_deflate_streaming_with_buffer(
+                smol_epub::jpeg::decode_jpeg_deflate_streaming_with_scratch(
                     |off, buf| {
                         k_cell
                             .borrow_mut()
@@ -256,9 +256,10 @@ impl ReaderApp {
                     img_max_w,
                     img_max_h,
                     allocate_image_buffer,
+                    |layout| super::allocate_decoder_scratch(BufClass::ImageData, layout),
                 )
             } else if entry.method == zip::METHOD_STORED {
-                smol_epub::png::decode_png_streaming_with_buffer(
+                smol_epub::png::decode_png_streaming_with_scratch(
                     |off, buf| {
                         k_cell
                             .borrow_mut()
@@ -270,9 +271,10 @@ impl ReaderApp {
                     img_max_w,
                     img_max_h,
                     allocate_image_buffer,
+                    |layout| super::allocate_decoder_scratch(BufClass::ImageData, layout),
                 )
             } else {
-                smol_epub::png::decode_png_deflate_streaming_with_buffer(
+                smol_epub::png::decode_png_deflate_streaming_with_scratch(
                     |off, buf| {
                         k_cell
                             .borrow_mut()
@@ -284,6 +286,7 @@ impl ReaderApp {
                     img_max_w,
                     img_max_h,
                     allocate_image_buffer,
+                    |layout| super::allocate_decoder_scratch(BufClass::ImageData, layout),
                 )
             };
             raw.map(from_smol_image)
@@ -759,7 +762,7 @@ pub(super) fn decode_image_streaming(
             allocate_image_buffer,
         )
     } else if is_jpeg {
-        smol_epub::jpeg::decode_jpeg_deflate_streaming_with_buffer(
+        smol_epub::jpeg::decode_jpeg_deflate_streaming_with_scratch(
             |off, buf| k.read_chunk(epub_name, off, buf).map_err(read_err),
             data_offset,
             entry.comp_size,
@@ -767,24 +770,27 @@ pub(super) fn decode_image_streaming(
             max_w,
             max_h,
             allocate_image_buffer,
+            |layout| super::allocate_decoder_scratch(BufClass::ImageData, layout),
         )
     } else if entry.method == zip::METHOD_STORED {
-        smol_epub::png::decode_png_streaming_with_buffer(
+        smol_epub::png::decode_png_streaming_with_scratch(
             |off, buf| k.read_chunk(epub_name, off, buf).map_err(read_err),
             data_offset,
             entry.uncomp_size,
             max_w,
             max_h,
             allocate_image_buffer,
+            |layout| super::allocate_decoder_scratch(BufClass::ImageData, layout),
         )
     } else {
-        smol_epub::png::decode_png_deflate_streaming_with_buffer(
+        smol_epub::png::decode_png_deflate_streaming_with_scratch(
             |off, buf| k.read_chunk(epub_name, off, buf).map_err(read_err),
             data_offset,
             entry.comp_size,
             max_w,
             max_h,
             allocate_image_buffer,
+            |layout| super::allocate_decoder_scratch(BufClass::ImageData, layout),
         )
     };
     result

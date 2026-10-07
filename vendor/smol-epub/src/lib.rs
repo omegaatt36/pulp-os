@@ -82,6 +82,7 @@ pub mod cache;
 pub mod css;
 pub mod epub;
 pub mod html_strip;
+pub mod scratch;
 pub mod xml;
 pub mod zip;
 

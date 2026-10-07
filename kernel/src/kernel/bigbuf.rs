@@ -31,6 +31,78 @@ pub const FONT_GLYPHS_PSRAM_BYTES: usize = pulp_board_logic::memory::PSRAM_FONT_
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BufError;
 
+/// Layout-aware, exclusively owned decoder scratch, with fallible allocation.
+/// C61 charges it to the requested class and places it using the board policy.
+pub struct DecoderScratch {
+    #[cfg(feature = "board-x4")]
+    ptr: core::ptr::NonNull<u8>,
+    #[cfg(feature = "board-x4")]
+    layout: core::alloc::Layout,
+    #[cfg(feature = "board-onepage-c61")]
+    block: crate::board_c61::memory::MemBuf,
+}
+impl DecoderScratch {
+    pub fn zeroed(class: BufClass, layout: core::alloc::Layout) -> Result<Self, BufError> {
+        if layout.size() == 0 {
+            return Err(BufError);
+        }
+        #[cfg(feature = "board-x4")]
+        {
+            let _ = class;
+            // SAFETY: valid nonempty layout; failure is returned, never aborts.
+            let ptr = core::ptr::NonNull::new(unsafe { alloc::alloc::alloc_zeroed(layout) })
+                .ok_or(BufError)?;
+            Ok(Self { ptr, layout })
+        }
+        #[cfg(feature = "board-onepage-c61")]
+        {
+            use crate::board_c61::memory::{self, MemClass};
+            let class = match class {
+                BufClass::ChapterText => MemClass::ChapterText,
+                BufClass::ImageData => MemClass::ImageData,
+                BufClass::ZipToc => MemClass::ZipToc,
+                BufClass::FontGlyphs => MemClass::FontGlyphs,
+            };
+            let block = memory::alloc(class, layout.size(), layout.align().max(16))
+                .map_err(|_| BufError)?;
+            Ok(Self { block })
+        }
+    }
+    /// Stable pointer owned by this allocation, valid until it is dropped.
+    pub fn ptr(&self) -> *mut u8 {
+        #[cfg(feature = "board-x4")]
+        {
+            self.ptr.as_ptr()
+        }
+        #[cfg(feature = "board-onepage-c61")]
+        {
+            self.block.addr() as *mut u8
+        }
+    }
+    pub fn len(&self) -> usize {
+        #[cfg(feature = "board-x4")]
+        {
+            self.layout.size()
+        }
+        #[cfg(feature = "board-onepage-c61")]
+        {
+            self.block.len()
+        }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+// SAFETY: uniquely owned memory; both allocator implementations are synchronized.
+unsafe impl Send for DecoderScratch {}
+#[cfg(feature = "board-x4")]
+impl Drop for DecoderScratch {
+    fn drop(&mut self) {
+        // SAFETY: this block came from the global allocator with this layout.
+        unsafe { alloc::alloc::dealloc(self.ptr.as_ptr(), self.layout) }
+    }
+}
+
 #[cfg(feature = "board-x4")]
 mod imp {
     use alloc::vec::Vec;

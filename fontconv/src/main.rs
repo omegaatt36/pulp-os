@@ -14,15 +14,16 @@ use pulp_fontconv::{DEFAULT_SIZES, Input, Output};
 
 const USAGE: &str = "\
 usage: pulp-fontconv --font <ttf> --license <file> --upstream-url <url> --out <dir>
-                     [--sizes <n,n,...>] [--require-chars <file>]
+                     [--sizes <n,n,...>] [--require-chars <file>] [--license-name <name>]
        pulp-fontconv --help
 
 Converts a TTF/OTF font into SD font packs (one F000nn.PFN per pixel size) and
-writes PROV.TXT, OFL.TXT and COVERAGE.TXT next to them. The output directory
+writes PROV.TXT, a license copy and COVERAGE.TXT next to them. The output directory
 must not exist or be empty; copy its content to _PULP/FONTS on the SD card.
 
   --font <ttf>             font file
-  --license <file>         licence text, copied verbatim to OFL.TXT
+  --license <file>         licence text, copied verbatim
+  --license-name <name>    default SIL OFL 1.1 (OFL.TXT); others use LICENSE.TXT
   --upstream-url <url>     where the font comes from (recorded in PROV.TXT)
   --out <dir>              output directory
   --sizes <n,n,...>        pixel sizes, each 1..=255 (default 16,19,23,27,28,32,35,38,46)
@@ -34,6 +35,7 @@ exit codes: 0 ok, 1 failure, 2 usage error, 3 written, but required characters m
 struct Args {
     font: PathBuf,
     license: PathBuf,
+    license_name: String,
     upstream_url: String,
     out: PathBuf,
     sizes: Vec<u16>,
@@ -76,7 +78,7 @@ fn parse_sizes(text: &str) -> Result<Vec<u16>, Failure> {
 
 fn parse_args(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Failure> {
     let (mut font, mut license, mut url, mut out) = (None, None, None, None);
-    let (mut sizes, mut require) = (None, None);
+    let (mut sizes, mut require, mut license_name) = (None, None, None);
     let mut it = args.into_iter();
     while let Some(flag) = it.next() {
         let name = flag.to_string_lossy().into_owned();
@@ -84,9 +86,8 @@ fn parse_args(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Failur
             return Ok(Parsed::Help);
         }
         let slot = match name.as_str() {
-            "--font" | "--license" | "--upstream-url" | "--out" | "--sizes" | "--require-chars" => {
-                name.as_str()
-            }
+            "--font" | "--license" | "--license-name" | "--upstream-url" | "--out" | "--sizes"
+            | "--require-chars" => name.as_str(),
             _ => return usage(format!("unknown option {name:?}")),
         };
         let Some(value) = it.next() else {
@@ -95,6 +96,7 @@ fn parse_args(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Failur
         let taken = match slot {
             "--font" => font.replace(value).is_some(),
             "--license" => license.replace(value).is_some(),
+            "--license-name" => license_name.replace(value).is_some(),
             "--upstream-url" => url.replace(value).is_some(),
             "--out" => out.replace(value).is_some(),
             "--sizes" => sizes.replace(value).is_some(),
@@ -119,9 +121,16 @@ fn parse_args(args: impl IntoIterator<Item = OsString>) -> Result<Parsed, Failur
         Some(v) => parse_sizes(&text(v, "--sizes")?)?,
         None => DEFAULT_SIZES.to_vec(),
     };
+    let license_name = match license_name {
+        Some(v) => text(v, "--license-name")?,
+        None => pulp_fontconv::LICENSE_NAME.into(),
+    };
+    pulp_fontconv::validate_license_name(&license_name)
+        .map_err(|e| Failure::Usage(e.to_string()))?;
     Ok(Parsed::Run(Args {
         font: need(font, "--font")?.into(),
         license: need(license, "--license")?.into(),
+        license_name,
         upstream_url,
         out: need(out, "--out")?.into(),
         sizes,
@@ -177,13 +186,18 @@ fn run(args: Args) -> Result<ExitCode, Failure> {
         None => None,
     };
 
-    let output = pulp_fontconv::convert(&Input {
-        font: &font,
-        sizes: &args.sizes,
-        license: &license,
-        upstream_url: &args.upstream_url,
-        require_chars: require.as_deref(),
-    })
+    let output = pulp_fontconv::convert_with_options(
+        &Input {
+            font: &font,
+            sizes: &args.sizes,
+            license: &license,
+            upstream_url: &args.upstream_url,
+            require_chars: require.as_deref(),
+        },
+        &pulp_fontconv::ConversionOptions {
+            license_name: &args.license_name,
+        },
+    )
     .map_err(|e| Failure::Runtime(e.to_string()))?;
 
     prepare_out_dir(&args.out)?;

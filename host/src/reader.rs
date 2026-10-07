@@ -62,23 +62,7 @@ static IMAGE_WORKER: OnceLock<Mutex<ImageWorker>> = OnceLock::new();
 fn run_image_worker() {
     let worker = IMAGE_WORKER.get_or_init(|| {
         // src/bin/main.rs, after kernel.boot()
-        crate::kernel::work_queue::register_image_decoder(|data, is_jpeg, max_w, max_h| {
-            let allocate = |len| {
-                crate::kernel::BigBuf::zeroed(crate::kernel::BufClass::ImageData, len)
-                    .map_err(|_| "image buffer over budget")
-            };
-            let raw = if is_jpeg {
-                smol_epub::jpeg::decode_jpeg_fit_with_buffer(data, max_w, max_h, allocate)
-            } else {
-                smol_epub::png::decode_png_fit_with_buffer(data, max_w, max_h, allocate)
-            };
-            raw.map(|img| crate::kernel::work_queue::DecodedImage {
-                width: img.width,
-                height: img.height,
-                data: img.data,
-                stride: img.stride,
-            })
-        });
+        crate::kernel::work_queue::register_image_decoder(crate::apps::reader::decode_work_image);
         let executor: &'static Executor = Box::leak(Box::new(Executor::new(core::ptr::null_mut())));
         executor
             .spawner()

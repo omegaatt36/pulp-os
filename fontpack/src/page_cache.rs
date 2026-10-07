@@ -63,6 +63,12 @@ where
         })
     }
 
+    /// Consume the prepared page so its caller can reuse or resize backing storage.
+    /// Published glyph views borrow the cache, so none can survive this transfer.
+    pub fn into_storage(self) -> (S, B) {
+        (self.slots, self.bitmap)
+    }
+
     pub fn storage_bytes(&self) -> usize {
         self.storage_bytes
     }

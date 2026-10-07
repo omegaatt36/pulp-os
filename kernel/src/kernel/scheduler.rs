@@ -618,5 +618,7 @@ impl super::Kernel {
             mins,
             if self.sd_ok { "ok" } else { "--" },
         );
+        #[cfg(feature = "board-onepage-c61")]
+        crate::board_c61::memory::log_usage();
     }
 }

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "name": "Iansui",
+  "version": "source-sha256-7f1aa62e9dcbf40d",
+  "upstream_url": "https://github.com/ButTaiwan/iansui",
+  "license_name": "SIL OFL 1.1",
+  "font": {
+    "path": "../Iansui-Regular.ttf",
+    "sha256": "7f1aa62e9dcbf40d0ce41a5d3f1e5ea602e66c295778ac6fefb6b84d8ed08bd5"
+  },
+  "license": {
+    "path": "../OFL.txt",
+    "sha256": "5d6d9d02d598daa2f178d0b577c55594892c5cf9c38566e2343cea049a371ac3"
+  },
+  "sizes": [16, 19, 23, 27, 28, 32, 35, 38, 46]
+}

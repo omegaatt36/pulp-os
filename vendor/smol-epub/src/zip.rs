@@ -4,7 +4,6 @@
 //! heap-allocated during parse. DEFLATE decompression streams in 4 KB
 //! chunks; `try_reserve` is used throughout for graceful OOM handling.
 
-use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -268,9 +267,29 @@ impl ZipIndex {
 pub fn extract_entry<E, F>(
     entry: &ZipEntry,
     local_offset: u32,
-    mut read_fn: F,
+    read_fn: F,
 ) -> Result<Vec<u8>, &'static str>
 where
+    F: FnMut(u32, &mut [u8]) -> Result<usize, E>,
+{
+    extract_entry_with_scratch(
+        entry,
+        local_offset,
+        read_fn,
+        crate::scratch::HeapScratch::zeroed,
+    )
+}
+
+/// Extract an entry with caller-selected layout-aware inflate scratch.
+pub fn extract_entry_with_scratch<E, F, S, C>(
+    entry: &ZipEntry,
+    local_offset: u32,
+    mut read_fn: F,
+    mut scratch: C,
+) -> Result<Vec<u8>, &'static str>
+where
+    S: crate::scratch::ScratchStorage,
+    C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
     F: FnMut(u32, &mut [u8]) -> Result<usize, E>,
 {
     let mut header = [0u8; 30];
@@ -284,7 +303,7 @@ where
 
     match entry.method {
         METHOD_STORED => extract_stored(entry, data_offset, &mut read_fn),
-        METHOD_DEFLATE => extract_deflate(entry, data_offset, &mut read_fn),
+        METHOD_DEFLATE => extract_deflate(entry, data_offset, &mut read_fn, &mut scratch),
         _ => Err("zip: unsupported compression method"),
     }
 }
@@ -310,18 +329,20 @@ where
 
 const DEFLATE_READ_BUF: usize = 4096;
 
-fn extract_deflate<E, F>(
+fn extract_deflate<E, F, S, C>(
     entry: &ZipEntry,
     data_offset: u32,
     read_fn: &mut F,
+    scratch: &mut C,
 ) -> Result<Vec<u8>, &'static str>
 where
+    S: crate::scratch::ScratchStorage,
+    C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
     F: FnMut(u32, &mut [u8]) -> Result<usize, E>,
 {
+    use miniz_oxide::inflate::TINFLStatus;
     use miniz_oxide::inflate::core::decompress;
     use miniz_oxide::inflate::core::inflate_flags;
-    use miniz_oxide::inflate::core::DecompressorOxide;
-    use miniz_oxide::inflate::TINFLStatus;
 
     let comp_size = entry.comp_size as usize;
     let uncomp_size = entry.uncomp_size as usize;
@@ -334,13 +355,7 @@ where
         .map_err(|_| "zip: chapter too large for memory")?;
     output.resize(uncomp_size, 0);
 
-    // ~11KB DecompressorOxide; alloc zeroed directly (Box::new overflows stack)
-    let decomp_ptr =
-        unsafe { alloc::alloc::alloc_zeroed(core::alloc::Layout::new::<DecompressorOxide>()) };
-    if decomp_ptr.is_null() {
-        return Err("zip: out of memory for decompressor");
-    }
-    let mut decomp = unsafe { Box::from_raw(decomp_ptr as *mut DecompressorOxide) };
+    let mut decomp = crate::scratch::Decompressor::new(scratch)?;
     let mut out_pos: usize = 0;
 
     let mut rbuf = vec![0u8; DEFLATE_READ_BUF];

@@ -58,6 +58,7 @@ pub enum ConvError {
     Sizes(&'static str),
     UpstreamUrl(&'static str),
     EmptyLicense,
+    LicenseName,
     Font(&'static str),
     NoMetrics,
     NoGlyphs,
@@ -70,6 +71,7 @@ impl fmt::Display for ConvError {
         match self {
             Self::Sizes(why) => write!(f, "invalid sizes: {why}"),
             Self::UpstreamUrl(why) => write!(f, "invalid upstream url: {why}"),
+            Self::LicenseName => f.write_str("invalid license name: use non-empty printable ASCII without surrounding whitespace"),
             Self::EmptyLicense => f.write_str("licence text is empty"),
             Self::Font(why) => write!(f, "cannot parse font: {why}"),
             Self::NoMetrics => f.write_str("font has no horizontal line metrics"),
@@ -125,7 +127,41 @@ pub fn derive_font_id(font_sha256: &[u8; 32], pixel_size: u16, convention_versio
     ])
 }
 
+/// Explicit metadata for fonts with a license other than the legacy OFL default.
+pub struct ConversionOptions<'a> {
+    pub license_name: &'a str,
+}
+
+pub fn validate_license_name(name: &str) -> Result<(), ConvError> {
+    if name.is_empty()
+        || name.trim() != name
+        || name.chars().any(|c| !c.is_ascii() || c.is_ascii_control())
+    {
+        return Err(ConvError::LicenseName);
+    }
+    Ok(())
+}
+
+/// Legacy OFL conversion, retained for existing callers.
 pub fn convert(input: &Input) -> Result<Output, ConvError> {
+    convert_with_options(
+        input,
+        &ConversionOptions {
+            license_name: LICENSE_NAME,
+        },
+    )
+}
+
+pub fn convert_with_options(
+    input: &Input,
+    options: &ConversionOptions,
+) -> Result<Output, ConvError> {
+    validate_license_name(options.license_name)?;
+    let license_file = if options.license_name == LICENSE_NAME {
+        LICENSE_FILE
+    } else {
+        "LICENSE.TXT"
+    };
     validate_sizes(input.sizes)?;
     validate_upstream_url(input.upstream_url)?;
     if input.license.is_empty() {
@@ -185,6 +221,8 @@ pub fn convert(input: &Input) -> Result<Output, ConvError> {
         font_size: input.font.len(),
         upstream_url: input.upstream_url,
         license: input.license,
+        license_name: options.license_name,
+        license_file,
         packs: &packs,
     });
     let coverage = report::coverage(&CoverageInput {
@@ -208,7 +246,7 @@ pub fn convert(input: &Input) -> Result<Output, ConvError> {
         bytes: prov.into_bytes(),
     });
     files.push(OutFile {
-        name: LICENSE_FILE.into(),
+        name: license_file.into(),
         bytes: input.license.to_vec(),
     });
     files.push(OutFile {

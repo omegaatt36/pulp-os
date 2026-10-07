@@ -251,11 +251,12 @@ impl EpubState {
         let mut reader = CellReader(&k_cell, epub_name);
         let mut writer = CellWriter(&k_cell, cf_str);
 
-        let text_size = smol_epub::async_io::stream_strip_entry_async(
+        let text_size = smol_epub::async_io::stream_strip_entry_async_with_scratch(
             &entry,
             entry.local_offset,
             &mut reader,
             &mut writer,
+            |layout| super::allocate_decoder_scratch(BufClass::ChapterText, layout),
         )
         .await
         .map_err(|msg| Error::from(msg).with_source("cache_chapter_async: stream"))?;

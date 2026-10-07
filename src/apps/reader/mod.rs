@@ -8,6 +8,7 @@ use crate::apps::PendingSetting;
 use crate::fonts::bitmap::{self, BitmapFont};
 
 use alloc::boxed::Box;
+
 use core::fmt::Write;
 
 use embedded_graphics::mono_font::MonoTextStyle;
@@ -34,6 +35,25 @@ use smol_epub::cache;
 use smol_epub::epub::{self, EpubMeta, EpubSpine, EpubToc, TocSource};
 use smol_epub::html_strip::MARKER;
 use smol_epub::zip::{self, ZipIndex};
+
+struct DecoderScratch(crate::kernel::bigbuf::DecoderScratch);
+// SAFETY: the kernel allocation owns initialized, stable memory until drop.
+unsafe impl smol_epub::scratch::ScratchStorage for DecoderScratch {
+    fn ptr(&self) -> *mut u8 {
+        self.0.ptr()
+    }
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+fn allocate_decoder_scratch(
+    class: crate::kernel::BufClass,
+    layout: core::alloc::Layout,
+) -> Result<DecoderScratch, &'static str> {
+    crate::kernel::bigbuf::DecoderScratch::zeroed(class, layout)
+        .map(DecoderScratch)
+        .map_err(|_| "decoder scratch over budget")
+}
 
 // chrome margin: used for header, status, progress bar, loading indicator.
 // this never changes; only the text content area responds to the reading theme.
@@ -815,10 +835,41 @@ pub(super) fn extract_zip_entry(
     use core::cell::RefCell;
     let entry = zip_index.entry(entry_idx);
     let k = RefCell::new(k);
-    zip::extract_entry(entry, entry.local_offset, |offset, buf| {
-        k.borrow_mut()
-            .read_chunk(name, offset, buf)
-            .map_err(|e: Error| -> &'static str { e.into() })
+    zip::extract_entry_with_scratch(
+        entry,
+        entry.local_offset,
+        |offset, buf| {
+            k.borrow_mut()
+                .read_chunk(name, offset, buf)
+                .map_err(|e: Error| -> &'static str { e.into() })
+        },
+        |layout| allocate_decoder_scratch(crate::kernel::BufClass::ZipToc, layout),
+    )
+}
+
+/// Decoder callback shared by production and host worker registration.
+pub fn decode_work_image(
+    data: &[u8],
+    is_jpeg: bool,
+    max_w: u16,
+    max_h: u16,
+) -> Result<crate::kernel::work_queue::DecodedImage, &'static str> {
+    let allocate = |len| {
+        BigBuf::zeroed(crate::kernel::BufClass::ImageData, len)
+            .map_err(|_| "image buffer over budget")
+    };
+    let raw = if is_jpeg {
+        smol_epub::jpeg::decode_jpeg_fit_with_buffer(data, max_w, max_h, allocate)
+    } else {
+        smol_epub::png::decode_png_fit_with_scratch(data, max_w, max_h, allocate, |layout| {
+            allocate_decoder_scratch(crate::kernel::BufClass::ImageData, layout)
+        })
+    };
+    raw.map(|img| crate::kernel::work_queue::DecodedImage {
+        width: img.width,
+        height: img.height,
+        data: img.data,
+        stride: img.stride,
     })
 }
 
@@ -1042,17 +1093,22 @@ impl App<AppId> for ReaderApp {
 
                         match extract_zip_entry(k, name, &self.epub.zip, toc_idx) {
                             Ok(toc_data) => {
-                                let mut toc = Box::new(EpubToc::new());
-                                epub::parse_toc(
-                                    source,
-                                    &toc_data,
-                                    toc_dir,
-                                    &self.epub.spine,
-                                    &self.epub.zip,
-                                    &mut toc,
-                                );
-                                log::info!("epub: TOC has {} entries", toc.len());
-                                self.epub.toc = Some(toc);
+                                if let Ok(mut toc) = EpubToc::try_new() {
+                                    epub::parse_toc(
+                                        source,
+                                        &toc_data,
+                                        toc_dir,
+                                        &self.epub.spine,
+                                        &self.epub.zip,
+                                        &mut toc,
+                                    );
+                                    log::info!("epub: TOC has {} entries", toc.len());
+                                    self.epub.toc = Some(toc);
+                                } else {
+                                    log::warn!(
+                                        "epub: TOC allocation failed; continuing without TOC"
+                                    );
+                                }
                             }
                             Err(_e) => {
                                 log::warn!("epub: failed to read TOC");

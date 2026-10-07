@@ -600,6 +600,8 @@ pub struct MemoryBudget {
     status: PsramStatus,
     used: [[usize; CLASS_COUNT]; 2],
     pool_used: [usize; 2],
+    peak: [[usize; CLASS_COUNT]; 2],
+    pool_peak: [usize; 2],
 }
 
 impl MemoryBudget {
@@ -617,6 +619,8 @@ impl MemoryBudget {
             status: PsramStatus::NotInitialised,
             used: [[0; CLASS_COUNT]; 2],
             pool_used: [0; 2],
+            peak: [[0; CLASS_COUNT]; 2],
+            pool_peak: [0; 2],
         }
     }
 
@@ -656,6 +660,18 @@ impl MemoryBudget {
 
     pub const fn pool_used(&self, region: Region) -> usize {
         self.pool_used[region.index()]
+    }
+
+    /// Highest simultaneous reservation charge, including allocations whose
+    /// allocator subsequently refused them. This is not physical heap usage.
+    pub const fn peak(&self, region: Region, class: MemClass) -> usize {
+        self.peak[region.index()][class.index()]
+    }
+
+    /// Highest simultaneous charge across all classes in a region.
+    /// History survives releases and placement-status changes.
+    pub const fn pool_peak(&self, region: Region) -> usize {
+        self.pool_peak[region.index()]
     }
 
     pub const fn class_limit(&self, region: Region, class: MemClass) -> usize {
@@ -726,6 +742,8 @@ impl MemoryBudget {
 
         self.used[r][c] = used + bytes;
         self.pool_used[r] = pool_used + bytes;
+        self.peak[r][c] = self.peak[r][c].max(self.used[r][c]);
+        self.pool_peak[r] = self.pool_peak[r].max(self.pool_used[r]);
         Ok(Reservation {
             class,
             region,

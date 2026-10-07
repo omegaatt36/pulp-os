@@ -235,37 +235,37 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> JpegRead for Chunk
 
 // streaming DEFLATE-from-SD reader; 4KB chunks in, one decompressed byte at a time out.
 // peak heap: ~47KB (11KB decompressor + 32KB window + 4KB read buf).
-struct DeflateReader<F> {
+struct DeflateReader<F, S: crate::scratch::ScratchStorage> {
     read_fn: F,
-    file_pos: u32,    // absolute offset of next compressed byte
-    comp_left: usize, // compressed bytes remaining in ZIP entry
-    rbuf: Vec<u8>,    // compressed-data read buffer
-    in_avail: usize,  // valid bytes in rbuf
-    decomp: Box<miniz_oxide::inflate::core::DecompressorOxide>, // ~11KB
-    window: Vec<u8>,  // 32KB circular dictionary
-    dict_pos: usize,  // write position in window (cumulative, mod DEFLATE_WINDOW)
-    read_pos: usize,  // next byte to yield from window
-    avail: usize,     // decompressed bytes available (dict_pos - read_pos)
-    done: bool,       // true once miniz reports Done
+    file_pos: u32,                           // absolute offset of next compressed byte
+    comp_left: usize,                        // compressed bytes remaining in ZIP entry
+    rbuf: Vec<u8>,                           // compressed-data read buffer
+    in_avail: usize,                         // valid bytes in rbuf
+    decomp: crate::scratch::Decompressor<S>, // ~11KB
+    window: crate::scratch::ScratchBytes<S>, // 32KB circular dictionary
+    dict_pos: usize, // write position in window (cumulative, mod DEFLATE_WINDOW)
+    read_pos: usize, // next byte to yield from window
+    avail: usize,    // decompressed bytes available (dict_pos - read_pos)
+    done: bool,      // true once miniz reports Done
 }
 
-impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> DeflateReader<F> {
-    fn new(read_fn: F, data_offset: u32, comp_size: u32) -> Result<Self, &'static str> {
-        use miniz_oxide::inflate::core::DecompressorOxide;
-
-        let decomp_ptr =
-            unsafe { alloc::alloc::alloc_zeroed(core::alloc::Layout::new::<DecompressorOxide>()) };
-        if decomp_ptr.is_null() {
-            return Err("jpeg: OOM for DEFLATE decompressor");
-        }
-        let decomp = unsafe { Box::from_raw(decomp_ptr as *mut DecompressorOxide) };
-
-        let mut window = Vec::new();
-        window
-            .try_reserve_exact(DEFLATE_WINDOW)
-            .map_err(|_| "jpeg: OOM for DEFLATE window")?;
-        window.resize(DEFLATE_WINDOW, 0);
-
+impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>, S: crate::scratch::ScratchStorage>
+    DeflateReader<F, S>
+{
+    fn new<A>(
+        read_fn: F,
+        data_offset: u32,
+        comp_size: u32,
+        scratch: &mut A,
+    ) -> Result<Self, &'static str>
+    where
+        A: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
+    {
+        let decomp = crate::scratch::Decompressor::new(scratch)?;
+        let window = crate::scratch::ScratchBytes::new(
+            scratch,
+            core::alloc::Layout::array::<u8>(DEFLATE_WINDOW).unwrap(),
+        )?;
         let mut rbuf = Vec::new();
         rbuf.try_reserve_exact(CHUNK_SIZE)
             .map_err(|_| "jpeg: OOM for DEFLATE read buffer")?;
@@ -374,7 +374,9 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> DeflateReader<F> {
     }
 }
 
-impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> JpegRead for DeflateReader<F> {
+impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>, S: crate::scratch::ScratchStorage>
+    JpegRead for DeflateReader<F, S>
+{
     fn read_byte(&mut self) -> Result<u8, &'static str> {
         if self.avail == 0 {
             if self.done {
@@ -664,7 +666,37 @@ where
     B: AsMut<[u8]>,
     A: FnOnce(usize) -> Result<B, &'static str>,
 {
-    let mut deflate = DeflateReader::new(read_fn, data_offset, comp_size)?;
+    decode_jpeg_deflate_streaming_with_scratch(
+        read_fn,
+        data_offset,
+        comp_size,
+        uncomp_size,
+        max_w,
+        max_h,
+        allocate,
+        crate::scratch::HeapScratch::zeroed,
+    )
+}
+
+/// Stream a DEFLATE JPEG with caller-selected layout-aware inflate scratch.
+pub fn decode_jpeg_deflate_streaming_with_scratch<F, B, A, S, C>(
+    read_fn: F,
+    data_offset: u32,
+    comp_size: u32,
+    uncomp_size: u32,
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+    mut scratch: C,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
+    S: crate::scratch::ScratchStorage,
+    C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
+    let mut deflate = DeflateReader::new(read_fn, data_offset, comp_size, &mut scratch)?;
 
     // decompress enough for marker parsing
     let hdr_size = HEADER_READ.min(uncomp_size as usize);

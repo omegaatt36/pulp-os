@@ -239,7 +239,14 @@ impl CjkState {
                     return;
                 }
                 if self.metrics.len() == self.metrics.capacity() {
-                    if self.metrics.try_reserve_exact(1).is_err() {
+                    let ceiling = self.metric_budget / size_of::<Entry>();
+                    let capacity = self.metrics.capacity();
+                    let target = capacity.saturating_mul(2).max(8).min(ceiling);
+                    if self
+                        .metrics
+                        .try_reserve_exact(target - self.metrics.len())
+                        .is_err()
+                    {
                         collection = Err(failure(ErrorKind::OutOfMemory));
                         return;
                     }
@@ -324,8 +331,10 @@ impl CjkState {
         body_px: u16,
         heading_px: u16,
     ) -> Result<()> {
-        self.body = None;
-        self.heading = None;
+        // Unpublish both roles before any fallible work; errors cannot expose
+        // either an old page or an otherwise successful partial preparation.
+        let mut previous = [self.body.take(), self.heading.take()];
+        let mut prepared = [None, None];
         for (role, px) in [(0, body_px), (1, heading_px)] {
             if role == 1 && (px == body_px || !self.heading_role) {
                 continue;
@@ -357,9 +366,23 @@ impl CjkState {
             if needed > cache_budget || bitmap_len > self.bitmap_budget {
                 return Err(failure(ErrorKind::BufferTooSmall));
             }
-            let slots = buffer(count, PageGlyphSlot::default(), self.slot_budget)?;
-            let bitmaps = BigBuf::zeroed(BufClass::FontGlyphs, bitmap_len)
-                .map_err(|_| failure(ErrorKind::OutOfMemory))?;
+            let (mut slots, mut bitmaps) = previous[role]
+                .take()
+                .map(|(_, cache)| cache.into_storage())
+                .unwrap_or_else(|| (Box::default(), BigBuf::empty()));
+            if slots.len() < count {
+                // Release replaced storage first, avoiding an old+new peak.
+                drop(slots);
+                slots = buffer(count, PageGlyphSlot::default(), self.slot_budget)?;
+            }
+            if bitmaps.len() < bitmap_len {
+                drop(bitmaps);
+                bitmaps = BigBuf::zeroed(BufClass::FontGlyphs, bitmap_len)
+                    .map_err(|_| failure(ErrorKind::OutOfMemory))?;
+            }
+            if bitmaps.len() > self.bitmap_budget {
+                return Err(failure(ErrorKind::BufferTooSmall));
+            }
             let mut cache = PageCache::new(slots, bitmaps, cache_budget)
                 .map_err(|_| failure(ErrorKind::BufferTooSmall))?;
             let mut reader = open(k, px)?;
@@ -367,12 +390,9 @@ impl CjkState {
                 pulp_fontpack::PreparationError::Font(e) => font_error(e),
                 _ => failure(ErrorKind::BufferTooSmall),
             })?;
-            if role == 0 {
-                self.body = Some((px, cache));
-            } else {
-                self.heading = Some((px, cache));
-            }
+            prepared[role] = Some((px, cache));
         }
+        [self.body, self.heading] = prepared;
         Ok(())
     }
     pub fn prepare_text(

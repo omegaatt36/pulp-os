@@ -29,6 +29,8 @@ pub struct ProvInput<'a> {
     pub font_size: usize,
     pub upstream_url: &'a str,
     pub license: &'a [u8],
+    pub license_name: &'a str,
+    pub license_file: &'a str,
     pub packs: &'a [PackInfo],
 }
 
@@ -46,8 +48,8 @@ pub fn provenance(p: &ProvInput) -> String {
     line("font_sha256", &hex(p.font_sha256));
     line("font_size", &p.font_size);
     line("font_upstream_url", &p.upstream_url);
-    line("license_name", &crate::LICENSE_NAME);
-    line("license_file", &crate::LICENSE_FILE);
+    line("license_name", &p.license_name);
+    line("license_file", &p.license_file);
     line("license_sha256", &hex(&sha256(p.license)));
     line("pack_count", &p.packs.len());
     for pk in p.packs {
