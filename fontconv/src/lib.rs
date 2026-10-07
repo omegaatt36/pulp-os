@@ -2,6 +2,7 @@
 // provenance, licence copy and coverage report. Pure bytes in, bytes out; the
 // binary owns all file system access. Output is a function of the inputs only.
 
+pub mod bundle;
 mod raster;
 mod report;
 

@@ -10,7 +10,7 @@ No removable device was written during acceptance.
 Current reproducible installation workflow:
 
 ```sh
-python3 scripts/build-cjk-fonts.py
+cargo run -p pulp-fontconv --release -- bundle
 ```
 
 Copy `target/cjk-sd/_PULP/FONTS/` to `_PULP/FONTS/` on the SD card.
@@ -40,7 +40,7 @@ CARGO_NET_OFFLINE=true cargo run -p pulp-host --bin iansui-acceptance \
   --target aarch64-apple-darwin \
   --config 'unstable.build-std=["std","panic_unwind"]' -- \
   target/accept-iansui/snapshots target/cjk-sd/_PULP/FONTS
-python3 scripts/pbm-to-png.py target/accept-iansui/snapshots
+cargo run -p pulp-fontconv --release -- pbm-to-png target/accept-iansui/snapshots
 ```
 
 The exporter prints separate logical preparation operation/byte counts and

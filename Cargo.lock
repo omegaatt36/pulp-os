@@ -133,6 +133,7 @@ dependencies = [
  "embedded-hal-async",
  "log",
  "nb 1.1.0",
+ "object",
  "pulp-board-logic",
  "static_cell",
 ]

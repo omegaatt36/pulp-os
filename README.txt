@@ -19,7 +19,7 @@ C61 memory diagnostics
 CJK font installation
     Build one selected font with the pinned source in fonts/cjk.json:
 
-        python3 scripts/build-cjk-fonts.py
+        cargo run -p pulp-fontconv --release -- bundle
 
     Copy target/cjk-sd/_PULP/FONTS to _PULP/FONTS on the SD card.
     Replace the previous FONTS directory to remove packs from the old font.

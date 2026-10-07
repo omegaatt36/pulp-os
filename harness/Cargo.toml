@@ -23,3 +23,8 @@ embedded-hal.workspace     = true
 embedded-hal-async.workspace = true
 embedded-graphics-core.workspace = true
 log.workspace              = true
+object = { version = "0.37", default-features = false, features = ["read_core", "elf"] }
+
+[[bin]]
+name = "stack-analyzer"
+path = "src/bin/stack_analyzer.rs"
