@@ -9,12 +9,14 @@ use pulp_host::apps::upload_connect::{
     ASSOCIATE_TIMEOUT, ConnectError, DHCP_TIMEOUT, Limits, check_credentials,
 };
 
-const ALL_ERRORS: [ConnectError; 5] = [
+const ALL_ERRORS: [ConnectError; 7] = [
     ConnectError::MissingCredentials,
     ConnectError::InvalidCredentials,
     ConnectError::AssociationFailed,
     ConnectError::AssociationTimeout,
     ConnectError::DhcpTimeout,
+    ConnectError::RadioUnavailable,
+    ConnectError::OutOfMemory,
 ];
 
 // ---------------------------------------------------------------- 1. credentials

@@ -6,6 +6,7 @@ mod http;
 mod mdns;
 mod session;
 
+use core::alloc::Layout;
 use core::fmt::Write as FmtWrite;
 
 use embassy_futures::select::{Either, select, select3};
@@ -31,6 +32,7 @@ use crate::drivers::sdcard::SdStorage;
 use crate::drivers::strip::StripBuffer;
 use crate::fonts;
 use crate::fonts::bitmap::BitmapFont;
+use crate::kernel::bigbuf::{BufClass, DecoderScratch};
 use crate::kernel::config::WifiConfig;
 use crate::kernel::tasks;
 use crate::ui::{
@@ -57,17 +59,52 @@ const DHCP_POLL_MS: u64 = 100;
 
 const SOCKET_CLOSE_DELAY_MS: u64 = 50;
 
+// Everything one session needs besides the radio and the network stack: the
+// TCP socket buffers and the HTTP working storage (`http::HttpScratch`). Only
+// tasks touch it (never an ISR or DMA), so the C61 keeps it in PSRAM instead of
+// in the executor's static arena.
+struct Scratch {
+    tcp_rx: [u8; TCP_RX_BUF_SIZE],
+    tcp_tx: [u8; TCP_TX_BUF_SIZE],
+    request: http::HttpScratch,
+}
+
+// One zeroed `Scratch` on the board's scratch placement, taken before the radio
+// starts so that running out of memory ends the session cleanly.
+struct ScratchBlock(DecoderScratch);
+
+impl ScratchBlock {
+    fn new() -> Result<Self, ConnectError> {
+        DecoderScratch::zeroed(BufClass::NetScratch, Layout::new::<Scratch>())
+            .map(Self)
+            .map_err(|_| {
+                info!("upload: no memory for the session scratch");
+                ConnectError::OutOfMemory
+            })
+    }
+
+    fn get(&mut self) -> &mut Scratch {
+        // SAFETY: the block is `size_of::<Scratch>()` bytes at `align_of`
+        // (the layout it was allocated with), zero-initialised and owned
+        // exclusively through `&mut self`; all-zero is a valid `Scratch`
+        // (byte arrays, and `DirEntry` whose fields are integers and a bool).
+        unsafe { &mut *self.0.ptr().cast::<Scratch>() }
+    }
+}
+
 // The radio and network context of one session. `session::run` creates it and
 // drops it before returning. Field order is the drop order: the runner owns the
 // station `Interface` (dropping it releases the interface singleton) and goes
 // first, then the stack handle, and the controller last (its drop deinitialises
-// the Wi-Fi driver), so the network never outlives the radio. The
+// the Wi-Fi driver), so the network never outlives the radio; the scratch is
+// last, nothing in front of it refers to it. The
 // `StackResources` live in `run_upload_mode`, outside `session::run`, and only
 // hold socket storage.
 struct Net<'a> {
     runner: Runner<'a, Interface>,
     stack: Stack<'a>,
     controller: WifiController<'static>,
+    scratch: ScratchBlock,
 }
 
 pub async fn run_upload_mode(
@@ -117,6 +154,7 @@ pub async fn run_upload_mode(
                 ConnectError::RadioUnavailable
             })?;
             let station_cfg = station_config(ssid, password)?;
+            let scratch = ScratchBlock::new()?;
             // Safety: WIFI has no other user, and only the holder of the
             // station interface singleton (taken above) gets here, so there is
             // no second controller; it is not used again once `Net` is dropped.
@@ -134,6 +172,7 @@ pub async fn run_upload_mode(
                 runner,
                 stack,
                 controller,
+                scratch,
             })
         },
         async |net: &mut Net<'_>| {
@@ -183,15 +222,17 @@ pub async fn run_upload_mode(
             )
             .await;
 
-            let mut rx_buf = [0u8; TCP_RX_BUF_SIZE];
-            let mut tx_buf = [0u8; TCP_TX_BUF_SIZE];
-
             // The network runner, the HTTP server and the mDNS responder run
             // for the whole session; BACK (raced by `session::run`) ends it.
-            let Net { runner, stack, .. } = net;
+            let Net {
+                runner,
+                stack,
+                scratch,
+                ..
+            } = net;
             let never = select3(
                 runner.run(),
-                serve_http(*stack, &mut rx_buf, &mut tx_buf, sd),
+                serve_http(*stack, scratch.get(), sd),
                 serve_mdns(*stack, ip_octets),
             )
             .await;
@@ -212,14 +253,9 @@ pub async fn run_upload_mode(
     }
 }
 
-async fn serve_http(
-    stack: embassy_net::Stack<'_>,
-    rx_buf: &mut [u8],
-    tx_buf: &mut [u8],
-    sd: &SdStorage,
-) -> ! {
+async fn serve_http(stack: embassy_net::Stack<'_>, scratch: &mut Scratch, sd: &SdStorage) -> ! {
     loop {
-        match serve_one_request(stack, rx_buf, tx_buf, sd).await {
+        match serve_one_request(stack, scratch, sd).await {
             ServerEvent::Uploaded { name, name_len } => {
                 let fname = core::str::from_utf8(&name[..name_len as usize]).unwrap_or("???");
                 info!("upload: file saved as '{}'", fname);
@@ -241,11 +277,15 @@ async fn serve_http(
 
 async fn serve_one_request(
     stack: embassy_net::Stack<'_>,
-    rx_buf: &mut [u8],
-    tx_buf: &mut [u8],
+    scratch: &mut Scratch,
     sd: &SdStorage,
 ) -> ServerEvent {
-    let mut socket = TcpSocket::new(stack, rx_buf, tx_buf);
+    let Scratch {
+        tcp_rx,
+        tcp_tx,
+        request,
+    } = scratch;
+    let mut socket = TcpSocket::new(stack, tcp_rx, tcp_tx);
     socket.set_timeout(Some(Duration::from_secs(HTTP_TIMEOUT_SECS)));
 
     if socket
@@ -260,7 +300,7 @@ async fn serve_one_request(
         return ServerEvent::Nothing;
     }
 
-    let event = http::serve_request(&mut socket, sd).await;
+    let event = http::serve_request(&mut socket, sd, request).await;
     close_socket(&mut socket).await;
     event
 }

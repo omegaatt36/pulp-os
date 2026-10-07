@@ -21,6 +21,8 @@ pub enum BufClass {
     ImageData,
     ZipToc,
     FontGlyphs,
+    /// Wi-Fi upload session scratch (directory listing, HTTP and TCP buffers).
+    NetScratch,
 }
 
 /// C61 PSRAM budget of the `FontGlyphs` class; callers size their worst case
@@ -62,6 +64,7 @@ impl DecoderScratch {
                 BufClass::ImageData => MemClass::ImageData,
                 BufClass::ZipToc => MemClass::ZipToc,
                 BufClass::FontGlyphs => MemClass::FontGlyphs,
+                BufClass::NetScratch => MemClass::NetScratch,
             };
             let block = memory::alloc(class, layout.size(), layout.align().max(16))
                 .map_err(|_| BufError)?;
@@ -170,6 +173,7 @@ mod imp {
                 BufClass::ImageData => MemClass::ImageData,
                 BufClass::ZipToc => MemClass::ZipToc,
                 BufClass::FontGlyphs => MemClass::FontGlyphs,
+                BufClass::NetScratch => MemClass::NetScratch,
             };
             match memory::alloc(class, len, ALIGN) {
                 Ok(b) => Ok(Self(Some(b))),

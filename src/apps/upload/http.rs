@@ -28,6 +28,28 @@ const HTTP_HEADER_BUF_SIZE: usize = 1024;
 
 const DIR_LIST_MAX: usize = 64;
 
+/// Working storage of one request: the directory listing, the header bytes
+/// and the upload window. Owned by the caller instead of living in the
+/// `serve_request` future, so the C61 can keep it in PSRAM and the future (which
+/// sits in the executor's static arena) stays small. Every byte is written
+/// before it is read, so the caller may reuse one value across requests.
+pub struct HttpScratch {
+    entries: [DirEntry; DIR_LIST_MAX],
+    hdr: [u8; HTTP_HEADER_BUF_SIZE],
+    work: [u8; WORK_BUF_SIZE],
+}
+
+impl HttpScratch {
+    // the firmware gets its value zeroed from `ScratchBlock`; the host tests
+    // build one here
+    #[allow(dead_code)]
+    pub const EMPTY: Self = Self {
+        entries: [DirEntry::EMPTY; DIR_LIST_MAX],
+        hdr: [0; HTTP_HEADER_BUF_SIZE],
+        work: [0; WORK_BUF_SIZE],
+    };
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ServerEvent {
     Nothing,
@@ -40,11 +62,15 @@ pub enum ServerEvent {
 /// Serve the one HTTP request on an accepted connection: parse it, act on
 /// the SD card, write the whole response and flush. The connection is left
 /// open; the caller closes it.
-pub async fn serve_request<S>(socket: &mut S, sd: &SdStorage) -> ServerEvent
+pub async fn serve_request<S>(
+    socket: &mut S,
+    sd: &SdStorage,
+    scratch: &mut HttpScratch,
+) -> ServerEvent
 where
     S: Read + Write,
 {
-    let mut hdr = [0u8; HTTP_HEADER_BUF_SIZE];
+    let HttpScratch { entries, hdr, work } = scratch;
     let mut hdr_len = 0usize;
 
     loop {
@@ -92,8 +118,7 @@ where
     if is_get && path == b"/files" {
         // list first: a card that is missing or cannot be read must not look
         // like an empty one, so nothing is written until the listing is known
-        let mut entries = [DirEntry::EMPTY; DIR_LIST_MAX];
-        let count = match storage::list_root_files(sd, &mut entries) {
+        let count = match storage::list_root_files(sd, entries) {
             Ok(n) => n,
             Err(e) => {
                 log::info!("upload: listing failed: {}", e);
@@ -138,7 +163,7 @@ where
             return ServerEvent::UploadFailed;
         };
 
-        return match handle_upload(socket, sd, boundary, initial_body).await {
+        return match handle_upload(socket, sd, boundary, initial_body, work).await {
             Ok((name, name_len)) => {
                 let _ = socket.write_all(HTTP_200_TEXT).await;
                 let _ = socket.write_all(b"OK").await;
@@ -223,6 +248,7 @@ async fn handle_upload<S>(
     sd: &SdStorage,
     boundary: &[u8],
     initial_body: &[u8],
+    work: &mut [u8; WORK_BUF_SIZE],
 ) -> Result<([u8; 13], u8), &'static str>
 where
     S: Read + Write,
@@ -240,7 +266,6 @@ where
     end_marker_buf[4..em_len].copy_from_slice(boundary);
     let end_marker = &end_marker_buf[..em_len];
 
-    let mut work = [0u8; WORK_BUF_SIZE];
     let init_len = initial_body.len().min(work.len());
     work[..init_len].copy_from_slice(&initial_body[..init_len]);
     let mut filled = init_len;

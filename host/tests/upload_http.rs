@@ -20,7 +20,7 @@ use std::time::Duration as StdDuration;
 use embassy_futures::block_on;
 use embedded_io_async::{ErrorKind as IoErrorKind, ErrorType, Read, Write};
 use pulp_host::ErrorKind;
-use pulp_host::apps::upload_http::{ServerEvent, serve_request};
+use pulp_host::apps::upload_http::{HttpScratch, ServerEvent, serve_request};
 use pulp_host::dir_entry::DirEntry;
 use pulp_host::drivers::sdcard::SdStorage;
 use pulp_host::storage::{StorageOp, VirtualStorage};
@@ -313,7 +313,8 @@ fn run_inner(s: Scenario) -> Outcome {
         out: Vec::new(),
         flushes: 0,
     };
-    let event = block_on(serve_request(&mut sock, &sd));
+    let mut scratch = Box::new(HttpScratch::EMPTY);
+    let event = block_on(serve_request(&mut sock, &sd, &mut scratch));
     let files = s
         .watch
         .iter()

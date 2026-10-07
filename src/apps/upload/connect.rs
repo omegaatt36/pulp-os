@@ -33,6 +33,7 @@ pub enum ConnectError {
     AssociationTimeout,
     DhcpTimeout,
     RadioUnavailable,
+    OutOfMemory,
 }
 
 impl ConnectError {
@@ -52,6 +53,7 @@ impl ConnectError {
             Self::AssociationTimeout => &["Connection timed out!", "Router not responding"],
             Self::DhcpTimeout => &["No IP address!", "DHCP timed out"],
             Self::RadioUnavailable => &["WiFi init failed!", "Radio not available"],
+            Self::OutOfMemory => &["Out of memory!", "Restart and retry"],
         }
     }
 }

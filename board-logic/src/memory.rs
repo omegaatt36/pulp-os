@@ -104,14 +104,16 @@ pub const PSRAM_MIN_BYTES: usize = MIB;
 /// Never handed out: allocator metadata and headroom.
 pub const PSRAM_RESERVE_BYTES: usize = 192 * KIB;
 
-/// PSRAM class limits (PSRAM mode). Sized from the inventory below
-/// (one 96 KiB chapter cache today; PSRAM lets several chapters stay
-/// resident); the integrator may move bytes between classes, the sum is asserted.
-pub const PSRAM_CHAPTER_TEXT_BYTES: usize = 768 * KIB;
+/// PSRAM class limits (PSRAM mode). Sized from the inventory below: the
+/// chapter text candidates (cache, prefetch, inflate window) add up to 144 KiB,
+/// so 256 KiB leaves room for a second chapter. The classes plus the reserve
+/// stay under `PSRAM_HW_BYTES` (asserted); the rest is unassigned headroom.
+pub const PSRAM_CHAPTER_TEXT_BYTES: usize = 256 * KIB;
 pub const PSRAM_IMAGE_DATA_BYTES: usize = 512 * KIB;
 pub const PSRAM_PAGE_TABLE_BYTES: usize = 64 * KIB;
 pub const PSRAM_ZIP_TOC_BYTES: usize = 256 * KIB;
 pub const PSRAM_FONT_GLYPHS_BYTES: usize = 256 * KIB;
+pub const PSRAM_NET_SCRATCH_BYTES: usize = 32 * KIB;
 
 const _: () = assert!(
     PSRAM_CHAPTER_TEXT_BYTES
@@ -119,6 +121,7 @@ const _: () = assert!(
         + PSRAM_PAGE_TABLE_BYTES
         + PSRAM_ZIP_TOC_BYTES
         + PSRAM_FONT_GLYPHS_BYTES
+        + PSRAM_NET_SCRATCH_BYTES
         + PSRAM_RESERVE_BYTES
         <= PSRAM_HW_BYTES
 );
@@ -152,7 +155,7 @@ pub const fn internal_heap_bytes(wifi: bool) -> usize {
 }
 
 /// Internal limits per class. `Dma`/`IsrData`/`Runtime` are internal-only;
-/// the other four are the degraded-mode limits (PSRAM unavailable): the X4
+/// the other five are the degraded-mode limits (PSRAM unavailable): the X4
 /// runs the same reader inside a 172 KB heap, so these are X4-sized.
 pub const INTERNAL_DMA_BYTES: usize = 16 * KIB;
 pub const INTERNAL_ISR_BYTES: usize = 4 * KIB;
@@ -162,6 +165,7 @@ pub const INTERNAL_IMAGE_DATA_BYTES: usize = 112 * KIB;
 pub const INTERNAL_PAGE_TABLE_BYTES: usize = 8 * KIB;
 pub const INTERNAL_ZIP_TOC_BYTES: usize = 32 * KIB;
 pub const INTERNAL_FONT_GLYPHS_BYTES: usize = 16 * KIB;
+pub const INTERNAL_NET_SCRATCH_BYTES: usize = 16 * KIB;
 
 /// Smallest main stack the image must keep after all statics (esp-hal's own
 /// link-time minimum is 8 KiB; the X4 firmware comments plan ~56 KB). The
@@ -219,9 +223,12 @@ pub enum MemClass {
     ZipToc,
     /// Immutable prepared font bitmap bytes; never DMA or ISR-visible.
     FontGlyphs,
+    /// Wi-Fi upload session scratch: directory listing, HTTP work buffers and
+    /// the TCP socket buffers. Touched by tasks only, never by the radio ISR.
+    NetScratch,
 }
 
-pub const CLASS_COUNT: usize = 8;
+pub const CLASS_COUNT: usize = 9;
 
 impl MemClass {
     pub const ALL: [MemClass; CLASS_COUNT] = [
@@ -233,6 +240,7 @@ impl MemClass {
         MemClass::PageTable,
         MemClass::ZipToc,
         MemClass::FontGlyphs,
+        MemClass::NetScratch,
     ];
 
     const fn index(self) -> usize {
@@ -245,6 +253,7 @@ impl MemClass {
             MemClass::PageTable => 5,
             MemClass::ZipToc => 6,
             MemClass::FontGlyphs => 7,
+            MemClass::NetScratch => 8,
         }
     }
 
@@ -257,6 +266,7 @@ impl MemClass {
                 | MemClass::PageTable
                 | MemClass::ZipToc
                 | MemClass::FontGlyphs
+                | MemClass::NetScratch
         )
     }
 
@@ -270,6 +280,7 @@ impl MemClass {
             MemClass::PageTable => "page-table",
             MemClass::ZipToc => "zip-toc",
             MemClass::FontGlyphs => "font-glyphs",
+            MemClass::NetScratch => "net-scratch",
         }
     }
 
@@ -280,6 +291,7 @@ impl MemClass {
             MemClass::PageTable => Some(ExternalClass::PageTable),
             MemClass::ZipToc => Some(ExternalClass::ZipToc),
             MemClass::FontGlyphs => Some(ExternalClass::FontGlyphs),
+            MemClass::NetScratch => Some(ExternalClass::NetScratch),
             _ => None,
         }
     }
@@ -296,6 +308,8 @@ pub enum ExternalClass {
     ZipToc,
     /// Immutable prepared font bitmap bytes; never DMA or ISR-visible.
     FontGlyphs,
+    /// Wi-Fi upload session scratch; never DMA or ISR-visible.
+    NetScratch,
 }
 
 impl From<ExternalClass> for MemClass {
@@ -306,6 +320,7 @@ impl From<ExternalClass> for MemClass {
             ExternalClass::PageTable => MemClass::PageTable,
             ExternalClass::ZipToc => MemClass::ZipToc,
             ExternalClass::FontGlyphs => MemClass::FontGlyphs,
+            ExternalClass::NetScratch => MemClass::NetScratch,
         }
     }
 }
@@ -556,6 +571,7 @@ pub const fn class_limit(status: PsramStatus, region: Region, class: MemClass) -
             MemClass::PageTable => INTERNAL_PAGE_TABLE_BYTES,
             MemClass::ZipToc => INTERNAL_ZIP_TOC_BYTES,
             MemClass::FontGlyphs => INTERNAL_FONT_GLYPHS_BYTES,
+            MemClass::NetScratch => INTERNAL_NET_SCRATCH_BYTES,
         },
         Region::Psram => {
             if !status.is_ready() {
@@ -567,6 +583,7 @@ pub const fn class_limit(status: PsramStatus, region: Region, class: MemClass) -
                 MemClass::PageTable => PSRAM_PAGE_TABLE_BYTES,
                 MemClass::ZipToc => PSRAM_ZIP_TOC_BYTES,
                 MemClass::FontGlyphs => PSRAM_FONT_GLYPHS_BYTES,
+                MemClass::NetScratch => PSRAM_NET_SCRATCH_BYTES,
                 _ => 0,
             }
         }
@@ -1148,6 +1165,15 @@ pub const INVENTORY: &[InventoryItem] = &[
         "estimate; equals CD size, bounded by try_reserve and the zip-toc limit",
     ),
     item(
+        "upload session scratch",
+        "src/apps/upload/mod.rs Scratch: 64 x DirEntry 5,376 + hdr 1,024 + work 2,048 + TCP rx 2,048 + tx 1,536",
+        Heap,
+        12_032,
+        MemClass::NetScratch,
+        Candidate,
+        "one block per Wi-Fi session, taken before the radio starts; Wi-Fi builds only",
+    ),
+    item(
         "decoded page image",
         "src/apps/reader/images.rs DecodedImage.data (480x800 1bpp max)",
         Heap,
@@ -1233,7 +1259,8 @@ mod tests {
             + PSRAM_IMAGE_DATA_BYTES
             + PSRAM_PAGE_TABLE_BYTES
             + PSRAM_ZIP_TOC_BYTES
-            + PSRAM_FONT_GLYPHS_BYTES;
+            + PSRAM_FONT_GLYPHS_BYTES
+            + PSRAM_NET_SCRATCH_BYTES;
         assert_eq!(PSRAM_HW_BYTES, 2 * 1024 * 1024);
         assert!(sum + PSRAM_RESERVE_BYTES <= PSRAM_HW_BYTES);
         // the pool is smaller than the sum of the class limits on purpose?
@@ -1342,6 +1369,7 @@ mod tests {
             MemClass::PageTable,
             MemClass::ZipToc,
             MemClass::FontGlyphs,
+            MemClass::NetScratch,
         ] {
             assert!(c.allows_psram(), "{:?}", c);
             assert_eq!(MemClass::from(c.external().unwrap()), c);
@@ -1475,6 +1503,7 @@ mod tests {
             (MemClass::PageTable, PSRAM_PAGE_TABLE_BYTES),
             (MemClass::ZipToc, PSRAM_ZIP_TOC_BYTES),
             (MemClass::FontGlyphs, PSRAM_FONT_GLYPHS_BYTES),
+            (MemClass::NetScratch, PSRAM_NET_SCRATCH_BYTES),
         ] {
             b.reserve(c, n, 4).unwrap();
         }
@@ -1491,14 +1520,16 @@ mod tests {
         assert_eq!(pool, MIB - PSRAM_RESERVE_BYTES);
         b.reserve(MemClass::ChapterText, PSRAM_CHAPTER_TEXT_BYTES, 4)
             .unwrap();
+        b.reserve(MemClass::ImageData, PSRAM_IMAGE_DATA_BYTES, 4)
+            .unwrap();
         b.reserve(
             MemClass::ZipToc,
-            pool - PSRAM_CHAPTER_TEXT_BYTES - 16 * KIB,
+            pool - PSRAM_CHAPTER_TEXT_BYTES - PSRAM_IMAGE_DATA_BYTES - 16 * KIB,
             4,
         )
         .unwrap();
-        // image-data has its whole 512 KiB left but the pool does not
-        let e = b.reserve(MemClass::ImageData, 32 * KIB, 4).unwrap_err();
+        // zip-toc has most of its 256 KiB left but the pool does not
+        let e = b.reserve(MemClass::ZipToc, 32 * KIB, 4).unwrap_err();
         assert_eq!(
             e,
             MemError::PoolExhausted {
@@ -1509,8 +1540,8 @@ mod tests {
             }
         );
         // what still fits is accepted up to the byte
-        assert!(b.reserve(MemClass::ImageData, 16 * KIB, 4).is_ok());
-        assert!(b.reserve(MemClass::ImageData, 1, 1).is_err());
+        assert!(b.reserve(MemClass::ZipToc, 16 * KIB, 4).is_ok());
+        assert!(b.reserve(MemClass::ZipToc, 1, 1).is_err());
     }
 
     // --- budget: arithmetic ----------------------------------------------
@@ -1688,7 +1719,7 @@ mod tests {
             assert_eq!(b.region_for(c), Region::Internal);
             assert_eq!(b.class_limit(Region::Psram, c), 0);
         }
-        // internal chapter limit applies, not the 768 KiB PSRAM one
+        // internal chapter limit applies, not the 256 KiB PSRAM one
         assert!(
             b.reserve(MemClass::ChapterText, INTERNAL_CHAPTER_TEXT_BYTES, 4)
                 .is_ok()
