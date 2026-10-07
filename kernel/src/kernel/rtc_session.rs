@@ -119,7 +119,7 @@ impl RtcSession {
 //
 // Safety: Access is through save()/load() which use volatile operations
 // and are only called from single-threaded boot/sleep contexts.
-#[unsafe(link_section = ".rtc_fast.persistent")]
+#[cfg_attr(target_os = "none", unsafe(link_section = ".rtc_fast.persistent"))]
 static mut RTC_SESSION: RtcSession = RtcSession::zeroed();
 
 // Atomic flag to track if we've detected a valid session this boot

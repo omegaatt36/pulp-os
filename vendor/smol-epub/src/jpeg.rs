@@ -288,8 +288,8 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> DeflateReader<F> {
 
     // decompress more data into the circular window
     fn pump(&mut self) -> Result<(), &'static str> {
-        use miniz_oxide::inflate::core::{decompress, inflate_flags};
         use miniz_oxide::inflate::TINFLStatus;
+        use miniz_oxide::inflate::core::{decompress, inflate_flags};
 
         if self.done {
             return Ok(());
@@ -523,12 +523,31 @@ impl<R: JpegRead> BitReader<R> {
 /// The image is integer-downscaled so the result fits within
 /// `max_w` × `max_h` pixels.
 pub fn decode_jpeg_fit(data: &[u8], max_w: u16, max_h: u16) -> Result<DecodedImage, &'static str> {
+    decode_jpeg_fit_with_buffer(data, max_w, max_h, |len| {
+        crate::image_buffer(len).map_err(|_| "jpeg: OOM for output")
+    })
+}
+
+/// Decode into caller-owned packed bitmap storage.
+///
+/// `allocate` receives the exact output byte length after scaling. The returned
+/// buffer must have that length; its previous contents are cleared.
+pub fn decode_jpeg_fit_with_buffer<B, A>(
+    data: &[u8],
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
     let st = parse_markers(data)?;
 
     validate_tables(&st)?;
 
     let reader = SliceReader::new(data, st.scan_start);
-    decode_baseline(&st, BitReader::new(reader), max_w, max_h)
+    decode_baseline(&st, BitReader::new(reader), max_w, max_h, allocate)
 }
 
 /// Decode a JPEG from a **stored** (uncompressed) ZIP entry by streaming
@@ -538,7 +557,7 @@ pub fn decode_jpeg_fit(data: &[u8], max_w: u16, max_h: u16) -> Result<DecodedIma
 /// returns the number of bytes actually read. Progressive JPEGs are
 /// decoded using the first scan only.
 pub fn decode_jpeg_streaming<F>(
-    mut read_fn: F,
+    read_fn: F,
     data_offset: u32,
     data_size: u32,
     max_w: u16,
@@ -546,6 +565,25 @@ pub fn decode_jpeg_streaming<F>(
 ) -> Result<DecodedImage, &'static str>
 where
     F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
+{
+    decode_jpeg_streaming_with_buffer(read_fn, data_offset, data_size, max_w, max_h, |len| {
+        crate::image_buffer(len).map_err(|_| "jpeg: OOM for output")
+    })
+}
+
+/// Stream a stored JPEG into caller-owned storage; see [`decode_jpeg_fit_with_buffer`].
+pub fn decode_jpeg_streaming_with_buffer<F, B, A>(
+    mut read_fn: F,
+    data_offset: u32,
+    data_size: u32,
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
 {
     // read the first portion of the JPEG for marker parsing
     let hdr_size = HEADER_READ.min(data_size as usize);
@@ -567,7 +605,7 @@ where
     let end_abs = data_offset + data_size;
     let reader = ChunkReader::new(read_fn, scan_abs, end_abs);
 
-    decode_baseline(&st, BitReader::new(reader), max_w, max_h)
+    decode_baseline(&st, BitReader::new(reader), max_w, max_h, allocate)
 }
 
 /// Backward-compatible alias for [`decode_jpeg_streaming`].
@@ -599,6 +637,32 @@ pub fn decode_jpeg_deflate_streaming<F>(
 ) -> Result<DecodedImage, &'static str>
 where
     F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
+{
+    decode_jpeg_deflate_streaming_with_buffer(
+        read_fn,
+        data_offset,
+        comp_size,
+        uncomp_size,
+        max_w,
+        max_h,
+        |len| crate::image_buffer(len).map_err(|_| "jpeg: OOM for output"),
+    )
+}
+
+/// Stream a DEFLATE JPEG into caller-owned storage; see [`decode_jpeg_fit_with_buffer`].
+pub fn decode_jpeg_deflate_streaming_with_buffer<F, B, A>(
+    read_fn: F,
+    data_offset: u32,
+    comp_size: u32,
+    uncomp_size: u32,
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
 {
     let mut deflate = DeflateReader::new(read_fn, data_offset, comp_size)?;
 
@@ -641,7 +705,7 @@ where
     // free header; marker data is in JpegState
     drop(hdr);
 
-    decode_baseline(&st, BitReader::new(deflate), max_w, max_h)
+    decode_baseline(&st, BitReader::new(deflate), max_w, max_h, allocate)
 }
 
 /// Backward-compatible alias for [`decode_jpeg_deflate_streaming`].
@@ -775,12 +839,20 @@ fn validate_tables(st: &JpegState) -> Result<(), &'static str> {
     Ok(())
 }
 
-fn decode_baseline<R: JpegRead>(
+fn decode_baseline<R: JpegRead, B, A>(
     st: &JpegState,
     mut reader: BitReader<R>,
     max_w: u16,
     max_h: u16,
-) -> Result<DecodedImage, &'static str> {
+    allocate: A,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
+    if max_w == 0 || max_h == 0 {
+        return Err("jpeg: zero output bounds");
+    }
     let w = st.width as usize;
     let h = st.height as usize;
     if w == 0 || h == 0 {
@@ -835,11 +907,12 @@ fn decode_baseline<R: JpegRead>(
         .try_reserve_exact(row_w * mcu_h)
         .map_err(|_| "jpeg: OOM for y_row")?;
     y_row.resize(row_w * mcu_h, 128u8);
-    let mut output = Vec::new();
-    output
-        .try_reserve_exact(out_stride * out_h)
-        .map_err(|_| "jpeg: OOM for output")?;
-    output.resize(out_stride * out_h, 0u8);
+    let mut output = allocate(out_stride * out_h)?;
+    let pixels = output.as_mut();
+    if pixels.len() != out_stride * out_h {
+        return Err("jpeg: output buffer size mismatch");
+    }
+    pixels.fill(0);
     let mut err_cur = Vec::new();
     err_cur
         .try_reserve_exact(out_w + 2)
@@ -923,7 +996,7 @@ fn decode_baseline<R: JpegRead>(
                 continue;
             }
             let row_off = py * row_w;
-            let out_row = &mut output[out_y * out_stride..(out_y + 1) * out_stride];
+            let out_row = &mut pixels[out_y * out_stride..(out_y + 1) * out_stride];
             dither_row_grey(
                 &y_row[row_off..],
                 scale,

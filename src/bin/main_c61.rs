@@ -233,19 +233,18 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     // register the image decoder so the kernel's worker task can decode
     // JPEG/PNG without depending on smol-epub directly
     work_queue::register_image_decoder(|data, is_jpeg, max_w, max_h| {
+        let allocate =
+            |len| BigBuf::zeroed(BufClass::ImageData, len).map_err(|_| "image buffer over budget");
         let raw = if is_jpeg {
-            smol_epub::jpeg::decode_jpeg_fit(data, max_w, max_h)
+            smol_epub::jpeg::decode_jpeg_fit_with_buffer(data, max_w, max_h, allocate)
         } else {
-            smol_epub::png::decode_png_fit(data, max_w, max_h)
+            smol_epub::png::decode_png_fit_with_buffer(data, max_w, max_h, allocate)
         };
-        raw.and_then(|img| {
-            Ok(work_queue::DecodedImage {
-                width: img.width,
-                height: img.height,
-                data: BigBuf::from_vec(img.data, BufClass::ImageData)
-                    .map_err(|_| "image buffer over budget")?,
-                stride: img.stride,
-            })
+        raw.map(|img| work_queue::DecodedImage {
+            width: img.width,
+            height: img.height,
+            data: img.data,
+            stride: img.stride,
         })
     });
 

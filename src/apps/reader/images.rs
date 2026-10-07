@@ -21,16 +21,18 @@ use crate::kernel::{BigBuf, BufClass};
 
 use super::{NO_PREFETCH, PAGE_BUF, PRECACHE_IMG_MAX, ReaderApp};
 
-// takes the decoded pixels over into a budgeted image buffer (PSRAM on the C61;
-// on the X4 the heap block as it is); refused = the image is skipped
-fn from_smol_image(img: smol_epub::DecodedImage) -> Result<DecodedImage, &'static str> {
-    Ok(DecodedImage {
+// Allocate the final image storage before the decoder writes any pixels.
+fn allocate_image_buffer(len: usize) -> Result<BigBuf, &'static str> {
+    BigBuf::zeroed(BufClass::ImageData, len).map_err(|_| "image buffer over budget")
+}
+
+fn from_smol_image(img: smol_epub::DecodedImage<BigBuf>) -> DecodedImage {
+    DecodedImage {
         width: img.width,
         height: img.height,
-        data: BigBuf::from_vec(img.data, BufClass::ImageData)
-            .map_err(|_| "image buffer over budget")?,
+        data: img.data,
         stride: img.stride,
-    })
+    }
 }
 
 // result of scanning a chapter for the next uncached image
@@ -227,7 +229,7 @@ impl ReaderApp {
             let k_cell = RefCell::new(k_ref);
             let read_err = |e: Error| -> &'static str { e.into() };
             let raw = if is_jpeg && entry.method == zip::METHOD_STORED {
-                smol_epub::jpeg::decode_jpeg_sd(
+                smol_epub::jpeg::decode_jpeg_streaming_with_buffer(
                     |off, buf| {
                         k_cell
                             .borrow_mut()
@@ -238,9 +240,10 @@ impl ReaderApp {
                     entry.uncomp_size,
                     img_max_w,
                     img_max_h,
+                    allocate_image_buffer,
                 )
             } else if is_jpeg {
-                smol_epub::jpeg::decode_jpeg_deflate_sd(
+                smol_epub::jpeg::decode_jpeg_deflate_streaming_with_buffer(
                     |off, buf| {
                         k_cell
                             .borrow_mut()
@@ -252,9 +255,10 @@ impl ReaderApp {
                     entry.uncomp_size,
                     img_max_w,
                     img_max_h,
+                    allocate_image_buffer,
                 )
             } else if entry.method == zip::METHOD_STORED {
-                smol_epub::png::decode_png_sd(
+                smol_epub::png::decode_png_streaming_with_buffer(
                     |off, buf| {
                         k_cell
                             .borrow_mut()
@@ -265,9 +269,10 @@ impl ReaderApp {
                     entry.uncomp_size,
                     img_max_w,
                     img_max_h,
+                    allocate_image_buffer,
                 )
             } else {
-                smol_epub::png::decode_png_deflate_sd(
+                smol_epub::png::decode_png_deflate_streaming_with_buffer(
                     |off, buf| {
                         k_cell
                             .borrow_mut()
@@ -278,9 +283,10 @@ impl ReaderApp {
                     entry.comp_size,
                     img_max_w,
                     img_max_h,
+                    allocate_image_buffer,
                 )
             };
-            raw.and_then(from_smol_image)
+            raw.map(from_smol_image)
         };
 
         let result = do_decode(k);
@@ -744,41 +750,45 @@ pub(super) fn decode_image_streaming(
     let read_err = |_: Error| -> &'static str { "read failed" };
 
     let result = if is_jpeg && entry.method == zip::METHOD_STORED {
-        smol_epub::jpeg::decode_jpeg_sd(
+        smol_epub::jpeg::decode_jpeg_streaming_with_buffer(
             |off, buf| k.read_chunk(epub_name, off, buf).map_err(read_err),
             data_offset,
             entry.uncomp_size,
             max_w,
             max_h,
+            allocate_image_buffer,
         )
     } else if is_jpeg {
-        smol_epub::jpeg::decode_jpeg_deflate_sd(
+        smol_epub::jpeg::decode_jpeg_deflate_streaming_with_buffer(
             |off, buf| k.read_chunk(epub_name, off, buf).map_err(read_err),
             data_offset,
             entry.comp_size,
             entry.uncomp_size,
             max_w,
             max_h,
+            allocate_image_buffer,
         )
     } else if entry.method == zip::METHOD_STORED {
-        smol_epub::png::decode_png_sd(
+        smol_epub::png::decode_png_streaming_with_buffer(
             |off, buf| k.read_chunk(epub_name, off, buf).map_err(read_err),
             data_offset,
             entry.uncomp_size,
             max_w,
             max_h,
+            allocate_image_buffer,
         )
     } else {
-        smol_epub::png::decode_png_deflate_sd(
+        smol_epub::png::decode_png_deflate_streaming_with_buffer(
             |off, buf| k.read_chunk(epub_name, off, buf).map_err(read_err),
             data_offset,
             entry.comp_size,
             max_w,
             max_h,
+            allocate_image_buffer,
         )
     };
     result
-        .and_then(from_smol_image)
+        .map(from_smol_image)
         .map_err(|msg| Error::from(msg).with_source("decode_image_streaming"))
 }
 

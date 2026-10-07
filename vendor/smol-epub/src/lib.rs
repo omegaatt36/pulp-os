@@ -104,6 +104,8 @@ pub mod async_io;
 ///
 /// Produced by the [`png`] and [`jpeg`] decoders when the `images`
 /// feature is enabled.
+/// The default storage is a `Vec<u8>`. The `*_with_buffer` decoder functions
+/// retain caller-provided storage, including borrowed slices.
 ///
 /// # Layout
 ///
@@ -114,24 +116,33 @@ pub mod async_io;
 ///
 /// Pixel (x, y) is bit `(7 - x % 8)` of byte `data[y * stride + x / 8]`.
 #[derive(Clone)]
-pub struct DecodedImage {
+pub struct DecodedImage<B = Vec<u8>> {
     /// Image width in pixels.
     pub width: u16,
     /// Image height in pixels.
     pub height: u16,
     /// Packed 1-bit pixel data, `stride * height` bytes.
-    pub data: Vec<u8>,
+    pub data: B,
     /// Bytes per row (`ceil(width / 8)`).
     pub stride: usize,
 }
 
-impl core::fmt::Debug for DecodedImage {
+impl<B: AsRef<[u8]>> core::fmt::Debug for DecodedImage<B> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("DecodedImage")
             .field("width", &self.width)
             .field("height", &self.height)
             .field("stride", &self.stride)
-            .field("data_len", &self.data.len())
+            .field("data_len", &self.data.as_ref().len())
             .finish()
     }
+}
+
+#[cfg(feature = "images")]
+pub(crate) fn image_buffer(len: usize) -> Result<Vec<u8>, &'static str> {
+    let mut data = Vec::new();
+    data.try_reserve_exact(len)
+        .map_err(|_| "image: OOM for output bitmap")?;
+    data.resize(len, 0);
+    Ok(data)
 }

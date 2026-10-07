@@ -50,6 +50,27 @@ pub type PngImage = DecodedImage;
 /// The image is integer-downscaled so the result fits within
 /// `max_w` × `max_h` pixels.
 pub fn decode_png_fit(data: &[u8], max_w: u16, max_h: u16) -> Result<DecodedImage, &'static str> {
+    decode_png_fit_with_buffer(data, max_w, max_h, |len| {
+        crate::image_buffer(len).map_err(|_| "png: OOM for output bitmap")
+    })
+}
+
+/// Decode into caller-owned storage allocated after the output dimensions are known.
+/// The factory must return exactly the requested number of bytes. Storage is zeroed
+/// before decoding, including unused bits at the end of each row.
+pub fn decode_png_fit_with_buffer<B, A>(
+    data: &[u8],
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
+    if max_w == 0 || max_h == 0 {
+        return Err("png: zero output bounds");
+    }
     let header = parse_ihdr(data)?;
     let idat = collect_idat(data)?;
     let plte = collect_plte(data)?;
@@ -86,11 +107,13 @@ pub fn decode_png_fit(data: &[u8], max_w: u16, max_h: u16) -> Result<DecodedImag
 
     // allocate working buffers
 
-    let mut output = Vec::new();
-    output
-        .try_reserve_exact(out_stride * out_h)
-        .map_err(|_| "png: OOM for output bitmap")?;
-    output.resize(out_stride * out_h, 0u8);
+    let output_len = out_stride * out_h;
+    let mut output = allocate(output_len)?;
+    let output_bytes = output.as_mut();
+    if output_bytes.len() != output_len {
+        return Err("png: output buffer length mismatch");
+    }
+    output_bytes.fill(0);
 
     let mut prev_row = Vec::new();
     prev_row
@@ -187,7 +210,7 @@ pub fn decode_png_fit(data: &[u8], max_w: u16, max_h: u16) -> Result<DecodedImag
                         out_w,
                         &mut err_cur,
                         &mut err_nxt,
-                        &mut output[out_y * out_stride..(out_y + 1) * out_stride],
+                        &mut output_bytes[out_y * out_stride..(out_y + 1) * out_stride],
                     );
                     out_y += 1;
 
@@ -351,8 +374,8 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> DeflateSource<F> {
     }
 
     fn pump(&mut self) -> Result<(), &'static str> {
-        use miniz_oxide::inflate::core::{decompress, inflate_flags};
         use miniz_oxide::inflate::TINFLStatus;
+        use miniz_oxide::inflate::core::{decompress, inflate_flags};
 
         if self.done {
             return Ok(());
@@ -452,12 +475,36 @@ pub fn decode_png_streaming<F>(
 where
     F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
 {
+    decode_png_streaming_with_buffer(read_fn, data_offset, data_size, max_w, max_h, |len| {
+        crate::image_buffer(len).map_err(|_| "png: OOM for output bitmap")
+    })
+}
+
+/// Decode a streamed PNG directly into caller-owned storage.
+/// The factory receives the exact packed bitmap size; its errors are propagated.
+/// Storage must have that exact length and is zeroed before pixels are written.
+pub fn decode_png_streaming_with_buffer<F, B, A>(
+    read_fn: F,
+    data_offset: u32,
+    data_size: u32,
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
+    if max_w == 0 || max_h == 0 {
+        return Err("png: zero output bounds");
+    }
     let mut src = StoredSource {
         read_fn,
         offset: data_offset,
         end: data_offset + data_size,
     };
-    decode_png_from(&mut src, max_w, max_h)
+    decode_png_from(&mut src, max_w, max_h, allocate)
 }
 
 /// Backward-compatible alias for [`decode_png_streaming`].
@@ -489,8 +536,32 @@ pub fn decode_png_deflate_streaming<F>(
 where
     F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
 {
+    decode_png_deflate_streaming_with_buffer(read_fn, data_offset, comp_size, max_w, max_h, |len| {
+        crate::image_buffer(len).map_err(|_| "png: OOM for output bitmap")
+    })
+}
+
+/// Decode a streamed PNG directly into caller-owned storage.
+/// The factory receives the exact packed bitmap size; its errors are propagated.
+/// Storage must have that exact length and is zeroed before pixels are written.
+pub fn decode_png_deflate_streaming_with_buffer<F, B, A>(
+    read_fn: F,
+    data_offset: u32,
+    comp_size: u32,
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
+    if max_w == 0 || max_h == 0 {
+        return Err("png: zero output bounds");
+    }
     let mut src = DeflateSource::new(read_fn, data_offset, comp_size)?;
-    decode_png_from(&mut src, max_w, max_h)
+    decode_png_from(&mut src, max_w, max_h, allocate)
 }
 
 /// Backward-compatible alias for [`decode_png_deflate_streaming`].
@@ -561,11 +632,16 @@ where
 /// Core streaming PNG decoder; generic over byte source.
 /// Reads chunks sequentially, feeds IDAT into zlib row-by-row;
 /// never holds the full PNG in RAM.
-fn decode_png_from<R: ReadExact>(
+fn decode_png_from<R: ReadExact, B, A>(
     src: &mut R,
     max_w: u16,
     max_h: u16,
-) -> Result<DecodedImage, &'static str> {
+    allocate: A,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
     // PNG signature
     let mut sig = [0u8; 8];
     src.read_exact(&mut sig)?;
@@ -667,11 +743,13 @@ fn decode_png_from<R: ReadExact>(
     );
 
     // allocate working buffers
-    let mut output = Vec::new();
-    output
-        .try_reserve_exact(out_stride * out_h)
-        .map_err(|_| "png: OOM for output bitmap")?;
-    output.resize(out_stride * out_h, 0u8);
+    let output_len = out_stride * out_h;
+    let mut output = allocate(output_len)?;
+    let output_bytes = output.as_mut();
+    if output_bytes.len() != output_len {
+        return Err("png: output buffer length mismatch");
+    }
+    output_bytes.fill(0);
 
     let mut prev_row = Vec::new();
     prev_row
@@ -790,7 +868,7 @@ fn decode_png_from<R: ReadExact>(
                         out_w,
                         &mut err_cur,
                         &mut err_nxt,
-                        &mut output[out_y * out_stride..(out_y + 1) * out_stride],
+                        &mut output_bytes[out_y * out_stride..(out_y + 1) * out_stride],
                     );
                     out_y += 1;
                     core::mem::swap(&mut err_cur, &mut err_nxt);
