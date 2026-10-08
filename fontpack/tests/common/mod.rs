@@ -5,7 +5,7 @@
 #[cfg(not(feature = "builder"))]
 compile_error!(
     "pulp-fontpack tests need the pack builder: run with `--features builder` \
-     (scripts/host-test.sh does this)"
+     (`cargo test-tools` does this)"
 );
 
 use pulp_fontpack::{FontInfo, GlyphEntry, Metrics, Pack, PackError};

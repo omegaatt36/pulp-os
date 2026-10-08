@@ -1,7 +1,7 @@
 // render regression -- production strip + glyph rendering into a software
 // framebuffer, portrait artifacts, full-frame vs stitched-strip equality.
 //
-// Run: scripts/host-test.sh --test render
+// Run: cargo test-host --test render
 //
 // ============================================================================
 // CONTRACT (implementer must provide exactly this; the tests are the spec)

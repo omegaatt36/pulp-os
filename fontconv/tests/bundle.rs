@@ -1,4 +1,4 @@
-// Pure Rust test suite for font bundle building and caching (replaces scripts/tests/test_build_cjk_fonts.py).
+// Pure Rust test suite for font bundle building and caching.
 
 use pulp_fontconv::bundle::{TempDir, build_bundle, sha256_bytes, sha256_file};
 use std::fs;

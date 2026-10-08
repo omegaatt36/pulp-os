@@ -3,7 +3,7 @@
 // where the leftovers matter: if the layout looked past the end of the read, bytes of an
 // earlier page could "complete" the cut scalar into a character the file does not hold.
 //
-// Run: scripts/host-test.sh --test utf8_residue
+// Run: cargo test-host --test utf8_residue
 //
 // Oracle: the text of the book is the file's bytes, and a sequence cut off by the end of
 // the file is one maximal subpart, shown as exactly one U+FFFD (std `from_utf8_lossy`).

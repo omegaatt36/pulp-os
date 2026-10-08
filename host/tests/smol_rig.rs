@@ -2,7 +2,7 @@
 // Traditional Chinese, and what it holds (smol-epub's parsers feeding the reader's page
 // buffer) is the text that went into the book.
 //
-// Run: scripts/host-test.sh --test smol_rig
+// Run: cargo test-host --test smol_rig
 //
 // Oracle: the strings written into the archive (written here as `char` code points and
 // ASCII), `String::from_utf8_lossy` for anything with malformed bytes, and the HTML5 numeric

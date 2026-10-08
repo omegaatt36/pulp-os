@@ -2,7 +2,7 @@
 // bytes), the OPF dc:title (`TITLE_CAP`) and dc:creator (`AUTHOR_CAP`). The cut falls on a
 // scalar boundary at every byte alignment of 2-, 3- and 4-byte scalars.
 //
-// Run: scripts/host-test.sh --test smol_toc
+// Run: cargo test-host --test smol_toc
 //
 // Each title is `pad` ASCII bytes, then a unit repeated, and every whole-scalar prefix of that
 // from CAP - 8 bytes (fits whole) to CAP + 12 bytes (cut) is written to the book.

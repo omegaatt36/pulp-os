@@ -9,6 +9,8 @@
 | [onepage-cjk-iansui](archive/onepage-cjk-iansui/proposal.md) | 10 | 已封存；host 測試 719 通過，R1–R14／R16 untagged、R14 限縮、R8／R16 無完整 red-proof 經使用者接受，硬體未驗 |
 | [onepage-wifi-upload](archive/onepage-wifi-upload/proposal.md) | 7 | 已封存；host880／board333、enabled／disabled link通過；3項red-proof例外與未標註provenance經使用者接受，實機未驗 |
 
+**實機到手後的入口：[../references/hardware-acceptance.md](../references/hardware-acceptance.md)**（刷機、關卡順序、四個 change 全部未驗項目的總表）。
+
 「獨立 session」指接手時無須前一段對話；各 task 仍有明列依賴。C61 實機 bring-up 與 host 測試可在軟體基線完成後分開進行。不同 session 不可同時修改同一 worktree 的共用檔案。
 
 ## 每個新 session 的入口

@@ -32,7 +32,7 @@ pub const MIB: usize = 1024 * 1024;
 // C61 memory map. Source of truth: esp-hal 1.2.0 `ld/esp32c61/memory.x`
 // (RAM, dram2_seg, MEMORY_MAP comment) and esp-metadata-generated 0.5.3
 // `psram.extmem_origin` = 1107296256 = 0x4200_0000.
-// `scripts/report-c61-memory.sh` diffs these literals against memory.x.
+// harness/tests/c61_memory_budget.rs diffs these literals against memory.x.
 
 /// Start of HP SRAM (D/IRAM alias used by the linker).
 pub const C61_RAM_START: usize = 0x4080_0000;
@@ -792,9 +792,9 @@ impl Default for MemoryBudget {
 }
 
 // ---------------------------------------------------------------------------
-// ELF image budget. `scripts/report-c61-memory.sh` extracts the numbers
-// from the linked ELF and feeds them to `check_image` through the
-// `memreport` example, so the pass/fail rule is this code, not shell.
+// ELF image budget. harness/tests/c61_memory_budget.rs extracts the numbers
+// from the linked ELF and feeds them to `check_image`, so the pass/fail rule
+// is this code.
 
 /// Layout of the main internal RAM region as the linker produced it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

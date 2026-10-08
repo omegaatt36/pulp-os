@@ -1,7 +1,7 @@
 // paging regression -- UTF-8 + paging through the production ReaderApp:
 // previous/next paging on English TXT fixtures.
 //
-// Run: scripts/host-test.sh --test paging
+// Run: cargo test-host --test paging
 //
 // ============================================================================
 // CONTRACT (implementer must provide exactly this; the tests are the spec)
@@ -14,7 +14,7 @@
 // scheduler do (on_enter -> run `background` until the page is ready ->
 // on_event). Only the hardware edge may be shimmed; no layout / wrapping /
 // paging logic may be reimplemented in pulp-host. The model is the archived
-// scripts/reader-regression/os/src/rig.rs (`Rig`) with the in-memory FakeFs
+// reader-regression/os/src/rig.rs (`Rig`) with the in-memory FakeFs
 // replaced by `pulp_host::storage::VirtualStorage`.
 //
 // host/src/lib.rs must expose these PUBLIC modules (besides the storage regression `error` and

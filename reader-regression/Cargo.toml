@@ -1,0 +1,13 @@
+# Host regression harness for English TXT/EPUB reading: its own workspace (not a
+# member of the firmware workspace). The real reader, settings, bookmark and kernel
+# source files are `#[path]`-included from the repository root; only the hardware edge
+# (SD card, Kernel struct, esp-hal) is shimmed. Run: `cargo test-reader-regression`.
+[workspace]
+resolver = "2"
+members = ["esp-hal-shim", "kernel", "os"]
+
+[profile.dev]
+opt-level = 1
+debug = 0
+[profile.dev.build-override]
+opt-level = 3

@@ -2,7 +2,7 @@
 // open, previous/next paging across chapters, TOC, chapter jumps, image pages
 // on EPUB 2 / EPUB 3 fixtures.
 //
-// Run: scripts/host-test.sh --test reader_epub
+// Run: cargo test-host --test reader_epub
 //
 // ============================================================================
 // CONTRACT (implementer must provide exactly this; the tests are the spec)
@@ -11,7 +11,7 @@
 // Everything below only FORWARDS to the real ReaderApp (its pub fields /
 // methods / events through crate::apps::probe, the same way paging regression / render regression did). No
 // layout, paging, TOC, chapter or image logic may be written in pulp-host. The
-// model is the archived scripts/reader-regression/os/src/rig.rs (`Rig`,
+// model is reader-regression/os/src/rig.rs (`Rig`,
 // probe.rs) with the in-memory FakeFs replaced by VirtualStorage. Existing
 // `Rig` methods (new / storage / configure / open / press / phase / error_kind /
 // page / total_pages / fully_indexed / page_offsets / lines / max_lines / text_w /

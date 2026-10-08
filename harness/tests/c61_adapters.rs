@@ -1,6 +1,6 @@
 // OnePage C61 shared-ADC / SD-probe adapter regression: the real
 // board_c61/{adc,spi}.rs sources (included unmodified) host-compiled against
-// the esp-hal seam. Was scripts/check-c61-adapter-regression.sh.
+// the esp-hal seam.
 #![allow(dead_code)]
 
 use esp_hal::peripherals::*;

@@ -4,7 +4,7 @@
 // oversize entries, a cut sequence directly before `&`, `finish` with a short output slice and
 // input that ends inside a reference.
 //
-// Run: scripts/host-test.sh --test smol_gaps
+// Run: cargo test-host --test smol_gaps
 //
 // Oracle: HTML5 numeric character reference rules (a number above U+10FFFF, however written,
 // is U+FFFD; leading zeros do not change the number), `String::from_utf8_lossy` (one U+FFFD

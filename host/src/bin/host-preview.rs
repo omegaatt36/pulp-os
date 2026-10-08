@@ -33,7 +33,7 @@ fn options() -> Result<Option<Options>, String> {
     while let Some(arg) = args.next() {
         if arg == "--help" {
             println!(
-                "Usage: scripts/host-preview.sh --output-dir DIR [--fixture NAME] [--page N] [--font N] [--theme N]\n\nDefaults: all standard fixtures, page 0, font {DEFAULT_FONT_SIZE_IDX}, theme {DEFAULT_READING_THEME}.\n--page is a zero-based ordinal across EPUB chapters.\n--font accepts 0..{}; --theme accepts 0..{}.\nArtifacts: 480x800 binary P4 PBM.\nFixtures: {}",
+                "Usage: cargo host-preview -- --output-dir DIR [--fixture NAME] [--page N] [--font N] [--theme N]\n\nDefaults: all standard fixtures, page 0, font {DEFAULT_FONT_SIZE_IDX}, theme {DEFAULT_READING_THEME}.\n--page is a zero-based ordinal across EPUB chapters.\n--font accepts 0..{}; --theme accepts 0..{}.\nArtifacts: 480x800 binary P4 PBM.\nFixtures: {}",
                 FONT_SIZE_COUNT - 1,
                 NUM_READING_THEMES - 1,
                 standard()

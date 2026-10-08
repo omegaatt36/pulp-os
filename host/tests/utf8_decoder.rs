@@ -4,7 +4,7 @@
 // advances, never reads past the end, and a sequence cut off by the end of the buffer is
 // one U+FFFD.
 //
-// Run: scripts/host-test.sh --test utf8_decoder
+// Run: cargo test-host --test utf8_decoder
 //
 // Oracle: `String::from_utf8_lossy` for the text, and `<[u8]>::utf8_chunks` (the same
 // std implementation of the rule, exposing the length of each maximal subpart) for how

@@ -21,7 +21,7 @@
 //   * Statics (SPI DMA `BUFFER`/`DESCRIPTORS`, the main heap, task arena)
 //     are internal by construction (the linker never maps PSRAM) and
 //     esp-hal's `DmaRxBuf::new` rejects descriptors outside DRAM; the ELF check
-//     (`scripts/report-c61-memory.sh`) proves their addresses.
+//     (harness/tests/c61_memory_budget.rs) proves their addresses.
 //   * PSRAM failure: `init` returns `Degraded(..)`, nothing is registered, the
 //     budget switches to the internal limits and the reader keeps working
 //     offline in X4-sized memory. No panic on that path.

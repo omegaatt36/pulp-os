@@ -2,7 +2,7 @@
 // the books the reader navigation / TOC / image / settings / bookmark
 // regressions run on.
 //
-// Run: scripts/host-test.sh --test fixtures
+// Run: cargo test-host --test fixtures
 //
 // fixture validation proves the fixtures are VALID, DETERMINISTIC and DISTRIBUTABLE books.
 // The page-turn / TOC-navigation / settings / bookmark regressions themselves

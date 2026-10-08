@@ -4,8 +4,8 @@
 // scripted debounce / long-press / repeat scenarios plus a 300k-step seeded
 // random walk, and the event/timing/hardware-read trace is compared
 // byte-for-byte against the committed golden file (which also locks the
-// pulp-board-logic `InputCore` the X4 source drives). Was
-// scripts/check-x4-input-trace.sh; an intentional X4 change refreshes the
+// pulp-board-logic `InputCore` the X4 source drives).
+// An intentional X4 change refreshes the
 // golden deliberately (UPDATE_GOLDEN=1).
 #![allow(dead_code)]
 

@@ -1,5 +1,4 @@
-// Acceptance gates for the host-preview CLI (the former
-// scripts/check-host-preview.sh, as Rust): every gate drives the real binary
+// Acceptance gates for the host-preview CLI: every gate drives the real binary
 // and checks the PBM artifacts it writes, byte for byte.
 
 use std::collections::BTreeMap;

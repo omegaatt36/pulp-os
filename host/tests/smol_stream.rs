@@ -1,7 +1,7 @@
 // Chapter text through smol-epub's stripping pipelines: whole Unicode scalars survive every
 // buffer boundary.
 //
-// Run: scripts/host-test.sh --test smol_stream
+// Run: cargo test-host --test smol_stream
 //
 // A chapter is one paragraph: `pad` ASCII bytes, then a text of 2-, 3- and 4-byte scalars.
 // The pad moves the text over every byte alignment of the internal buffers (the private

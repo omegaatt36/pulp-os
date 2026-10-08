@@ -13,13 +13,11 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
+// qemu-user is Linux-only, so this is opt-in: `cargo test-harness -- --ignored qemu`
 #[test]
+#[ignore = "requires qemu-riscv32 (Linux qemu-user) on PATH"]
 fn qemu_riscv32_executes_target_binary() {
-    let qemu_path = PathBuf::from("/usr/bin/qemu-riscv32");
-    if !qemu_path.is_file() {
-        eprintln!("SKIPPED(no-qemu-riscv32): /usr/bin/qemu-riscv32 not installed");
-        return;
-    }
+    let qemu_path = PathBuf::from("qemu-riscv32");
 
     let root = workspace_root();
     let target_dir = root.join("target/qemu-sim");
@@ -107,7 +105,6 @@ pub extern "C" fn _start() -> ! {
     let rustc_status = Command::new("rustc")
         .current_dir(&root)
         .args([
-            "+nightly-2026-09-22",
             "--target",
             "riscv32imac-unknown-none-elf",
             "-C",

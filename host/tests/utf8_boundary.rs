@@ -2,7 +2,7 @@
 // ReaderApp (proportional layout and the monospace layout), with the boundary moved over
 // every byte alignment by padding the text with ASCII.
 //
-// Run: scripts/host-test.sh --test utf8_boundary
+// Run: cargo test-host --test utf8_boundary
 //
 // Oracle: RFC 3629 (a scalar is 1..=4 bytes; `str::from_utf8` is the independent judge of
 // validity) and the invariants of the text itself: laying a book out must not change its

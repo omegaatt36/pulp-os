@@ -2,7 +2,7 @@
 // entry, and the title stored in an EPUB's cache header. The cap is moved over every byte
 // alignment of 2-, 3- and 4-byte scalars by padding the title with ASCII.
 //
-// Run: scripts/host-test.sh --test utf8_title
+// Run: cargo test-host --test utf8_title
 //
 // Oracle: a title cut to N bytes must stay valid UTF-8 (RFC 3629; `str::from_utf8`
 // judges), must be a prefix of the original title in whole scalars, must not be empty

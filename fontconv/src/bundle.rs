@@ -1,5 +1,4 @@
 //! Pure Rust CJK font bundle builder with artifact verification and caching.
-//! Replaces scripts/build-cjk-fonts.py and eliminates Python dependency.
 
 use crate::{ConversionOptions, Input, convert_with_options};
 use sha2::{Digest, Sha256};

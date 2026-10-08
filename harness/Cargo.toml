@@ -8,7 +8,7 @@ license      = "MIT"
 publish      = false
 
 # Host-only test crate (built for the host triple only, see
-# scripts/host-test.sh): the esp-hal dependency is renamed `board-hal-shim`
+# the `test-harness` alias): the esp-hal dependency is renamed `board-hal-shim`
 # (unique, non-esp-* name so the host boundary check reads it as a plain host
 # build), mapped back to `esp-hal`, so the workspace lock can keep the real
 # `esp-hal` 1.2.0 for the firmware crates; the sources included by #[path]
@@ -28,3 +28,6 @@ object = { version = "0.37", default-features = false, features = ["read_core", 
 [[bin]]
 name = "stack-analyzer"
 path = "src/bin/stack_analyzer.rs"
+
+[dev-dependencies]
+serde_json = "1"

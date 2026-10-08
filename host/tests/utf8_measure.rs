@@ -3,7 +3,7 @@
 // subpart written as U+FFFD, and so is the picture of its page, in the proportional layout
 // and in the plain-font layout (no Regular font data, `Rig::open_monospace`).
 //
-// Run: scripts/host-test.sh --test utf8_measure
+// Run: cargo test-host --test utf8_measure
 //
 // Oracle: the replacement policy (one U+FFFD per maximal subpart, as std's
 // `from_utf8_lossy` counts them; the hand counts are checked against std below). A book

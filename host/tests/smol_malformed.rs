@@ -3,7 +3,7 @@
 // gives (maximal subpart, RFC 3629 section 3 / WHATWG), and the valid text around it is
 // unchanged, at every buffer alignment and every split of the input.
 //
-// Run: scripts/host-test.sh --test smol_malformed
+// Run: cargo test-host --test smol_malformed
 //
 // Oracle: `String::from_utf8_lossy` of the whole input text (ASCII `a` / `b` around the
 // malformed bytes end any sequence, so lossy of the whole equals "a" + lossy(bytes) + "b").

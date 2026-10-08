@@ -2,12 +2,12 @@
 // generation, 48-byte records in _PULP/BKMK.BIN) over the virtual card, and
 // how the real ReaderApp saves and restores positions through it.
 //
-// Ported from the archived oracle tests, scripts/reader-regression/os/tests/
+// Ported from the archived oracle tests, reader-regression/os/tests/
 // bookmarks.rs: the production kernel/src/kernel/bookmarks.rs is exercised
 // through the public pulp_host API (Kernel + its production KernelHandle
 // cache accessors, and the production boot path at Rig::new).
 //
-// Run: scripts/host-test.sh --test reader_bookmarks
+// Run: cargo test-host --test reader_bookmarks
 //
 // ============================================================================
 // CONTRACT (implementer must provide exactly this; the tests are the spec)

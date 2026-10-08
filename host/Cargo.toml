@@ -12,7 +12,7 @@ build        = "build.rs"
 # host triple builds and `cargo test` runs. Production logic is reached by
 # `#[path]`-including the firmware's own source files (never a copy); only
 # the hardware edge (SD card, display, Kernel struct) is a host stand-in.
-# Host test command: `scripts/host-test.sh`.
+# Host test command: `cargo test-host`.
 [features]
 default = ["board-x4"]
 # Declared so the production files' cfg(feature = "board-x4") arms select the

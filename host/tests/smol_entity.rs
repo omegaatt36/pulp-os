@@ -1,7 +1,7 @@
 // Numeric character references in chapter text: a reference to a scalar becomes that
 // scalar; a reference to no scalar becomes one U+FFFD; the text around it is untouched.
 //
-// Run: scripts/host-test.sh --test smol_entity
+// Run: cargo test-host --test smol_entity
 //
 // Oracle: the HTML5 numeric character reference rules (surrogates D800..=DFFF, values above
 // 10FFFF and zero are U+FFFD; one reference gives one U+FFFD, a surrogate pair written as

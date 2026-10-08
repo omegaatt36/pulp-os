@@ -54,9 +54,7 @@ CJK font installation
     caches under target/. Publish the selected bundle as a release artifact.
     The duplicate archived Iansui ZIP was removed after byte comparison.
 
-    Run the bundle tests with the real alternate-font fixture:
-
-        python3 -m unittest discover -s scripts/tests -p test_build_cjk_fonts.py
+    The bundle tests run with the font tools: cargo test-tools
 
 hardware
     mcu         ESP32-C3, single-core RISC-V RV32IMC, 160 MHz
@@ -94,23 +92,26 @@ building
                                      offline firmware, src/bin/main_c61.rs)
                                      and pulp-os-c61-boot (bring-up image)
         cargo run-c61                flash + monitor the full firmware;
-                                     needs espflash >= 4.6.0 (4.3.0 does
+                                     needs espflash >= 4.4.0 (4.3.0 does
                                      not know esp32c61); flash 40 MHz dio
         cargo run-c61-boot           same for the bring-up image
-        scripts/test-board-logic.sh  host tests of the HAL-free board logic
+        cargo test-board-logic       host tests of the HAL-free board logic
                                      (board-logic/, host target)
-        harness/tests (board-harness)
-                                     the real c61 adapters + x4 epd-driver /
-                                     input sources host-compiled against an
-                                     esp-hal shim; wire traces locked by
-                                     committed goldens, run via
-                                     scripts/host-test.sh
+        cargo test-harness           harness/tests (board-harness): the real
+                                     c61 adapters + x4 epd-driver / input
+                                     sources host-compiled against an esp-hal
+                                     shim (wire traces locked by committed
+                                     goldens), plus the ELF / dependency
+                                     checks below; needs `task build`
+        cargo test-host              pulp-host (paging, rendering, storage)
+        cargo test-reader-regression English TXT/EPUB regression with the
+                                     pre-port golden trace (reader-regression/)
+        task acceptance              everything software-side (Taskfile.yml)
 
     the aliases live in .cargo/config.toml and pass --target and
     --features board-x4 / board-onepage-c61 explicitly. the chip crates
-    follow the target; the board feature must agree with it. check:
-
-        scripts/check-board-selection.sh
+    follow the target; the board feature must agree with it. checked by
+    harness/tests/board_selection.rs.
 
     wifi upload is optional and off by default for every board: the
     default (offline) firmware does not link esp-radio / embassy-net, has
@@ -121,13 +122,11 @@ building
     wifi_ssid / wifi_pass keys so credentials are not lost. the c61 wifi
     build shrinks the main internal heap from 96 KiB to 52 KiB
     (INTERNAL_HEAP_MAIN_BYTES_WIFI) to fit the radio's statics; the
-    offline build keeps 96 KiB. check:
+    offline build keeps 96 KiB. checked by harness/tests:
 
-        scripts/check-offline-boundary.sh   offline: no radio crates / symbols
-        scripts/check-wifi-build.sh         wifi: radio set, opt-level, link of
-                                            both boards, offline boundary,
-                                            IPv4-only smoltcp, c61 memory
-                                            budget (report-c61-memory.sh)
+        offline_boundary.rs    offline: no radio crates / symbols
+        wifi_build_check.rs    wifi: radio set, opt-level, IPv4-only smoltcp
+        c61_memory_budget.rs   c61 image memory budget (offline and wifi)
 
     c61 wifi hardware acceptance (association, DHCP, HTTP, mDNS, re-entry,
     current; none run on hardware, all tracked as UNVERIFIED):

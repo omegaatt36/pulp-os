@@ -3,7 +3,7 @@
 // scalar cut by the end of the buffer is never shown, as half a character or as U+FFFD.
 // Only the end of the chapter's own text is the end of the text.
 //
-// Run: scripts/host-test.sh --test utf8_epub
+// Run: cargo test-host --test utf8_epub
 //
 // How the chapter reaches the buffer end: U+00AD (soft hyphen) has no width, so a run of
 // them stays on one line however long it is. A paragraph "run of soft hyphens, then CJK

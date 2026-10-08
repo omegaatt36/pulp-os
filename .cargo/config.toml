@@ -20,12 +20,25 @@ build-c61-wifi = "build --release --target riscv32imac-unknown-none-elf --featur
 run-c61-wifi   = "run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,wifi --bin pulp-os-c61"
 check-c61 = "check --release --target riscv32imac-unknown-none-elf --features board-onepage-c61"
 
+# Host-side tests. The default [build] target is bare-metal RISC-V, so every
+# host command selects `host-tuple` explicitly. The root build-std = [alloc, core]
+# is merged (not replaced) by --config, and a core-only build-std collides with the
+# test harness's sysroot core (E0152), so std+test are added.
+test-board-logic = ["test", "-p", "pulp-board-logic", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+test-host        = ["test", "-p", "pulp-host", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+test-tools       = ["test", "-p", "pulp-fontpack", "-p", "pulp-fontconv", "--features", "pulp-fontpack/builder", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+# ELF / dependency-graph checks and golden wire traces; needs the images of `task build`
+test-harness     = ["test", "-p", "board-harness", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+# English TXT/EPUB regression (own workspace, real reader sources against a hardware shim)
+test-reader-regression = ["test", "--manifest-path", "reader-regression/Cargo.toml", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+host-preview     = ["run", "--locked", "-p", "pulp-host", "--bin", "host-preview", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+
 [target.riscv32imc-unknown-none-elf]
 runner = "espflash flash --monitor --chip esp32c3"
 
 # OnePage C61: BSP bring-up uses flash 40 MHz DIO / 16 MB (80 MHz flash causes
 # image-hash boot loops on this board, see bsp_onepage_c61/README.md). Needs an
-# espflash that knows esp32c61 (>= 4.6.0 source has it; 4.3.0 rejects the chip).
+# espflash that knows esp32c61 (>= 4.4.0; 4.3.0 rejects the chip).
 [target.riscv32imac-unknown-none-elf]
 runner = "espflash flash --monitor --chip esp32c61 --flash-mode dio --flash-freq 40mhz --flash-size 16mb"
 

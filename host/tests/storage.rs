@@ -1,6 +1,6 @@
 // storage regression -- virtual storage backends and storage failure injection.
 //
-// Run: scripts/host-test.sh --test storage
+// Run: cargo test-host --test storage
 //
 // ============================================================================
 // CONTRACT (implementer must provide exactly this; the tests are the spec)

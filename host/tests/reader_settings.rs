@@ -2,12 +2,12 @@
 // real SettingsApp loading / editing / saving, and how the saved values reach
 // the real ReaderApp.
 //
-// Ported from the archived oracle tests, scripts/reader-regression/os/tests/
+// Ported from the archived oracle tests, reader-regression/os/tests/
 // settings.rs: the same production sources are exercised here
 // (kernel/src/kernel/config.rs and src/apps/settings.rs), reached through the
 // public pulp_host API over the virtual card.
 //
-// Run: scripts/host-test.sh --test reader_settings
+// Run: cargo test-host --test reader_settings
 //
 // ============================================================================
 // CONTRACT (implementer must provide exactly this; the tests are the spec)

@@ -1,6 +1,6 @@
 // utf8 regression -- production UTF-8 decoding.
 //
-// Run: scripts/host-test.sh --test utf8
+// Run: cargo test-host --test utf8
 //
 // ============================================================================
 // CONTRACT (implementer must provide exactly this; the tests are the spec)

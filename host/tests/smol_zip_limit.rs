@@ -1,7 +1,7 @@
 // The 256-entry limit of smol-epub's ZIP index, characterised (pinned as observed, not
 // endorsed): what an archive with more entries than `ZipIndex` holds does.
 //
-// Run: scripts/host-test.sh --test smol_zip_limit
+// Run: cargo test-host --test smol_zip_limit
 //
 // Observed behaviour (unfixed vendored smol-epub, upstream 832609d):
 //   * `parse_central_directory` returns Ok whatever the entry count; the index keeps the FIRST

@@ -1,5 +1,5 @@
 // Tests that invalid board selections fail at build time with readable compile_error!
-// messages (replaces scripts/check-board-selection.sh).
+// messages.
 
 use std::path::PathBuf;
 use std::process::Command;

@@ -1,19 +1,22 @@
-// Pure Rust verification that offline firmware does not link radio/network stack
-// and carries no upload UI strings (replaces scripts/check-offline-boundary.sh).
+// The offline firmware (feature `wifi` off, the default) must not link any radio /
+// network stack and must not carry the upload menu entry. The X4 and C61 images built
+// with `--features wifi` are the positive controls: the same probes must find the radio
+// there (and, on X4, the upload strings), otherwise the probes themselves are broken.
 
-use object::{Object, ObjectSection, ObjectSymbol, SymbolKind};
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+mod common;
 
-fn workspace_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("workspace root")
-        .to_path_buf()
-}
+use common::*;
 
+const RADIO_CRATES: &[&str] = &[
+    "esp-radio",
+    "esp-radio-rtos-driver",
+    "embassy-net",
+    "smoltcp",
+    "esp-wifi-sys",
+    "esp-wifi-sys-esp32c61",
+];
 const RADIO_SYMBOLS: &[&str] = &["esp_radio", "esp_wifi", "embassy_net", "smoltcp"];
+/// UI / server strings that exist only in upload mode
 const UPLOAD_STRINGS: &[&str] = &[
     "pulp.local",
     "WiFi config error!",
@@ -21,176 +24,117 @@ const UPLOAD_STRINGS: &[&str] = &[
     "Connection failed!",
 ];
 
-fn probe_elf_file(elf_path: &Path) -> (usize, usize, bool) {
-    let bytes = fs::read(elf_path).expect("read elf");
-    let obj = object::File::parse(&*bytes).expect("parse elf");
-
-    let mut radio_syms = 0;
-    for sym in obj.symbols() {
-        // Ignore absolute symbols (e.g. ROM symbols)
-        if sym.kind() == SymbolKind::Data || sym.kind() == SymbolKind::Text {
-            if let Ok(name) = sym.name() {
-                for pat in RADIO_SYMBOLS {
-                    if name.contains(pat) {
-                        radio_syms += 1;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    let mut found_upload_strings = 0;
-    let mut found_upload_menu = false;
-
-    // Scan all data/rodata/text sections for raw string occurrences
-    for section in obj.sections() {
-        if let Ok(data) = section.data() {
-            for pat in UPLOAD_STRINGS {
-                if data.windows(pat.len()).any(|w| w == pat.as_bytes()) {
-                    found_upload_strings += 1;
-                }
-            }
-            // Check for exact "\0Upload\0" or menu entry
-            if data
-                .windows(b"\0Upload\0".len())
-                .any(|w| w == b"\0Upload\0")
-            {
-                found_upload_menu = true;
-            }
-        }
-    }
-
-    (radio_syms, found_upload_strings, found_upload_menu)
+struct Probe {
+    radio_symbols: usize,
+    upload_strings: usize,
+    upload_menu: bool,
 }
 
-#[test]
-fn offline_c61_elf_has_no_radio_symbols_or_strings() {
-    let root = workspace_root();
-    let candidates = [
-        root.join("target/accept/c61/riscv32imac-unknown-none-elf/release/pulp-os-c61"),
-        root.join("target/riscv32imac-unknown-none-elf/release/pulp-os-c61"),
-    ];
-
-    for elf in &candidates {
-        if elf.is_file() {
-            let (syms, strs, menu) = probe_elf_file(elf);
-            assert_eq!(
-                syms,
-                0,
-                "Offline C61 ELF {} contained radio symbols",
-                elf.display()
-            );
-            assert_eq!(
-                strs,
-                0,
-                "Offline C61 ELF {} contained upload strings",
-                elf.display()
-            );
-            assert!(
-                !menu,
-                "Offline C61 ELF {} contained 'Upload' menu entry",
-                elf.display()
-            );
-            return;
-        }
+fn probe(img: Image) -> Probe {
+    let bytes = read_elf(&image(img));
+    let obj = parse_elf(&bytes);
+    let radio_symbols = defined_symbols(&obj)
+        .iter()
+        .filter(|n| RADIO_SYMBOLS.iter().any(|p| n.contains(p)))
+        .count();
+    let data = section_data(&obj);
+    let upload_strings = UPLOAD_STRINGS
+        .iter()
+        .filter(|pat| {
+            data.iter()
+                .any(|d| d.windows(pat.len()).any(|w| w == pat.as_bytes()))
+        })
+        .count();
+    let upload_menu = data
+        .iter()
+        .any(|d| ascii_runs(d, 4).iter().any(|run| *run == b"Upload"));
+    Probe {
+        radio_symbols,
+        upload_strings,
+        upload_menu,
     }
 }
 
-#[test]
-fn offline_x4_elf_has_no_radio_symbols_or_strings() {
-    let root = workspace_root();
-    let candidates = [
-        root.join("target/accept/x4/riscv32imc-unknown-none-elf/release/pulp-os"),
-        root.join("target/riscv32imc-unknown-none-elf/release/pulp-os"),
-    ];
+fn assert_no_radio(name: &str, img: Image) {
+    let p = probe(img);
+    assert_eq!(p.radio_symbols, 0, "{name}: radio/net symbols linked");
+    assert_eq!(p.upload_strings, 0, "{name}: upload-mode strings present");
+    assert!(!p.upload_menu, "{name}: 'Upload' menu label present");
+}
 
-    for elf in &candidates {
-        if elf.is_file() {
-            let (syms, strs, menu) = probe_elf_file(elf);
-            assert_eq!(
-                syms,
-                0,
-                "Offline X4 ELF {} contained radio symbols",
-                elf.display()
-            );
-            assert_eq!(
-                strs,
-                0,
-                "Offline X4 ELF {} contained upload strings",
-                elf.display()
-            );
+#[test]
+fn offline_images_link_no_radio_and_no_upload_ui() {
+    assert_no_radio("x4 offline", Image::X4);
+    assert_no_radio("c61 offline", Image::C61);
+    assert_no_radio("c61 boot image", Image::C61Boot);
+}
+
+#[test]
+fn x4_wifi_control_finds_radio_strings_and_menu() {
+    let p = probe(Image::X4Wifi);
+    assert!(
+        p.radio_symbols > 0,
+        "probe finds no radio symbols (probe broken?)"
+    );
+    assert!(
+        p.upload_strings > 0,
+        "probe finds no upload strings (probe broken?)"
+    );
+    assert!(
+        p.upload_menu,
+        "probe finds no 'Upload' menu label (probe broken?)"
+    );
+}
+
+#[test]
+fn c61_wifi_control_finds_radio_symbols() {
+    let p = probe(Image::C61Wifi);
+    assert!(
+        p.radio_symbols > 0,
+        "probe finds no radio symbols (probe broken?)"
+    );
+}
+
+/// `cargo tree -i <krate>` for one build configuration.
+fn tree_inverse(krate: &str, target: &str, features: &str) -> String {
+    let (_, text) = cargo(&[
+        "tree",
+        "--locked",
+        "-e",
+        "normal",
+        "-i",
+        krate,
+        "--target",
+        target,
+        "--features",
+        features,
+    ]);
+    text
+}
+
+#[test]
+fn offline_dependency_graphs_exclude_radio_crates() {
+    for (target, features) in [(X4_TARGET, "board-x4"), (C61_TARGET, "board-onepage-c61")] {
+        for krate in RADIO_CRATES {
+            let text = tree_inverse(krate, target, features);
             assert!(
-                !menu,
-                "Offline X4 ELF {} contained 'Upload' menu entry",
-                elf.display()
+                text.contains("did not match any packages"),
+                "{features} on {target}: {krate} is in the dependency graph:\n{text}"
             );
-            return;
         }
     }
 }
 
 #[test]
-fn wifi_c61_elf_control_has_radio_symbols() {
-    let root = workspace_root();
-    let candidates = [
-        root.join("target/accept/wifi-build/riscv32imac-unknown-none-elf/release/pulp-os-c61"),
-        root.join("target/wifi-build/riscv32imac-unknown-none-elf/release/pulp-os-c61"),
-        root.join("target/accept/offline-boundary/c61-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61"),
-    ];
-
-    for elf in &candidates {
-        if elf.is_file() {
-            let (syms, strs, _) = probe_elf_file(elf);
-            assert!(
-                syms > 0,
-                "Wifi C61 ELF {} should contain radio symbols",
-                elf.display()
-            );
-            assert!(
-                strs > 0,
-                "Wifi C61 ELF {} should contain upload strings",
-                elf.display()
-            );
-            return;
-        }
-    }
-}
-
-#[test]
-fn offline_dependency_tree_excludes_radio() {
-    let root = workspace_root();
-    let configs = [
-        ("riscv32imac-unknown-none-elf", "board-onepage-c61"),
-        ("riscv32imc-unknown-none-elf", "board-x4"),
-    ];
-
-    for (target, features) in configs {
-        let output = Command::new("cargo")
-            .current_dir(&root)
-            .args([
-                "tree",
-                "--locked",
-                "-e",
-                "normal",
-                "-i",
-                "esp-radio",
-                "--target",
-                target,
-                "--features",
-                features,
-            ])
-            .output()
-            .expect("cargo tree");
-
-        let text =
-            String::from_utf8_lossy(&output.stderr) + String::from_utf8_lossy(&output.stdout);
+fn wifi_dependency_graphs_contain_esp_radio() {
+    for (target, features) in [
+        (X4_TARGET, "board-x4,wifi"),
+        (C61_TARGET, "board-onepage-c61,wifi"),
+    ] {
+        let text = tree_inverse("esp-radio", target, features);
         assert!(
-            text.contains("did not match any packages"),
-            "Target {} features {} unexpectedly includes esp-radio:\n{}",
-            target,
-            features,
-            text
+            text.starts_with("esp-radio"),
+            "{features} on {target}: esp-radio missing from the graph:\n{text}"
         );
     }
 }

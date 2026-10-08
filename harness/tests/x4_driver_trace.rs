@@ -4,8 +4,8 @@
 // phase 3), deep sleep and re-init, and the recorded SPI/DC/RST/delay trace
 // is compared byte-for-byte against the committed golden file. The pin proves
 // the driver sources still emit the pre-port trace (the pure sequences and
-// the strip layout moved into pulp-board-logic). Was
-// scripts/check-x4-driver-trace.sh; an intentional X4 change refreshes the
+// the strip layout moved into pulp-board-logic).
+// An intentional X4 change refreshes the
 // golden deliberately (UPDATE_GOLDEN=1).
 #![allow(dead_code)]
 

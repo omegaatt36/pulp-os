@@ -2,7 +2,7 @@
 // U+FFFD for each malformed sequence, never invalid UTF-8, and leaves the valid text
 // around it alone.
 //
-// Run: scripts/host-test.sh --test utf8_malformed
+// Run: cargo test-host --test utf8_malformed
 //
 // Policy: a malformed sequence is replaced when the text is consumed (Utf8Iter,
 // decode_utf8_char, drawing), one U+FFFD per maximal subpart (std's
