@@ -3,9 +3,14 @@
 // `handle_input`, `poll_housekeeping`) is shared with the X4.
 //
 // What differs from the X4 on purpose:
-//   * every refresh is a FULL refresh (partial refresh is out of scope for the
-//     first version). `Redraw::Partial` is promoted, so the panel flashes on
-//     each page turn, and `ghost_clear_every` has no effect;
+//   * every refresh is a FULL refresh unless the `partial-refresh` feature is
+//     on (`cargo build-c61-partial`, off by default, not verified on hardware).
+//     Without it `Redraw::Partial` is promoted, so the panel flashes on each
+//     page turn, and `ghost_clear_every` has no effect. With it a
+//     `Redraw::Partial(region)` is a blocking differential refresh of that
+//     region (`Epd::partial_refresh`, ~0.5 s), and every `ghost_clear_every`
+//     partials a full refresh clears the ghosting. The first frame, and the
+//     first one after a controller re-init, are always full;
 //   * `Epd::full_refresh` blocks until the controller is idle (BUSY bounded at
 //     5 s). There is no `busy_wait_with_background`, so no input is collected
 //     and no background work runs during a refresh; events queue in
@@ -32,6 +37,8 @@ use pulp_board_logic::lifecycle::{
 use pulp_board_logic::power::PeripheralPower;
 use pulp_board_logic::session::SessionState;
 use pulp_board_logic::sleep::BootPlan;
+#[cfg(feature = "partial-refresh")]
+use pulp_board_logic::ssd1677::{PartialResult, WindowSource};
 use pulp_board_logic::ssd1677::{Rotation, StripSource};
 
 use super::app::{AppLayer, Redraw};
@@ -44,6 +51,8 @@ use crate::board_c61::sleep::{self, StoreSaver, WakeCause};
 use crate::drivers::sdcard::SdStorage;
 use crate::drivers::storage;
 use crate::drivers::strip::StripBuffer;
+#[cfg(feature = "partial-refresh")]
+use crate::ui::Region;
 
 #[inline]
 fn now_ms() -> u64 {
@@ -59,6 +68,16 @@ struct AppStrips<'a, A: AppLayer> {
 impl<A: AppLayer> StripSource for AppStrips<'_, A> {
     fn render_strip(&mut self, rotation: Rotation, idx: u16) -> &[u8] {
         self.strip.begin_strip(rotation, idx);
+        self.app.draw(self.strip);
+        self.strip.data()
+    }
+}
+
+// the same draw callback, one window of the partial region at a time
+#[cfg(feature = "partial-refresh")]
+impl<A: AppLayer> WindowSource for AppStrips<'_, A> {
+    fn render_window(&mut self, rotation: Rotation, px: u16, py: u16, pw: u16, rows: u16) -> &[u8] {
+        self.strip.begin_window(rotation, px, py, pw, rows);
         self.app.draw(self.strip);
         self.strip.data()
     }
@@ -112,6 +131,49 @@ impl<S: StripSource> Refresher for EpdRefresher<'_, S> {
             Ok(()) => true,
             Err(e) => {
                 warn!("display: full refresh failed: {}", e.as_str());
+                false
+            }
+        }
+    }
+
+    fn reinit(&mut self) -> bool {
+        reinit_display(self.epd, self.power)
+    }
+}
+
+// Hardware side of one partial-refresh frame for `run_refresh`: a differential
+// refresh of `region`, or a full refresh when the controller cannot do one yet
+// (first frame, or after a re-init: `Epd::init` makes the next frame full, so
+// the retry that follows a failed partial is a full refresh).
+#[cfg(feature = "partial-refresh")]
+struct EpdPartialRefresher<'a, S: StripSource + WindowSource> {
+    epd: &'a mut Epd,
+    power: &'a mut PeripheralPower<Gpio27Rail>,
+    src: &'a mut S,
+    region: Region,
+    // the attempt that showed the frame was a full refresh
+    full: bool,
+}
+
+#[cfg(feature = "partial-refresh")]
+impl<S: StripSource + WindowSource> Refresher for EpdPartialRefresher<'_, S> {
+    fn refresh(&mut self) -> bool {
+        let Region { x, y, w, h } = self.region;
+        let shown = match self.epd.partial_refresh(x, y, w, h, self.src) {
+            Ok(PartialResult::Done) => {
+                self.full = false;
+                Ok(())
+            }
+            Ok(PartialResult::NeedsFull) => {
+                self.full = true;
+                self.epd.full_refresh(self.src)
+            }
+            Err(e) => Err(e),
+        };
+        match shown {
+            Ok(()) => true,
+            Err(e) => {
+                warn!("display: partial refresh failed: {}", e.as_str());
                 false
             }
         }
@@ -221,19 +283,68 @@ impl super::Kernel {
         applied
     }
 
-    // all redraws are full refreshes; returns false (never "sleep requested":
-    // the C61 has no Power key)
+    // full refresh, or a partial one with the `partial-refresh` feature;
+    // returns false (never "sleep requested": the C61 has no Power key)
     pub(super) async fn render<A: AppLayer>(&mut self, app_mgr: &mut A, redraw: Redraw) -> bool {
         if matches!(redraw, Redraw::None) {
             return false;
         }
         self.log_stats();
+        #[cfg(feature = "partial-refresh")]
+        if let Redraw::Partial(region) = redraw {
+            if self.partial_refreshes < app_mgr.ghost_clear_every() {
+                self.render_partial(app_mgr, region);
+                embassy_futures::yield_now().await;
+                return false;
+            }
+            info!("display: promoted partial to full (ghosting clear)");
+        }
         self.render_full(app_mgr);
         self.partial_refreshes = 0;
         // the refresh blocked the executor: let the input / housekeeping tasks
         // run before the loop continues
         embassy_futures::yield_now().await;
         false
+    }
+
+    // blocking differential refresh of `region`; counts toward the ghosting
+    // clear unless the controller needed a full refresh instead
+    #[cfg(feature = "partial-refresh")]
+    fn render_partial<A: AppLayer>(&mut self, app: &mut A, region: Region) {
+        app.prepare_render(&mut self.handle());
+        let started = now_ms();
+        let mut src = AppStrips {
+            strip: &mut *self.strip,
+            app,
+        };
+        let mut refresher = EpdPartialRefresher {
+            epd: &mut self.epd,
+            power: &mut self.hw.power,
+            src: &mut src,
+            region,
+            full: false,
+        };
+        let shown = run_refresh(&mut self.hw.display, &mut refresher);
+        let full = refresher.full;
+        if !shown {
+            error!("display: giving up on this frame, redraw on next input");
+            return;
+        }
+        if full {
+            self.partial_refreshes = 0;
+        } else {
+            self.partial_refreshes += 1;
+        }
+        info!(
+            "display: {} refresh {}x{} at ({}, {}) in {} ms (partial count {})",
+            if full { "full" } else { "partial" },
+            region.w,
+            region.h,
+            region.x,
+            region.y,
+            now_ms() - started,
+            self.partial_refreshes
+        );
     }
 
     fn render_full<A: AppLayer>(&mut self, app: &mut A) {

@@ -45,3 +45,6 @@ board-onepage-c61 = []
 # Wi-Fi build of the firmware (forwarded by the root `wifi` feature): selects the
 # smaller C61 internal heap plan and the matching MemoryBudget.
 wifi              = []
+# OnePage C61: differential partial refresh for `Redraw::Partial` (off: every
+# refresh is full). Not verified on hardware, see specs/references/hardware-acceptance.md.
+partial-refresh   = []

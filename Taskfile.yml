@@ -1,7 +1,7 @@
 # Software acceptance of the firmware (everything that runs without a board).
 # `task` alone lists the tasks; `task acceptance` runs all of them.
 #
-# The four images are built into target/accept/<image>/ (one CARGO_TARGET_DIR each);
+# The five images are built into target/accept/<image>/ (one CARGO_TARGET_DIR each);
 # the ELF checks of `cargo test-harness` read them from there and fail if one is missing.
 # Host-side test commands are cargo aliases (.cargo/config.toml), usable on their own:
 #   cargo test-board-logic | test-host | test-tools | test-harness | test-reader-regression
@@ -12,6 +12,7 @@ vars:
   ACCEPT: target/accept
   C61_ELF: '{{.ACCEPT}}/c61/riscv32imac-unknown-none-elf/release/pulp-os-c61'
   C61_WIFI_ELF: '{{.ACCEPT}}/c61-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61'
+  C61_PARTIAL_ELF: '{{.ACCEPT}}/c61-partial/riscv32imac-unknown-none-elf/release/pulp-os-c61'
 
 tasks:
   default:
@@ -20,12 +21,13 @@ tasks:
     silent: true
 
   build:
-    desc: Build the X4 and C61 images, offline and with Wi-Fi, into target/accept/
+    desc: Build the X4 and C61 images (offline, Wi-Fi, C61 partial refresh) into target/accept/
     cmds:
       - CARGO_TARGET_DIR={{.ACCEPT}}/x4 cargo build-x4 --locked
       - CARGO_TARGET_DIR={{.ACCEPT}}/x4-wifi cargo build-x4-wifi --locked
       - CARGO_TARGET_DIR={{.ACCEPT}}/c61 cargo build-c61 --locked
       - CARGO_TARGET_DIR={{.ACCEPT}}/c61-wifi cargo build-c61-wifi --locked
+      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial cargo build-c61-partial --locked
 
   test:
     desc: Host tests (board logic, reader, font tools, English TXT/EPUB regression)
@@ -61,7 +63,7 @@ tasks:
         silent: true
 
   size:
-    desc: Section sizes of the C61 images (offline and Wi-Fi)
+    desc: Section sizes of the C61 images (offline, Wi-Fi, partial refresh)
     vars:
       LLVM_SIZE:
         sh: |
@@ -70,6 +72,7 @@ tasks:
     cmds:
       - '{{.LLVM_SIZE}} -A {{.C61_ELF}}'
       - '{{.LLVM_SIZE}} -A {{.C61_WIFI_ELF}}'
+      - '{{.LLVM_SIZE}} -A {{.C61_PARTIAL_ELF}}'
 
   stack:
     desc: Static worst-case stack depth of the offline C61 image

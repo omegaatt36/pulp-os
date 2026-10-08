@@ -79,6 +79,10 @@ wifi = [
   "pulp-kernel/wifi",
 ]
 
+# OnePage C61 partial refresh (off by default; X4 always refreshes partially).
+# Build with `cargo build-c61-partial`.
+partial-refresh = ["pulp-kernel/partial-refresh"]
+
 board-x4          = ["pulp-kernel/board-x4"]
 board-onepage-c61 = ["pulp-kernel/board-onepage-c61"]
 

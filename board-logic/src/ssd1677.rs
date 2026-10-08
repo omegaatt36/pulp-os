@@ -160,6 +160,24 @@ pub trait StripSource {
     fn render_strip(&mut self, rotation: Rotation, idx: u16) -> &[u8];
 }
 
+/// Source of rendered windows for a partial refresh: the physical window
+/// (`px`, `py`, `pw` wide, `rows` high; `px` and `pw` multiples of 8) rendered
+/// with `rotation`, 1 bpp, `pw / 8 * rows` bytes. `rows` never exceeds
+/// `StripCore::max_rows_for_width(pw)`.
+pub trait WindowSource {
+    fn render_window(&mut self, rotation: Rotation, px: u16, py: u16, pw: u16, rows: u16) -> &[u8];
+}
+
+/// What `Epd::partial_refresh` did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PartialResult {
+    /// The region is on the panel (or was empty: nothing to send).
+    Done,
+    /// A differential update is not possible yet (no full refresh since the
+    /// last `init`): nothing was sent, do a full refresh instead.
+    NeedsFull,
+}
+
 /// Window setup. Gates are wired in reverse: Y flipped, X increment / Y
 /// decrement (data entry mode 0x01).
 pub fn set_ram_area<B: EpdBus>(
@@ -264,6 +282,61 @@ pub fn start_full_update<B: EpdBus>(b: &mut B) -> Result<(), DisplayError> {
     b.command(cmd::MASTER_ACTIVATION)
 }
 
+/// Partial (differential) update sequence for register 0x22: clock + analog on,
+/// load LUT, display mode 2, analog + clock off, in one activation, so one BUSY
+/// wait covers the whole update. No LOAD_TEMP bit: the temperature loaded by
+/// the last full refresh (0xF7) stays in effect, which is why a partial is only
+/// legal after a full refresh since the last `init` (`Epd::partial_refresh`).
+///
+/// Same value as the vendor stack on this panel: moui `update_partial`
+/// (bsp_onepage_c61's driver, EPD0426A02) sends 0xDF, and the Arduino SDK's
+/// FAST_REFRESH sends 0x1C | 0xC0 (screen off) | 0x03 (turn off) = 0xDF.
+/// The X4 driver uses 0xFC (LOAD_TEMP, analog left on); see
+/// specs/references/hardware-acceptance.md for the tuning alternatives.
+pub const PARTIAL_UPDATE_SEQ: u8 = 0xDF;
+
+/// Kick the partial waveform over the RAM window `rs`. RED RAM holds the frame
+/// on the panel, BW RAM the new one; the controller drives only the pixels
+/// where they differ (CTRL1 0x00 = RED compared, not bypassed).
+pub fn start_partial_update<B: EpdBus>(b: &mut B, rs: &RenderState) -> Result<(), DisplayError> {
+    set_ram_area(b, rs.px, rs.py, rs.pw, rs.ph)?;
+
+    b.command(cmd::DISPLAY_UPDATE_CONTROL_1)?;
+    b.data(&[0x00, 0x00])?;
+
+    b.command(cmd::DISPLAY_UPDATE_CONTROL_2)?;
+    b.data(&[PARTIAL_UPDATE_SEQ])?;
+
+    b.command(cmd::MASTER_ACTIVATION)
+}
+
+/// Write the aligned region `rs` into each RAM of `rams`, window by window.
+/// Every window is rendered once and sent to all of `rams` (RED and BW get the
+/// same bytes). Pixels in the edge bytes that lie outside the requested region
+/// are whatever the window source drew there, i.e. the unchanged scene, so the
+/// differential update leaves them alone.
+fn write_region<P: EpdBus, W: WindowSource>(
+    p: &mut P,
+    rotation: Rotation,
+    rs: &RenderState,
+    rams: &[u8],
+    src: &mut W,
+) -> Result<(), DisplayError> {
+    let max_rows = StripCore::max_rows_for_width(rs.pw);
+    let mut y = rs.py;
+    while y < rs.py + rs.ph {
+        let rows = max_rows.min(rs.py + rs.ph - y);
+        let data = src.render_window(rotation, rs.px, y, rs.pw, rows);
+        for &ram_cmd in rams {
+            set_ram_area(p, rs.px, y, rs.pw, rows)?;
+            p.command(ram_cmd)?;
+            p.data(data)?;
+        }
+        y += rows;
+    }
+    Ok(())
+}
+
 /// DEEP_SLEEP (0x10) mode 1: RAM and image retained, ~3 uA. Only a hardware
 /// reset wakes it again (the X4 comment says the same; on the C61 the reset is
 /// the GPIO27 power-up, see `Epd::enter_deep_sleep`). The X4 driver ends its
@@ -339,8 +412,9 @@ impl<F: FnMut(&mut StripCore)> StripSource for CoreStrips<'_, F> {
     }
 }
 
-/// Full-refresh-only SSD1677 driver (OnePage C61 first version; partial
-/// refresh waveform tuning is out of scope). Every failure invalidates the
+/// SSD1677 driver of the OnePage C61: full refresh, plus an optional
+/// differential partial refresh (`partial_refresh`, only used by the
+/// `partial-refresh` firmware feature). Every failure invalidates the
 /// controller state, so the next call must go through `init` again, which
 /// resets with SW_RESET (never the GPIO27 hardware path).
 pub struct Epd<P> {
@@ -379,6 +453,9 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
         self.init_done
     }
 
+    /// True until a full refresh has succeeded since the last `init`: the
+    /// panel, RED RAM and the loaded temperature are not known to agree, so
+    /// the next frame must be a full refresh.
     pub fn needs_initial_refresh(&self) -> bool {
         self.initial_refresh
     }
@@ -397,6 +474,9 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
             DisplayReset::Software => {}
         }
         self.init_done = false;
+        // the soft reset drops the loaded temperature and a failure may have
+        // left RAM and panel apart: the next frame is a full refresh again
+        self.initial_refresh = true;
         let r = self.init_inner();
         self.init_done = r.is_ok();
         r
@@ -422,6 +502,66 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
             self.initial_refresh = false;
         }
         r
+    }
+
+    /// Differential refresh of the logical region (`x`, `y`, `w`, `h`), blocking
+    /// until BUSY clears (bounded). Three steps, the X4's phase 1 / DU / phase 3
+    /// without its rapid-navigation shortcut:
+    ///
+    /// 1. new content of the aligned region into BW RAM (RED still holds the
+    ///    frame on the panel);
+    /// 2. `start_partial_update`, wait for BUSY;
+    /// 3. the same content into RED and BW, so RED is the frame on the panel
+    ///    for the next differential.
+    ///
+    /// `window` is called twice per window (steps 1 and 3) and must draw the same
+    /// content both times. On any error the controller is considered
+    /// uninitialised, like `full_refresh`.
+    pub fn partial_refresh<W: WindowSource>(
+        &mut self,
+        x: u16,
+        y: u16,
+        w: u16,
+        h: u16,
+        window: &mut W,
+    ) -> Result<PartialResult, DisplayError> {
+        if !self.init_done {
+            return Err(DisplayError::NotInitialized);
+        }
+        if self.initial_refresh {
+            return Ok(PartialResult::NeedsFull);
+        }
+        let Some(rs) = align_partial_region(self.rotation, x, y, w, h) else {
+            return Ok(PartialResult::Done);
+        };
+        let r = self.partial_refresh_inner(&rs, window);
+        if r.is_err() {
+            self.init_done = false;
+        }
+        r.map(|()| PartialResult::Done)
+    }
+
+    fn partial_refresh_inner<W: WindowSource>(
+        &mut self,
+        rs: &RenderState,
+        window: &mut W,
+    ) -> Result<(), DisplayError> {
+        write_region(
+            &mut self.port,
+            self.rotation,
+            rs,
+            &[cmd::WRITE_RAM_BW],
+            window,
+        )?;
+        start_partial_update(&mut self.port, rs)?;
+        wait_busy_bounded(&mut self.port, self.busy_timeout_ms)?;
+        write_region(
+            &mut self.port,
+            self.rotation,
+            rs,
+            &[cmd::WRITE_RAM_RED, cmd::WRITE_RAM_BW],
+            window,
+        )
     }
 
     /// Park the controller for deep sleep (sleep-entry step "EPD park", BSP
@@ -1415,5 +1555,248 @@ mod tests {
         let mut power = PeripheralPower::new(FakeRail(rail_log.clone()));
         assert!(power.display_reset().is_err());
         assert!(rail_log.borrow().is_empty());
+    }
+
+    // -- partial refresh -----------------------------------------------
+
+    /// Window source that records every request and answers `fill` bytes.
+    struct FakeWindows {
+        calls: Vec<(Rotation, u16, u16, u16, u16)>,
+        fill: u8,
+        buf: Vec<u8>,
+    }
+
+    impl FakeWindows {
+        fn new(fill: u8) -> Self {
+            Self {
+                calls: Vec::new(),
+                fill,
+                buf: Vec::new(),
+            }
+        }
+    }
+
+    impl WindowSource for FakeWindows {
+        fn render_window(
+            &mut self,
+            rotation: Rotation,
+            px: u16,
+            py: u16,
+            pw: u16,
+            rows: u16,
+        ) -> &[u8] {
+            self.calls.push((rotation, px, py, pw, rows));
+            self.buf = vec![self.fill; (pw / 8) as usize * rows as usize];
+            &self.buf
+        }
+    }
+
+    /// Initialised, one full refresh done; `mark` is the log end.
+    fn epd_after_full() -> Epd<Fake> {
+        let mut epd = Epd::new(Fake::new(Some(20)));
+        epd.init(DisplayReset::Software).unwrap();
+        let mut core = StripCore::new();
+        let mut src = CoreStrips {
+            core: &mut core,
+            draw: |_: &mut StripCore| {},
+        };
+        epd.full_refresh(&mut src).unwrap();
+        epd.port_mut().mark = epd.port_mut().log.len();
+        epd
+    }
+
+    fn summarize(log: &[Ev]) -> Vec<String> {
+        log.iter()
+            .map(|e| match e {
+                Ev::Cmd(c) => std::format!("C{:02X}", c),
+                Ev::Data(d) if d.len() > 16 => std::format!("S{}", d.len()),
+                Ev::Data(d) => std::format!("D{:02X?}", d),
+                Ev::Delay(ms) => std::format!("T{}", ms),
+                Ev::Busy(b) => std::format!("B{}", *b as u8),
+            })
+            .collect()
+    }
+
+    fn strs(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| String::from(*s)).collect()
+    }
+
+    #[test]
+    fn partial_refresh_command_trace() {
+        // logical (16, 8, 16x16) on Deg270 -> physical window x 8..24, y 448..464
+        // (no edge bytes: 8 and 16 are byte aligned after the rotation)
+        let mut epd = epd_after_full();
+        let mut win = FakeWindows::new(0x5A);
+        assert_eq!(
+            epd.partial_refresh(16, 8, 16, 16, &mut win),
+            Ok(PartialResult::Done)
+        );
+
+        let mark = epd.port_mut().mark;
+        let summary = summarize(&epd.port_mut().log[mark..]);
+        // set_ram_area(8, 448, 16, 16): y_flipped = 480 - 448 - 16 = 16
+        let window = [
+            "C11",
+            "D[01]",
+            "C44",
+            "D[08, 00, 17, 00]",
+            "C45",
+            "D[1F, 00, 10, 00]",
+            "C4E",
+            "D[08, 00]",
+            "C4F",
+            "D[1F, 00]",
+        ];
+        let with = |tail: &[&str]| {
+            let mut v = strs(&window);
+            v.extend(strs(tail));
+            v
+        };
+        // phase 1: BW only; kick: window, CTRL1 00 00, CTRL2 DF, activation
+        let mut head = with(&["C24", "S32"]);
+        head.extend(with(&["C21", "D[00, 00]", "C22", "D[DF]", "C20"]));
+        // phase 3: RED then BW, same bytes
+        let mut tail = with(&["C26", "S32"]);
+        tail.extend(with(&["C24", "S32"]));
+
+        assert!(summary.len() > head.len() + tail.len());
+        let wait_end = summary.len() - tail.len();
+        assert_eq!(summary[..head.len()], head[..]);
+        assert_eq!(summary[wait_end..], tail[..]);
+        // BUSY wait: starts busy, ends on the first clear sample
+        let wait = &summary[head.len()..wait_end];
+        assert_eq!(wait.first().map(|s| s.as_str()), Some("B1"));
+        assert_eq!(wait.last().map(|s| s.as_str()), Some("B0"));
+        // the window is rendered once for phase 1 and once for phase 3
+        assert_eq!(win.calls, vec![(Rotation::Deg270, 8, 448, 16, 16); 2]);
+    }
+
+    #[test]
+    fn partial_refresh_of_the_whole_panel_walks_every_strip_twice() {
+        let mut epd = epd_after_full();
+        let mut win = FakeWindows::new(0x5A);
+        assert_eq!(
+            epd.partial_refresh(0, 0, 480, 800, &mut win),
+            Ok(PartialResult::Done)
+        );
+        let rows: Vec<u16> = (0..12).map(|i| i * 40).collect();
+        let expect: Vec<_> = rows
+            .iter()
+            .chain(rows.iter())
+            .map(|&py| (Rotation::Deg270, 0, py, 800, 40))
+            .collect();
+        assert_eq!(win.calls, expect);
+
+        let mark = epd.port_mut().mark;
+        let log = &epd.port_mut().log[mark..];
+        // RED only ever gets the phase 3 frame, BW gets phase 1 and phase 3
+        assert_eq!(ram_stream(log, cmd::WRITE_RAM_RED), vec![0x5A; 12 * 4000]);
+        assert_eq!(
+            ram_stream(log, cmd::WRITE_RAM_BW),
+            vec![0x5A; 2 * 12 * 4000]
+        );
+    }
+
+    #[test]
+    fn partial_refresh_keeps_the_drawn_pixels_in_the_edge_bytes() {
+        // logical y = 10 is not a multiple of 8: the aligned window starts 2
+        // pixels earlier. Those pixels are drawn by the app (unchanged scene)
+        // and must be sent as drawn, not forced white.
+        let mut epd = epd_after_full();
+        let mut win = FakeWindows::new(0x00);
+        assert_eq!(
+            epd.partial_refresh(16, 10, 16, 16, &mut win),
+            Ok(PartialResult::Done)
+        );
+        assert_eq!(win.calls[0], (Rotation::Deg270, 8, 448, 24, 16));
+        let mark = epd.port_mut().mark;
+        let bw = ram_stream(&epd.port_mut().log[mark..], cmd::WRITE_RAM_BW);
+        // 24 px = 3 bytes x 16 rows, in phase 1 and again in phase 3
+        assert_eq!(bw, vec![0x00; 2 * 3 * 16]);
+    }
+
+    #[test]
+    fn partial_refresh_before_a_full_refresh_asks_for_one_and_sends_nothing() {
+        let mut epd = Epd::new(Fake::new(Some(20)));
+        epd.init(DisplayReset::Software).unwrap();
+        let before = epd.port_mut().log.len();
+        let mut win = FakeWindows::new(0x00);
+        assert_eq!(
+            epd.partial_refresh(0, 0, 480, 800, &mut win),
+            Ok(PartialResult::NeedsFull)
+        );
+        assert_eq!(epd.port_mut().log.len(), before);
+        assert!(win.calls.is_empty());
+    }
+
+    #[test]
+    fn init_after_a_full_refresh_requires_another_full_refresh() {
+        // the soft reset drops the loaded temperature; a failure may have left
+        // RAM and panel apart
+        let mut epd = epd_after_full();
+        assert!(!epd.needs_initial_refresh());
+        epd.init(DisplayReset::Software).unwrap();
+        assert!(epd.needs_initial_refresh());
+        let mut win = FakeWindows::new(0x00);
+        assert_eq!(
+            epd.partial_refresh(0, 0, 480, 800, &mut win),
+            Ok(PartialResult::NeedsFull)
+        );
+    }
+
+    #[test]
+    fn partial_refresh_needs_an_initialised_controller() {
+        let mut epd = Epd::new(Fake::new(Some(20)));
+        let mut win = FakeWindows::new(0x00);
+        assert_eq!(
+            epd.partial_refresh(0, 0, 480, 800, &mut win),
+            Err(DisplayError::NotInitialized)
+        );
+        assert!(epd.port_mut().log.is_empty());
+    }
+
+    #[test]
+    fn partial_refresh_of_an_empty_region_sends_nothing() {
+        let mut epd = epd_after_full();
+        let mut win = FakeWindows::new(0x00);
+        assert_eq!(
+            epd.partial_refresh(0, 0, 0, 0, &mut win),
+            Ok(PartialResult::Done)
+        );
+        let mark = epd.port_mut().mark;
+        assert_eq!(epd.port_mut().log.len(), mark);
+        assert!(win.calls.is_empty());
+    }
+
+    #[test]
+    fn partial_refresh_busy_timeout_invalidates_the_controller() {
+        let mut epd = epd_after_full();
+        epd.port_mut().busy_ms = None; // BUSY never clears after the activation
+        epd.set_busy_timeout_ms(30);
+        let mut win = FakeWindows::new(0x00);
+        assert_eq!(
+            epd.partial_refresh(16, 8, 16, 16, &mut win),
+            Err(DisplayError::BusyTimeout)
+        );
+        assert!(!epd.is_initialized());
+        // phase 3 did not run: the window was rendered once
+        assert_eq!(win.calls.len(), 1);
+        assert_eq!(
+            epd.partial_refresh(16, 8, 16, 16, &mut win),
+            Err(DisplayError::NotInitialized)
+        );
+    }
+
+    #[test]
+    fn partial_refresh_bus_error_invalidates_the_controller() {
+        let mut epd = epd_after_full();
+        let writes = epd.port_mut().writes;
+        epd.port_mut().fail_after_writes = Some(writes + 12);
+        let mut win = FakeWindows::new(0x00);
+        assert_eq!(
+            epd.partial_refresh(16, 8, 16, 16, &mut win),
+            Err(DisplayError::Bus)
+        );
+        assert!(!epd.is_initialized());
     }
 }

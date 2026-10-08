@@ -12,7 +12,7 @@
 3. **順序即依賴**：關卡 G0 → G1 → G2 → G3／G4。上一關有 `FAIL` 或未結論，下一關的失敗無法歸因，不得往下走（除非記錄寫明原因）。見第 3 節。
 4. **哪些 agent 能自己做、哪些要人手**：agent 可執行建置、燒錄、監看序列輸出、`curl`、`shasum`、解析 log。**需要人手**的：進入下載模式（按鍵）、插拔 SD 卡、按實體鍵、肉眼判讀螢幕（方向、殘影、手感；請人拍照）、示波器／電流計／萬用表量測、改 AP／DHCP 環境。遇到時停下，明確列出要人做的動作與要回報的內容。
 5. **失敗時改哪裡**：見第 7 節。改 `board-logic` 任何常數後，先 `cargo test-board-logic` 再 `task acceptance`，並把原因與來源寫回 `specs/changes/archive/onepage-c61-port/baseline.md`（不要只改常數）。
-6. **不要擴大範圍**：partial refresh 波形、async BUSY、OTA、BLE、音訊都不是本驗收的範圍（`onepage-c61-port/proposal.md` Out）。需要時另開 change。
+6. **不要擴大範圍**：async BUSY、OTA、BLE、音訊都不是本驗收的範圍（`onepage-c61-port/proposal.md` Out）。需要時另開 change。partial refresh 預設**關閉**（cargo feature `partial-refresh`），G0–G5 全程用預設映像驗收；它自成一關 G6（第 5 節），G2 通過後才做。
 
 ## 0.5 實際到貨配置與其影響
 
@@ -30,12 +30,12 @@
 | 供電 | Mac USB 埠供電足夠 EPD 刷新；Wi-Fi 發射電流峰值是否造成 USB 掉電重啟未知 | W1–W5 若出現無預警重啟（開機行重現），先懷疑供電（換有源 USB hub／直接接 Mac 後方埠）再懷疑軟體 |
 | 成品機 | 成品機用於日常使用，原廠 CrossPoint 韌體在上面 | **最後才刷**：在 SKU 上通過 G2（建議 G3、G4）、且**已在 SKU 上驗證過「備份 → 刷回原廠」的還原路徑**之後，才動成品機；成品機刷前同樣完整備份 16 MB 與 SD 卡。成品機的下載模式按鍵是否可從殼外按到、USB 口位置，到手後確認 |
 
-建議順序：**SKU＋面板（USB 供電）走 G0 → G1（跳過需電池的項目）→ G2 → G3 → G4**；A6／A7e／B4b／W6 與電池相關項目等取得電池或改用成品機再補；成品機最後。
+建議順序：**SKU＋面板（USB 供電）走 G0 → G1（跳過需電池的項目）→ G2 → G3 → G4**（partial refresh 的 G6 在 G2 之後任何時候可做，不依賴 G3／G4）；A6／A7e／B4b／W6 與電池相關項目等取得電池或改用成品機再補；成品機最後。
 
 ## 1. 前置：軟體基準（在主機上，先於任何實機操作）
 
 ```sh
-task acceptance        # 一鍵（Taskfile.yml）：四個映像的 build、host 測試、reader 回歸、ELF／依賴圖／記憶體預算檢查（harness/tests）、fmt
+task acceptance        # 一鍵（Taskfile.yml）：五個映像（含 C61 partial refresh）的 build、host 測試、reader 回歸、ELF／依賴圖／記憶體預算檢查（harness/tests）、fmt
 ```
 
 預期：所有 stage `ok`，結尾印出 UNVERIFIED 清單（對應本文件第 5 節）。不綠就先修，不要拿一個軟體基線已壞的映像去刷機。
@@ -47,6 +47,7 @@ task acceptance        # 一鍵（Taskfile.yml）：四個映像的 build、host
 ```sh
 cargo build-c61 --locked          # pulp-os-c61-boot（bring-up 映像）＋ pulp-os-c61（完整離線韌體）
 cargo build-c61-wifi --locked     # 完整韌體 + Wi-Fi upload（G4 用）
+cargo build-c61-partial --locked  # 完整韌體 + partial refresh（G6 用；feature `partial-refresh`，預設不開）
 # 產物：target/riscv32imac-unknown-none-elf/release/{pulp-os-c61-boot,pulp-os-c61}
 ```
 
@@ -148,6 +149,7 @@ espflash write-bin 0x0 onepage-factory-16MB.bin -c esp32c61 -p /dev/cu.usbmodemX
 | G3 | 繁中 Iansui | `pulp-os-c61` + SD 字庫 | G2 的 B1、B2a、B2b、B3 PASS | K1–K9、H1 |
 | G4 | Wi-Fi upload | `pulp-os-c61`（`build-c61-wifi`） | G2 的 B1、B3 PASS（boot／SD／EPD／BACK 與 ENTER 鍵無結論前，Wi-Fi 任何失敗都無法歸因） | W1–W8 |
 | G5（選配） | X4 實機回歸 | X4 映像 | 手上有 X4 | X1–X3 |
+| G6（選配） | C61 partial refresh（差異更新，`partial-refresh` feature） | `pulp-os-c61`（`build-c61-partial`） | G2 的 B1、B2a、B2b PASS（全刷路徑沒結論前，partial 的失敗無法歸因）；A4e 已拍下全刷的殘影／對比照片當對照 | P1–P10 |
 
 ## 4. 需要使用者決定的事
 
@@ -159,12 +161,14 @@ agent 不得自行定案；在記錄檔「結論」處留空或寫「待使用�
 | D2 | Reader 內長按 ENTER 開 quick menu；Files 刪除在 C61 不可用 | 是 | B2h |
 | D3 | restore 成功不刪 session、失敗才刪並正常開機 | 是 | B1、A7c |
 | D4 | 熱路徑配置不加 uninit 版本（`alloc_external_uninit`） | 不加 | B2e：只有章節載入「明顯變慢」才重開 |
-| D5 | 無 boot console；C61 一律 full refresh（`Partial` 升級為 full） | 是 | A4、B2f |
+| D5 | 無 boot console；C61 預設一律 full refresh（`Partial` 升級為 full）；只有 `partial-refresh` 映像才做 partial（G6） | 是 | A4、B2f、G6 |
 | D6 | **USB polarity**：BSP 實作與 BSP README 矛盾，原理圖推論 active-low，未實測 | `ActiveLow` | A6c：以實測電平定案 |
 | D7 | 電流、BUSY 時間、手感沒有來源門檻 | 只記錄量測值，不判 pass／fail | A4c、A7e、B4b、W6 |
 | D8 | 電流量測儀器、量程、量測點（W6：USB 供電同時給 log，量測會混入充電） | 未定 | A7e、W6 |
 | D10 | 面板型號是否為 BSP 目標的 EPD0426A02（4.26"、800×480、SSD1677）；不是的話 A4 的結論不適用 | 未確認 | 接面板前 |
 | D11 | 成品機何時刷：建議 SKU 通過 G2（最好 G3、G4）且「備份→刷回原廠」還原路徑已在 SKU 上驗過之後 | 最後 | G5 之後／日常使用前 |
+| D12 | partial refresh 要不要成為預設（移除 feature、`Partial` 不再升級）：G6 全 PASS、殘影可接受、ghost_clear 預設值（10）合適之後才決定 | 否（feature 關） | G6 結束後 |
+| D13 | partial 更新碼與溫度處理：`PARTIAL_UPDATE_SEQ = 0xDF`（廠商 moui 與 Arduino SDK 在這片面板上的值；不載入溫度，沿用上次全刷載入的） | 0xDF | P2、P3；候選見第 7 節 S9 |
 | D9 | 實機驗收是否先 commit（Wi-Fi 的 T1–T6 曾全部未 commit；只記 HEAD 不足以重現） | 建議先 commit 再驗收 | 開始前 |
 
 ## 5. 驗收項目與追蹤表
@@ -294,6 +298,33 @@ X4 為遷移 HAL 1.2 改了 SPI（`SpiDmaBus`→`SpiDma`）、deep sleep（`LowP
 | X2 | X4 deep sleep／GPIO3 喚醒（兩個已知差異：pull 不再明確寫入、LP pad 不 isolate） | `cargo run-x4` | `UNVERIFIED` |
 | X3 | X4 Wi-Fi upload，含 `full_refresh_async` 被 BACK 取消後的 panel 狀態 | `cargo run-x4-wifi` | `UNVERIFIED` |
 
+### G6（選配）：C61 partial refresh（`cargo run-c61-partial`）
+
+只驗 `partial-refresh` 映像。程式與 host 證據：`board-logic/src/ssd1677.rs` 的 `Epd::partial_refresh`（命令序列由 `partial_refresh_command_trace` 等 9 個 host 測試鎖定）、`kernel/src/kernel/scheduler_c61.rs` 的 `render_partial`。**這些只證明命令順序、區域對齊與錯誤路徑；波形、對比、殘影、耗時一項都沒有實機證據。**
+
+行為摘要（判讀 log 用）：
+
+- `Redraw::Partial(region)` 且 partial 次數 < Settings 的 `ghost_clear`（預設 10，範圍 5–100）→ 區域差異更新；否則 `display: promoted partial to full (ghosting clear)` 後全刷，次數歸零。`Redraw::Full` 一律全刷。
+- 差異更新三步：新內容寫 BW RAM（RED 仍是畫面上的舊內容）→ `0x21 [00 00]`、`0x22 [DF]`、`0x20`、等 BUSY → 同一內容寫 RED＋BW（讓 RED 成為畫面上的內容）。開機第一幀與任何 `init`（含失敗後 reinit）之後的第一幀一定是全刷。
+- 每次刷新一行：`display: <partial|full> refresh <w>x<h> at (<x>, <y>) in <ms> ms (partial count <n>)`；失敗：`display: partial refresh failed: <原因>`，放棄：`display: giving up on this frame, redraw on next input`。
+- 與 X4 的差異（有意）：刷新期間阻塞（不收輸入、不跑背景工作）；沒有 rapid-navigation 的 `red_stale`／`inv_red` 捷徑（每次都做第 3 步）；區域邊緣位元組內「區域外」的像素照 app 畫的內容送出，不遮成白色（X4 遮白；參考實作 moui 與 Arduino SDK 都不遮）。
+
+| ID | 項目 | 做法 | 判定 | 失敗改哪裡 | 狀態 |
+|---|---|---|---|---|---|
+| P0 | 預設映像不受影響；partial 映像確實不同 | 先燒 `pulp-os-c61` 翻頁 5 次；再用 `cargo run-c61-partial` 燒 partial 映像（同樣叫 `pulp-os-c61`，只差 feature），同操作。記錄兩個映像的 `shasum -a 256` | 預設映像 log 完全沒有 `display: partial`／`promoted partial`；每次翻頁都是全刷。partial 映像翻頁出現 `display: partial refresh …` | S9 | `UNVERIFIED` |
+| P1 | 開機首幀全刷、之後第一次翻頁就是 partial | 冷開機進 Reader，翻 1 頁 | 開機畫面為全刷（閃）；翻頁 log 為 `partial refresh … (partial count 1)`，不是 `full` | S9 | `UNVERIFIED` |
+| P2 | partial 耗時（D7：只記錄） | Reader 連續翻頁 20 次，抄 log 的 ms（含 phase 1＋BUSY＋phase 3＋app 繪製）；有示波器則量 GPIO29（BUSY）高電位寬度＝波形時間 | 記錄中位數與最大值。參考（不是門檻）：X4 README 寫 ~400 ms，Arduino SDK guide 寫 ~600 ms；全刷 ~1600 ms（A4c） | S9 | `UNVERIFIED` |
+| P3 | 殘影／對比（人手判讀） | 連續 partial 翻頁，在第 1、5、10 次後各拍一張同倍率的照片；與 A4e 全刷照片對照 | 記錄：字緣是否變淡、前一頁字影是否可見、白底是否發灰。**沒有量化門檻**；明顯不可接受時先把 Settings 的 `ghost_clear` 降到 5 再判，仍不行才走 S9 | S9 | `UNVERIFIED` |
+| P4 | ghost-clear 週期與設定一致 | `ghost_clear` 設 5、預設 10 各驗一次：連續 Reader 翻頁數 | 連續 N 次 partial 後，下一次出現 `promoted partial to full (ghosting clear)` 與 `full refresh`，`partial count` 回 0 | S9 | `UNVERIFIED` |
+| P5 | 區域邊緣（不是 8 的倍數）不破壞鄰近像素 | 開關 quick menu（Reader 長按 ENTER）、按鍵 feedback（B2g）、位置 overlay、載入指示；每次拍照 | 區域外相鄰像素無缺損、無白邊／黑邊；關掉 overlay 後下方頁面完整還原（不殘留 overlay 邊框）。邊緣有白色缺口＝改回 X4 的遮罩做法（S9） | S9 | `UNVERIFIED` |
+| P6 | 連續使用穩定 | Reader 前後翻頁共 ≥ 100 次、含跨章、含 Home↔Reader 切換 | 內容每頁正確（對照全刷映像同頁）、無累積殘影、無 panic／重啟；`stats:` 的 stack／heap 高水位與 B5b 同級 | S9 | `UNVERIFIED` |
+| P7 | 刷新期間短按遺失（阻塞版；對照 B2f） | partial 映像連按 NEXT 5 次（約 200 ms 間隔），數實際翻幾頁；再用預設映像做同樣操作 | 只記錄兩者差異。已知限制：partial 仍阻塞，只是視窗比全刷短 | — | `UNVERIFIED` |
+| P8 | 整頁切換仍為全刷並歸零計數 | Home→Reader、開書、換章（`Redraw::Full` 的路徑） | log 為 `full refresh`、`partial count 0` | S9 | `UNVERIFIED` |
+| P9 | 睡眠喚醒後首幀全刷，之後 partial 正常 | idle 睡眠後喚醒（restore 成功），再翻頁 | 喚醒首幀為全刷；翻頁恢復 `partial refresh`；螢幕無殘留睡眠畫面痕跡 | S7、S9 | `UNVERIFIED` |
+| P10 | BUSY 異常的恢復（延伸 A4d） | partial 映像下，在翻頁瞬間讓 GPIO29 懸空／拔掉（人手），再恢復 | 上限內（BUSY 5 s×最多 2 次）回錯、不卡死：`display: partial refresh failed: display busy timeout` → reinit → 重試為 `full refresh`；若仍失敗 `giving up on this frame`，下一次按鍵整頁重畫。無 panic | S9 | `UNVERIFIED` |
+
+**G6 通過條件**：P0–P10 每項有「PASS（附證據）」或「FAIL（附現象與修正）」；D12 由使用者決定是否讓 partial 成為預設。
+
 ## 6. 需要先補 instrumentation 才能驗收的項目
 
 目前韌體**沒有**下列輸出；在實機上直接驗會變成只能憑間接證據。先決定要不要加（另開小 change，不要夾在驗收中途改程式）：
@@ -306,6 +337,7 @@ X4 為遷移 HAL 1.2 改了 SPI（`SpiDmaBus`→`SpiDma`）、deep sleep（`LowP
 | radio／esp-rtos 其他 task 的 stack 高水位、殘留 task 清單 | W5、W8 | 無 |
 | Wi-Fi 期間 PSRAM／internal 分項（`log_report` 只在開機呼叫） | W8 | 無 |
 | 連線 RSSI | W6、W1 | 無 |
+| partial 刷新的分項時間（phase 1／BUSY／phase 3）與 SSD1677 實際使用的溫度 | P2、P3 | 只有每次刷新的總 ms；BUSY 寬度要用示波器量 GPIO29 |
 
 ## 7. 失敗時改哪裡
 
@@ -314,15 +346,16 @@ X4 為遷移 HAL 1.2 改了 SPI（`SpiDmaBus`→`SpiDma`）、deep sleep（`LowP
 | S1 | 無法開機／image-hash loop／無 log | `.cargo/config.toml` runner 的 flash 參數（必須 `--flash-mode dio --flash-freq 40mhz --flash-size 16mb`；80 MHz 在此板 image-hash boot loop）；espflash 版本；序列口／log channel |
 | S2 | PSRAM 不穩／降級 | `kernel/src/board_c61/memory.rs`（PSRAM 40 MHz 設定）；`board-logic/src/memory.rs` 預算常數；esp-hal 預設 `flash_tuning`／`ram_tuning`（`din_mode 3, din_num 1, extra_dummy 2`）在 40 MHz 下是否合適未驗 |
 | S3 | card detect 相反／SD 不穩 | `board-logic/src/sd.rs`（GPIO28 電平→有卡的對應函式約 line 40、去抖；測試 `r9_cd_polarity_is_bsp_low_means_inserted` 要跟著改）。未驗風險：MISO pull-up 未套用、SPI 400 kHz→10 MHz 切換、GPIO27 power-cycle 後 20 ms 內能否 probe |
-| S4 | 畫面方向錯／BUSY 逾時 | `board-logic/src/ssd1677.rs`（`Rotation`；BSP `board_c61.c:50,211,216,222`；BUSY 上限 5000 ms 可配置）。init 序列只對到 X4，BSP 的 moui 驅動原始碼本機沒有；GPIO8（DC）是 strapping pin、需外部上拉 |
+| S4 | 畫面方向錯／BUSY 逾時／全刷對比或殘影差 | `board-logic/src/ssd1677.rs`（`Rotation`；BSP `board_c61.c:50,211,216,222`；BUSY 上限 5000 ms 可配置）。init 序列最初只對到 X4；moui 驅動（`MoveCall/moui` 的 `src/drivers/moui_drv_ssd1677.c`，BSP 實際用的，用 `gh api repos/MoveCall/moui/contents/src/drivers/moui_drv_ssd1677.c` 讀）對 EPD0426A02（OTP 波形）的 init 與本專案 `configure()` 有兩處差異，**尚未驗證哪個對**：(1) `0x0C` booster soft-start：moui 送 `[AE C7 C3 80 C0]`，本專案送 `[AE C7 C3 C0 80]`（第 4、5 個位元組互換）；(2) moui 在 init 多送 `0x1A [5A]`（溫度暫存器，其 update 序列也不載入溫度），本專案只送 `0x18 [80]` 並在全刷用 `0xF7` 載入溫度。全刷對比／殘影不佳時先對照這兩點。GPIO8（DC）是 strapping pin、需外部上拉 |
 | S5 | 按鍵窗口不符／手感 | `board-logic/src/keys.rs`（ladder mV 窗口、優先序、grace）。與 BSP 的有意差異：long-press 1000 ms（BSP 800）、無 120 ms 同鍵鎖 |
 | S6 | 電池讀值偏／USB 插拔相反 | `board-logic/src/usb.rs:59` `USB_POLARITY`（目前 `ActiveLow`）；`board-logic/src/battery.rs`（分壓、取樣契約；充電暫停沉澱 BSP 30 ms、crosspoint 5 ms，哪個足夠未驗） |
 | S7 | 睡眠無法喚醒／吃電 | `board-logic/src/sleep.rs`（序列順序）、`kernel/src/board_c61/sleep.rs`（wake 配置；LP pad hold；GPIO27 睡眠中 pad 狀態） |
+| S9 | partial refresh（G6）：太淡／殘影重／太慢／區域錯位／邊緣破損 | `board-logic/src/ssd1677.rs`：`PARTIAL_UPDATE_SEQ`（目前 `0xDF`＝時脈＋類比開、載 LUT、mode 2、顯示、類比＋時脈關，不載入溫度）。**候選（皆未試）**：(a) `0xFF`＝加 LOAD_TEMP（用內部感測器；X4 的 `0xFC` 也載入溫度）；(b) 在 `start_partial_update` 的觸發前加 `0x1A [5A]`（moui 的 EPD0426A02 預設，Arduino SDK 的 HALF 也這樣做；偽稱高溫以換較短波形，代價是對比）。區域錯位看 `align_partial_region`／`transform_region`（共用 S4 的 `Rotation`）；邊緣破損看 `write_region`（有意不遮罩，改回 X4 做法＝套 `RenderState.left_mask`／`right_mask`）；週期不對看 `kernel/src/kernel/scheduler_c61.rs` 的 `render`（`partial_refreshes < ghost_clear_every`）。每次只改一個變數，重燒後重做 P2、P3 |
 | S8 | Wi-Fi：radio 起不來／heap 不足 | `board-logic/src/memory.rs` 的 internal heap 切割（52 KiB main ＋ 64,000 B reclaimed，`[assumed]`）；`harness/tests/c61_memory_budget.rs` 的預算 |
 
 ## 8. 已知限制（不是失敗）
 
-- full refresh 阻塞期間（最壞約 5 s）的短按會遺失。
+- full refresh 阻塞期間（最壞約 5 s）的短按會遺失。partial refresh（`partial-refresh` 映像）同樣阻塞（耗時未量，P2），只是視窗較短；X4 的非阻塞 BUSY 等待（`busy_wait_with_background`）與 rapid-navigation 的 `red_stale`／`inv_red` 捷徑沒有移植，列為 G6 之後的下一層。
 - 插卡後 Files 的 `error` 欄位不會自動清除；`StorageStatus` 文字只進 log；`USB_PLUGGED` 無 UI。
 - 實機上無法以正常流程同時具備 Wi-Fi 憑證與「SD 未掛載」狀態（拔卡會重載設定並清空憑證），所以 `GET /files` 在 SD 未掛載時回 500 的路徑只有 host 證據。
 - 副檔名：`.epub` 上傳後存成 `.EPU`（8.3 清理）；非 TXT／EPUB／EPU／MD 的上傳會寫入但不在 `/files` 列表。
@@ -341,4 +374,5 @@ X4 為遷移 HAL 1.2 改了 SPI（`SpiDmaBus`→`SpiDma`）、deep sleep（`LowP
 | host 驗證缺口 | `specs/changes/archive/onepage-host-validation/coverage.md` |
 | Wi-Fi W1–W8 完整程序、log／畫面字串行號、curl 腳本、已知風險 | `specs/changes/archive/onepage-wifi-upload/hardware-acceptance.md`、`budget-report.md`（R12 UNVERIFIED）、`baseline.md`（UNVERIFIED） |
 | Wi-Fi 版本集與支援證據 | `specs/references/onepage-wifi-support.md` |
+| Partial refresh 的外部參考（本機沒有 checkout，用 `gh api` 讀） | `MoveCall/moui` 的 `src/drivers/moui_drv_ssd1677.c`（`update_partial`、`ssd1677_hw_flush`、`ssd1677_init_display`；`bsp_onepage_c61` 依賴它）；`MoveCall/onepage-reader-sdk-arduino` 的 `libs/display/EInkDisplay/src/EInkDisplay.cpp`（`refreshDisplay` 的 FAST 路徑、單緩衝模式）與 `doc/SSD1677_GUIDE.md`（Partial Refresh、Partial Update 兩節） |
 | 軟體驗收一鍵入口 | `Taskfile.yml`（`task acceptance`）；本文件取代原腳本結尾印出的 UNVERIFIED 清單 |

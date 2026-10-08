@@ -86,6 +86,10 @@ building
         cargo run-x4                 build + flash + monitor (espflash)
         cargo build-x4-wifi --locked x4 with wifi upload (--features wifi)
         cargo build-c61-wifi --locked c61 with wifi upload (--features wifi)
+        cargo build-c61-partial --locked
+                                     c61 with differential partial refresh
+                                     (--features partial-refresh); flash with
+                                     cargo run-c61-partial
 
         cargo build-c61 --locked     onepage c61, esp32c61, riscv32imac;
                                      builds both images: pulp-os-c61 (full
@@ -137,7 +141,10 @@ building
     session restore, idle-timeout deep sleep, PSRAM-budgeted buffers)
     plus the minimal bring-up image (src/bin/c61_boot.rs). both link;
     neither has been run on hardware. every c61 refresh is a full
-    refresh (no partial refresh yet); see
+    refresh unless built with --features partial-refresh (differential
+    partial refresh of Redraw::Partial regions, blocking, a full refresh
+    every ghost_clear_every partials; unverified on hardware, see
+    specs/references/hardware-acceptance.md); see
     specs/changes/archive/onepage-c61-port/baseline.md (T12) for the key
     mapping (no Menu key: long-press ENTER in the reader opens the quick
     menu) and the decisions awaiting confirmation.
