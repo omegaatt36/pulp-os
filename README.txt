@@ -28,7 +28,9 @@ CJK font installation
 
     The manifest selects one TTF/OTF, its license, upstream URL, source
     version and pixel sizes. Paths are relative to the manifest directory.
-    Every source file has a pinned SHA256. No network download is required.
+    Every source file has a pinned SHA256.
+    Iansui-Regular.ttf is not tracked: `task font` downloads it from the
+    pinned upstream commit and verifies the SHA256 (`task test` runs it first).
     The Iansui version is a source hash identifier, not an upstream release tag.
 
     To use another font, provide a manifest with that font and its actual
@@ -50,9 +52,9 @@ CJK font installation
     rebuild. The builder replaces only directories with its BUNDLE.JSON.
     Use --cache <directory> to choose another cache location.
 
-    Commit source fonts, licenses and manifests. Keep generated packs and
-    caches under target/. Publish the selected bundle as a release artifact.
-    The duplicate archived Iansui ZIP was removed after byte comparison.
+    Commit licenses and manifests; fetch large source fonts by pinned URL.
+    Keep generated packs and caches under target/. Publish the selected
+    bundle as a release artifact.
 
     The bundle tests run with the font tools: cargo test-tools
 

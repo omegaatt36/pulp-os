@@ -13,6 +13,8 @@
 
 「獨立 session」指接手時無須前一段對話；各 task 仍有明列依賴。C61 實機 bring-up 與 host 測試可在軟體基線完成後分開進行。不同 session 不可同時修改同一 worktree 的共用檔案。
 
+封存文件中引用的 `tmp-briefs/` 與 `review-evidence/`（subagent 交接 brief、報告、review diff、測試 log）已從工作樹移除，內容仍在 git 歷史中（例如 `git show 4785a36:<原路徑>`）。有效的驗收證據是各 change 的 `evidence.md` 列出的 Rust 測試。
+
 ## 每個新 session 的入口
 
 1. 讀本文件、指定 change 的 `proposal.md`／`spec.md`／`tasks.md`，及它列出的 reference。

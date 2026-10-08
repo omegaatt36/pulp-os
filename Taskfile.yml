@@ -13,6 +13,9 @@ vars:
   C61_ELF: '{{.ACCEPT}}/c61/riscv32imac-unknown-none-elf/release/pulp-os-c61'
   C61_WIFI_ELF: '{{.ACCEPT}}/c61-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61'
   C61_PARTIAL_ELF: '{{.ACCEPT}}/c61-partial/riscv32imac-unknown-none-elf/release/pulp-os-c61'
+  # Iansui v1.020 (upstream commit 9d9a8e6); same sha256 as fonts/cjk.json
+  IANSUI_URL: https://raw.githubusercontent.com/ButTaiwan/iansui/9d9a8e68bf1e138dd91e562eeff28d95bca33196/fonts/ttf/Iansui-Regular.ttf
+  IANSUI_SHA256: 7f1aa62e9dcbf40d0ce41a5d3f1e5ea602e66c295778ac6fefb6b84d8ed08bd5
 
 tasks:
   default:
@@ -29,8 +32,19 @@ tasks:
       - CARGO_TARGET_DIR={{.ACCEPT}}/c61-wifi cargo build-c61-wifi --locked
       - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial cargo build-c61-partial --locked
 
+  font:
+    desc: Fetch the pinned Iansui-Regular.ttf (untracked, SIL OFL 1.1) used by fontconv
+    status:
+      - echo "{{.IANSUI_SHA256}}  Iansui-Regular.ttf" | shasum -a 256 -c --status -
+    cmds:
+      - curl -fsSL -o Iansui-Regular.ttf {{.IANSUI_URL}}
+      - echo "{{.IANSUI_SHA256}}  Iansui-Regular.ttf" | shasum -a 256 -c -
+
   test:
     desc: Host tests (board logic, reader, font tools, English TXT/EPUB regression)
+    deps: [font]
+    env:
+      IANSUI_REQUIRED: '1'
     cmds:
       - cargo test-board-logic
       - cargo test-host --locked
