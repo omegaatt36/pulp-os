@@ -39,11 +39,14 @@ host-preview     = ["run", "--locked", "-p", "pulp-host", "--bin", "host-preview
 [target.riscv32imc-unknown-none-elf]
 runner = "espflash flash --monitor --chip esp32c3"
 
-# OnePage C61: BSP bring-up uses flash 40 MHz DIO / 16 MB (80 MHz flash causes
-# image-hash boot loops on this board, see bsp_onepage_c61/README.md). Needs an
-# espflash that knows esp32c61 (>= 4.4.0; 4.3.0 rejects the chip).
+# OnePage C61: scripts/run-c61.sh writes only the app into ota_0 (0x10000) and keeps
+# the board's factory bootloader + partition table (`espflash flash` would replace
+# them with its bundled ESP-IDF v6.1 bootloader, with which the app panics on boot).
+# It builds the image for flash 40 MHz DIO / 16 MB (80 MHz causes image-hash boot
+# loops on this board, see bsp_onepage_c61/README.md). Needs an espflash that knows
+# esp32c61 (>= 4.4.0; 4.3.0 rejects the chip). The path is relative to the repo root.
 [target.riscv32imac-unknown-none-elf]
-runner = "espflash flash --monitor --chip esp32c61 --flash-mode dio --flash-freq 40mhz --flash-size 16mb"
+runner = "scripts/run-c61.sh"
 
 [env]
 ESP_LOG="info"

@@ -101,7 +101,10 @@ building
                                      and pulp-os-c61-boot (bring-up image)
         cargo run-c61                flash + monitor the full firmware;
                                      needs espflash >= 4.4.0 (4.3.0 does
-                                     not know esp32c61); flash 40 MHz dio
+                                     not know esp32c61); flash 40 MHz dio;
+                                     scripts/run-c61.sh writes only the app
+                                     into ota_0 and keeps the board's factory
+                                     bootloader (see the script header)
         cargo run-c61-boot           same for the bring-up image
         cargo test-board-logic       host tests of the HAL-free board logic
                                      (board-logic/, host target)

@@ -65,7 +65,7 @@ cargo build-c61-partial --locked  # 完整韌體 + partial refresh（G6 用；fe
 | SPI flash 是 `PY25Q128HA`（Puya，U5）；CrossPoint 文件載明 Puya 板 **stub 壓縮寫入會 crash，必須 `--no-stub`**（約 380 s，115200 baud） | 【文件】（stub 問題）＋【推論】（本板是 Puya） | `crosspoint-onepage/README.md:98-107`、BOM `BOM_Board1_PCB_OnePage_V1_2026-08-19.csv`；你手上的板是否同一批料【待驗】 |
 | flash／PSRAM 頻率：CrossPoint 用 flash 80 MHz（不穩時退 40）；BSP 與 pulp-os 用 **40 MHz DIO／16 MB**（BSP：80 MHz 會 image-hash boot loop）；PSRAM 在 C61HR2 只在 ≤ 40 MHz 穩定 | 【文件】（互相矛盾，pulp-os 取保守） | `platformio.ini:47-48,138-142`、`bsp_onepage_c61/README.md:77,155`、`.cargo/config.toml:26-30`、`kernel/src/board_c61/memory.rs:129-133` |
 | 原廠分割表（CrossPoint）：nvs 0x9000／otadata 0xe000／app0(ota_0) 0x10000 size 0x640000／app1 0x650000／spiffs 0xc90000／coredump 0xFF0000；bootloader 在 0x0、partition table 在 0x8000 | 【文件】 | `crosspoint-onepage/partitions.csv`、`sdkconfig.onepage:385,539` |
-| pulp-os 沒有自己的 partition table 與 bootloader：2nd-stage bootloader 由 **espflash 內建**（ESP-IDF v6.1 建出），app 放 0x10000；每個 bin 都有 `esp_app_desc!()` 供 espflash 處理 | 【文件】 | espflash 4.6.0 `resources/bootloaders/esp32c61-bootloader.bin`、`src/bin/main_c61.rs:57`、`c61_boot.rs:82`、`build.rs:11` |
+| pulp-os 沒有自己的 partition table 與 bootloader。`cargo run-c61*` 的 runner（`scripts/run-c61.sh`）只把 app 寫進 `ota_0`（0x10000），沿用板上的**原廠 bootloader 與分割表**（2026-10-08 實機：`espflash flash` 換上的內建 bootloader〔ESP-IDF v6.1-beta1-497〕下 app 每次開機 panic，原廠 bootloader〔ESP-IDF v5.5.2-729〕下正常，機制懷疑為 PMP／記憶體保護設定，未證實）；每個 bin 都有 `esp_app_desc!()` 供 espflash 處理 | 【文件】 | espflash 4.6.0 `resources/bootloaders/esp32c61-bootloader.bin`、`src/bin/main_c61.rs:57`、`c61_boot.rs:82`、`build.rs:11` |
 | 映像大小約 855 KB（`.rodata`＋`.text`＋`.data`＋`.rwtext` 加總；遠小於 app0 的 6.4 MB） | 【推論】 | 現有 ELF 的 section |
 | secure boot、flash encryption 都沒啟用（只有 `SECURE_ROM_DL_MODE_ENABLED=y`，允許但未燒） | 【文件】 | `crosspoint-onepage/sdkconfig.onepage:439-444`。espflash 4.4.0 新增了 eFuse 寫入功能，**刷機流程不要呼叫它** |
 
@@ -73,7 +73,7 @@ cargo build-c61-partial --locked  # 完整韌體 + partial refresh（G6 用；fe
 
 - 【文件】espflash CHANGELOG：**4.4.0（2026-04-16）起支援 ESP32-C61**（"Added ESP32-C61 chip support (#1009)"）；4.3.0 不認得（`baseline.md:171`）；crates.io 最新為 4.6.0（2026-09-10）。專案先前用 4.6.0 驗證過 `save-image`（`baseline.md` §9）。**最低 4.4.0，建議直接用 4.6.0。**
 - 本機現況：**沒有** `espflash`、`esptool`、`cargo-espflash`（只有 `probe-rs`）。安裝由使用者／agent 在拿到板子時執行：`cargo install espflash --version 4.6.0 --locked`（MSRV 1.95）。
-- espflash 預設使用 flasher stub；Puya 板有風險時要加 `--no-stub`，但 `cargo run-c61*` 的 runner 沒有這個旗標 → 改為手動呼叫 espflash（下面 2.5），只有確定需要才去改 runner。
+- espflash 預設使用 flasher stub；Puya 板有風險時要加 `--no-stub`，但 `cargo run-c61*` 的 runner 沒有這個旗標 → 改為手動呼叫 espflash（下面 2.5），只有確定需要才去改 runner。序列埠可用環境變數 `ESPFLASH_PORT` 指定（espflash 原生讀取，runner 不重複處理）。
 
 ### 2.3 進入下載模式
 
@@ -86,7 +86,7 @@ cargo build-c61-partial --locked  # 完整韌體 + partial refresh（G6 用；fe
 
 ### 2.4 備份原廠韌體（人手確認 USB 已連上；原廠韌體還在時才做）
 
-espflash 會**改寫 0x0（bootloader）與 0x8000（partition table）**，CrossPoint 的 otadata／app1／spiffs 佈局會被丟掉，只能靠完整映像恢復。刷機前務必備份：
+`scripts/run-c61.sh` 只寫 0x10000 起的 app，不動 bootloader 與分割表，且**要求板上仍是原廠佈局**（見 2.5 的 pre-flight）。但直接用 `espflash flash`、2.5 的後門（`PULP_C61_BOOTLOADER`）或其他工具會**改寫 0x0（bootloader）與 0x8000（partition table）**，CrossPoint 的 otadata／app1／spiffs 佈局會被丟掉，只能靠完整映像恢復。因此第一次刷機前務必備份（這份備份也是 app-only 流程的前提）：
 
 ```sh
 ls /dev/cu.usbmodem*                                                        # 【文件】crosspoint README:95
@@ -102,15 +102,35 @@ shasum -a 256 onepage-factory-16MB.bin
 
 ```sh
 cargo build-c61 --locked        # 刷前重建：撰寫本文件時 target 內的 pulp-os-c61-boot 比 HEAD 舊（Oct 7 21:16），不可直接用
-# 【文件】bringup.md:32；內部＝ espflash flash --monitor --chip esp32c61 --flash-mode dio --flash-freq 40mhz --flash-size 16mb
-cargo run-c61-boot
-# 若 stub 連線／寫入失敗（懷疑 Puya），手動呼叫並加 --no-stub（【待驗】；速度會慢很多）：
-espflash flash --monitor --no-stub --chip esp32c61 --flash-mode dio --flash-freq 40mhz --flash-size 16mb \
-  target/riscv32imac-unknown-none-elf/release/pulp-os-c61-boot
-# 只想打包、不刷（【文件】baseline.md §9 以 4.6.0 驗證，未燒錄）：
-espflash save-image --chip esp32c61 --flash-mode dio --flash-freq 40mhz --flash-size 16mb --merge \
-  target/riscv32imac-unknown-none-elf/release/pulp-os-c61-boot /tmp/pulp-c61-boot-merged.bin
+cargo run-c61-boot              # runner ＝ scripts/run-c61.sh（app-only 流程，見下）
 ```
+
+**runner 為什麼是 app-only**：`espflash flash` 會用內建 bootloader（ESP-IDF v6.1-beta1-497）改寫 0x0 與 0x8000；2026-10-08 在實機上，該 bootloader 下 app 每次開機都 panic（`Store/AMO access fault (7) mepc=0x4200d164 mtval=0x40800a10`，位於 `esp_hal::interrupt::bind_handler` ← `esp_rtos::TimeDriver::new` ← `esp_rtos::start`，`c61_boot.rs:124`）。同一塊板、同一個映像的對照：內建 bootloader ＝ panic（可重現）；板子的原廠 bootloader（ESP-IDF v5.5.2-729-g87912cd291，pioarduino 建出）＝ 完整開機。**根因機制尚未證實，懷疑**是 6.1 bootloader 的 PMP／記憶體保護設定。因此 runner 保留原廠 bootloader 與分割表（nvs 0x9000／otadata 0xe000／app0 0x10000 size 0x640000／app1 0x650000／spiffs 0xc90000／coredump 0xff0000），只把 app 寫進 ota_0。原廠 otadata seq=1 ⇒ bootloader 選 ota_0，不必清 otadata。實機觀察：照此流程後完整讀回 16 MB，只有 app0 範圍與原廠備份不同。
+
+`scripts/run-c61.sh <ELF>` 依序做（等同手動執行；`-p <port>` 可加，或設 `ESPFLASH_PORT`）：
+
+```sh
+# 0. pre-flight（唯讀）：讀 0x0–0x9000，要求 [0x0]＝0xE9、[0x8000] 為分割表（0xAA50）且 0x10000 有 ota_0 app 項目；否則拒絕並印出原因
+espflash read-flash 0x0 0x9000 head.bin -c esp32c61
+# 1. 打包 app 映像（不加 --merge）；flash 參數只影響映像標頭，flash 速度由 bootloader 決定
+espflash save-image --chip esp32c61 --flash-mode dio --flash-freq 40mhz --flash-size 16mb \
+  target/riscv32imac-unknown-none-elf/release/pulp-os-c61-boot app.bin
+# 2. 只寫 ota_0
+espflash write-bin 0x10000 app.bin -c esp32c61
+# 3. 監看（monitor 預設會 reset 晶片，正是要的）
+espflash monitor -c esp32c61
+```
+
+**Pre-flight 拒絕時**（例如空白 flash，或板子曾被 `espflash flash` 改寫過 ⇒ 分割表裡 0x10000 是 factory 而非 ota_0）：runner 什麼都不寫，印出讀到的內容。處理方式：用 2.7 的備份回復原廠佈局後再跑；或用後門：
+
+```sh
+# 取得可用的 bootloader：從原廠完整備份切出前 0x8000 bytes（bootloader 區，不含分割表）
+head -c $((0x8000)) onepage-factory-16MB.bin > bootloader.bin
+# 後門：略過 pre-flight，改跑完整 `espflash flash --monitor … --bootloader bootloader.bin`（會改寫 0x8000 分割表為 espflash 預設）
+PULP_C61_BOOTLOADER=/path/to/bootloader.bin cargo run-c61-boot
+```
+
+若 stub 連線／寫入失敗（懷疑 Puya），手動做上面 1–3 並在 `read-flash`／`write-bin`／`monitor` 加 `--no-stub`（【待驗】；速度會慢很多）。只想打包、不刷（【文件】baseline.md §9 以 4.6.0 驗證 `save-image --merge`，未燒錄）：把步驟 1 換成 `--merge` 並指定輸出路徑即可，但 merged 映像含 espflash 內建 bootloader，不要拿來寫進這塊板。
 
 記錄：`espflash --version`、映像 `shasum -a 256`、espflash 輸出的 flash id／晶片資訊（確認 Winbond 或 Puya）。
 
@@ -119,7 +139,7 @@ espflash save-image --chip esp32c61 --flash-mode dio --flash-freq 40mhz --flash-
 ### 2.6 看序列 log
 
 - **先接好 USB 再開機**：`esp-println` 的 `auto` 在 USB 已連過時走 USB-Serial-JTAG，否則走 UART0（【推論】`esp-println 0.18.0`）；沒接 USB 開機時 log 可能走 UART0 而看不到，且 UART0 預設腳就是 GPIO10／GPIO11（本板拿來當充電控制／USB detect）→ 這就是 A1b。
-- `cargo run-c61-boot` 已含 `--monitor`；之後單獨監看：`espflash monitor -c esp32c61 -p /dev/cu.usbmodemXXXX`（【待驗】）。預期第一批 log：`boot: wake cause …`、`psram: … heap registered`、`pulp-os c61 boot: alive`。
+- `cargo run-c61-boot` 的 runner 最後一步就是 `espflash monitor`；之後單獨監看：`espflash monitor -c esp32c61 -p /dev/cu.usbmodemXXXX`（【待驗】）。預期第一批 log：`boot: wake cause …`、`psram: … heap registered`、`pulp-os c61 boot: alive`。
 - `ESP_LOG=info`（`.cargo/config.toml` `[env]`）；沒有時間戳、帶 ANSI 色碼。
 
 ### 2.7 回復原廠
@@ -137,7 +157,7 @@ espflash write-bin 0x0 onepage-factory-16MB.bin -c esp32c61 -p /dev/cu.usbmodemX
 ### 2.8 G0 通過條件與風險
 
 - PASS：espflash 能連線並寫入 boot 映像；開機後序列口有 log；A1、A1b 有結論。
-- 風險（皆【待驗】）：(1) USB-Serial-JTAG 自動 reset 能否成功；(2) Puya 板 stub 寫入 crash；(3) esp-hal `memory.x` 假設 iram_loader 起點為 `0x4083ea70`，espflash 內建的是 ESP-IDF 6.1 bootloader，版面若不同可能衝突（pulp-os 也依賴開機後回收 dram2 當 heap，`baseline.md` §30）；(4) GPIO27 在下載模式期間浮接，無已知危害，但畫面可能出現殘影；(5) USB polarity 與 GPIO27 的矛盾見 D6、A7f。
+- 風險（皆【待驗】）：(1) USB-Serial-JTAG 自動 reset 能否成功；(2) Puya 板 stub 寫入 crash；(3) esp-hal `memory.x` 假設 iram_loader 起點為 `0x4083ea70`，espflash 內建的是 ESP-IDF 6.1 bootloader，版面若不同可能衝突（pulp-os 也依賴開機後回收 dram2 當 heap，`baseline.md` §30）。**2026-10-08 實機已觀察到內建 bootloader 下 app 開機 panic（細節與對照見 2.5），原廠 bootloader 則可開機；機制尚未證實，懷疑是 6.1 bootloader 的 PMP／記憶體保護設定，iram_loader 假設是否也有影響未排除**，所以 runner 改為 app-only；剩餘風險是 pre-flight 拒絕時只能靠備份回復或 `PULP_C61_BOOTLOADER` 後門；(4) GPIO27 在下載模式期間浮接，無已知危害，但畫面可能出現殘影；(5) USB polarity 與 GPIO27 的矛盾見 D6、A7f。
 
 ## 3. 關卡
 
@@ -175,7 +195,7 @@ agent 不得自行定案；在記錄檔「結論」處留空或寫「待使用�
 
 狀態欄預設 `UNVERIFIED`。「失敗改哪裡」的代號見第 7 節；需要儀器的項目與可用儀器見 5.5。細節程序欄的路徑都在 `specs/changes/archive/` 下（簡寫，見第 9 節）。
 
-### G1：Boot 映像（`cargo run-c61-boot`＝`espflash flash --monitor …`）
+### G1：Boot 映像（`cargo run-c61-boot`＝`scripts/run-c61.sh`：app-only 寫入 ota_0 後 `espflash monitor`）
 
 | ID | 項目（需求） | 做法 | 判定（來源） | 失敗改哪裡 | 狀態 |
 |---|---|---|---|---|---|
@@ -374,7 +394,7 @@ X4 為遷移 HAL 1.2 改了 SPI（`SpiDmaBus`→`SpiDma`）、deep sleep（`LowP
 
 | 代號 | 症狀 | 檔案／常數 |
 |---|---|---|
-| S1 | 無法開機／image-hash loop／無 log | `.cargo/config.toml` runner 的 flash 參數（必須 `--flash-mode dio --flash-freq 40mhz --flash-size 16mb`；80 MHz 在此板 image-hash boot loop）；espflash 版本；序列口／log channel |
+| S1 | 無法開機／image-hash loop／無 log | `scripts/run-c61.sh`（`.cargo/config.toml` runner）的 flash 參數（必須 `--flash-mode dio --flash-freq 40mhz --flash-size 16mb`；80 MHz 在此板 image-hash boot loop）；板上 bootloader 是否為原廠版（若被 `espflash flash` 的內建 6.1 bootloader 覆寫，開機即 panic，見 2.5；runner 的 pre-flight 會拒絕這種板子）；espflash 版本；序列口／log channel |
 | S2 | PSRAM 不穩／降級 | `kernel/src/board_c61/memory.rs`（PSRAM 40 MHz 設定）；`board-logic/src/memory.rs` 預算常數；esp-hal 預設 `flash_tuning`／`ram_tuning`（`din_mode 3, din_num 1, extra_dummy 2`）在 40 MHz 下是否合適未驗 |
 | S3 | card detect 相反／SD 不穩 | `board-logic/src/sd.rs`（GPIO28 電平→有卡的對應函式約 line 40、去抖；測試 `r9_cd_polarity_is_bsp_low_means_inserted` 要跟著改）。未驗風險：MISO pull-up 未套用、SPI 400 kHz→10 MHz 切換、GPIO27 power-cycle 後 20 ms 內能否 probe |
 | S4 | 畫面方向錯／BUSY 逾時／全刷對比或殘影差 | `board-logic/src/ssd1677.rs`（`Rotation`；BSP `board_c61.c:50,211,216,222`；BUSY 上限 5000 ms 可配置）。init 序列最初只對到 X4；moui 驅動（`MoveCall/moui` 的 `src/drivers/moui_drv_ssd1677.c`，BSP 實際用的，用 `gh api repos/MoveCall/moui/contents/src/drivers/moui_drv_ssd1677.c` 讀）對 EPD0426A02（OTP 波形）的 init 與本專案 `configure()` 原有兩處差異，**尚未驗證哪個對**：(1) `0x0C` booster soft-start：C61 現已改用 moui／BSP 的 OTP 值 `[AE C7 C3 80 C0]`（X4 仍為 `[AE C7 C3 C0 80]`），**仍 UNVERIFIED，待實機**；(2) moui 在 init 多送 `0x1A [5A]`（溫度暫存器，其 update 序列也不載入溫度），本專案只送 `0x18 [80]` 並在全刷用 `0xF7` 載入溫度。全刷對比／殘影不佳時先對照這兩點。GPIO8（DC）是 strapping pin、需外部上拉 |
