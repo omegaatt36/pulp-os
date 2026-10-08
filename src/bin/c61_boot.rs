@@ -239,7 +239,14 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
             && let Some(ev) = k.poll()
         {
             idle_ticks = 0;
-            info!("key: {:?} -> {:?}", ev, keys::map_event(ev, false));
+            // ladder mV of the sample behind the event (None for side keys), to
+            // compare against the BSP windows without an external meter
+            info!(
+                "key: {:?} -> {:?} (ladder_mv={:?})",
+                ev,
+                keys::map_event(ev, false),
+                k.last_front_mv()
+            );
         } else {
             idle_ticks = idle_ticks.saturating_add(1);
         }

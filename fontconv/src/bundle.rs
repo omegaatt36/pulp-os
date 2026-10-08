@@ -340,6 +340,26 @@ pub fn sha256_file(path: &Path) -> Result<String, std::io::Error> {
     Ok(sha256_bytes(&bytes))
 }
 
+/// Digest of the converter/fontpack sources, manifests, `Cargo.lock` and Cargo
+/// configuration this binary was built from (see `fontconv/build.rs`).
+pub const BUILD_ID: &str = env!("PULP_FONTCONV_BUILD_ID");
+
+/// Everything that determines the converted output: the manifest, the compiler
+/// and the converter build (sources and dependency versions).
+pub fn cache_identity(manifest: &JsonValue, rustc: &str, build_id: &str) -> JsonValue {
+    let mut build_map = BTreeMap::new();
+    build_map.insert("rustc".to_string(), JsonValue::String(rustc.to_string()));
+    build_map.insert("id".to_string(), JsonValue::String(build_id.to_string()));
+    let mut identity_map = BTreeMap::new();
+    identity_map.insert("manifest".to_string(), manifest.clone());
+    identity_map.insert("build".to_string(), JsonValue::Object(build_map));
+    JsonValue::Object(identity_map)
+}
+
+pub fn cache_key(identity: &JsonValue) -> String {
+    sha256_bytes(identity.to_canonical_string().as_bytes())
+}
+
 pub struct ManifestInputs {
     pub data: JsonValue,
     pub font_path: PathBuf,
@@ -533,14 +553,8 @@ pub fn build_bundle(
     let rustc_ver = std::process::Command::new("rustc").arg("-vV").output()?;
     let rustc_str = String::from_utf8_lossy(&rustc_ver.stdout).to_string();
 
-    let mut identity_map = BTreeMap::new();
-    identity_map.insert("manifest".to_string(), inputs.data.clone());
-    let mut build_map = BTreeMap::new();
-    build_map.insert("rustc".to_string(), JsonValue::String(rustc_str));
-    identity_map.insert("build".to_string(), JsonValue::Object(build_map));
-
-    let identity_val = JsonValue::Object(identity_map.clone());
-    let key = sha256_bytes(identity_val.to_canonical_string().as_bytes());
+    let identity = cache_identity(&inputs.data, &rustc_str, BUILD_ID);
+    let key = cache_key(&identity);
 
     fs::create_dir_all(cache_dir)?;
     let artifact = cache_dir.join(&key);
@@ -592,7 +606,9 @@ pub fn build_bundle(
             files_map.insert(f.name.clone(), JsonValue::String(sha256_bytes(&f.bytes)));
         }
 
-        let mut stamp_map = identity_map;
+        let JsonValue::Object(mut stamp_map) = identity else {
+            unreachable!("cache_identity returns an object")
+        };
         stamp_map.insert("format".to_string(), JsonValue::String(FORMAT.to_string()));
         stamp_map.insert("cache_key".to_string(), JsonValue::String(key.clone()));
         stamp_map.insert("files".to_string(), JsonValue::Object(files_map));

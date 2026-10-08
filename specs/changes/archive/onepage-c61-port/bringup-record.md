@@ -11,7 +11,7 @@
 | 板子（版本／序號） | |
 | commit（`git rev-parse HEAD`）與是否有未 commit 改動 | |
 | rust nightly（`rust-toolchain.toml`） | nightly-2026-09-22 |
-| espflash 版本（需 ≥ 4.6.0） | |
+| espflash 版本（最低 4.4.0，建議 4.6.0） | |
 | 映像 sha256（boot／full） | |
 | SD 卡（廠牌／容量／格式） | |
 | log channel／序列口 | |

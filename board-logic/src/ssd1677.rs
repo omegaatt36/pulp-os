@@ -225,14 +225,22 @@ pub fn soft_reset<P: EpdBus + DelayMs>(p: &mut P) -> Result<(), DisplayError> {
     Ok(())
 }
 
-/// Everything after the reset: temperature sensor, booster, driver output
-/// (480 gates, scan 0x02), border, full RAM window.
-pub fn configure<B: EpdBus>(b: &mut B) -> Result<(), DisplayError> {
+/// Booster soft-start (0x0C) data of the X4 panel (GDEQ0426T82).
+pub const X4_BOOSTER: [u8; 5] = [0xAE, 0xC7, 0xC3, 0xC0, 0x80];
+
+/// Booster soft-start data of the C61 panel (EPD0426A02, OTP voltages): moui
+/// `moui_drv_ssd1677.c` with `use_otp_voltages` (BSP board_c61.c:213). UNVERIFIED
+/// on hardware.
+pub const C61_BOOSTER: [u8; 5] = [0xAE, 0xC7, 0xC3, 0x80, 0xC0];
+
+/// Everything after the reset: temperature sensor, booster (`booster`, per
+/// board), driver output (480 gates, scan 0x02), border, full RAM window.
+pub fn configure<B: EpdBus>(b: &mut B, booster: &[u8; 5]) -> Result<(), DisplayError> {
     b.command(cmd::TEMPERATURE_SENSOR)?;
     b.data(&[0x80])?;
 
     b.command(cmd::BOOSTER_SOFT_START)?;
-    b.data(&[0xAE, 0xC7, 0xC3, 0xC0, 0x80])?;
+    b.data(booster)?;
 
     b.command(cmd::DRIVER_OUTPUT_CONTROL)?;
     b.data(&[((HEIGHT - 1) & 0xFF) as u8, ((HEIGHT - 1) >> 8) as u8, 0x02])?;
@@ -246,7 +254,7 @@ pub fn configure<B: EpdBus>(b: &mut B) -> Result<(), DisplayError> {
 /// X4 init body: software reset then configure, no BUSY wait (unchanged).
 pub fn init_display<P: EpdBus + DelayMs>(p: &mut P) -> Result<(), DisplayError> {
     soft_reset(p)?;
-    configure(p)
+    configure(p, &X4_BOOSTER)
 }
 
 /// Full frame into RED then BW RAM, strip by strip, each RAM preceded by a
@@ -486,7 +494,7 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
         wait_busy_bounded(&mut self.port, self.busy_timeout_ms)?;
         soft_reset(&mut self.port)?;
         wait_busy_bounded(&mut self.port, self.busy_timeout_ms)?;
-        configure(&mut self.port)
+        configure(&mut self.port, &C61_BOOSTER)
     }
 
     /// Render all strips into both RAMs, run the full update and wait (bounded)
@@ -726,6 +734,26 @@ mod tests {
         ]
     }
 
+    /// C61 init trace: the X4 one with the OTP booster order (R5, UNVERIFIED
+    /// on hardware).
+    fn c61_init_trace_expected() -> Vec<Ev> {
+        let mut v = init_trace_expected();
+        assert_eq!(v[4], Ev::Cmd(0x0C));
+        v[5] = Ev::Data(vec![0xAE, 0xC7, 0xC3, 0x80, 0xC0]);
+        v
+    }
+
+    /// Data bytes that follow the (single) booster command in `log`.
+    fn booster_data(log: &[Ev]) -> Vec<Vec<u8>> {
+        let mut out = Vec::new();
+        for w in log.windows(2) {
+            if let (Ev::Cmd(0x0C), Ev::Data(d)) = (&w[0], &w[1]) {
+                out.push(d.clone());
+            }
+        }
+        out
+    }
+
     // -- helpers for streams -------------------------------------------------
 
     /// Concatenate the payloads of the bulk (strip-sized) data writes that
@@ -776,6 +804,26 @@ mod tests {
         let mut f = Fake::new(None);
         init_display(&mut f).unwrap();
         assert_eq!(f.log, init_trace_expected());
+    }
+
+    #[test]
+    fn r5_x4_init_booster_is_unchanged() {
+        let mut f = Fake::new(None);
+        init_display(&mut f).unwrap();
+        assert_eq!(
+            booster_data(&f.log),
+            vec![vec![0xAE, 0xC7, 0xC3, 0xC0, 0x80]]
+        );
+    }
+
+    #[test]
+    fn r5_c61_init_booster_is_otp_order() {
+        let mut epd = Epd::new(Fake::new(Some(12)));
+        epd.init(DisplayReset::Software).unwrap();
+        assert_eq!(
+            booster_data(&epd.port_mut().log),
+            vec![vec![0xAE, 0xC7, 0xC3, 0x80, 0xC0]]
+        );
     }
 
     #[test]
@@ -922,7 +970,7 @@ mod tests {
         // everything after matches the X4 configure sequence, nothing is
         // written between the reset wait and TEMPERATURE_SENSOR
         let cfg_start = 3 + after_reset.len();
-        assert_eq!(log[cfg_start..], init_trace_expected()[2..]);
+        assert_eq!(log[cfg_start..], c61_init_trace_expected()[2..]);
     }
 
     #[test]

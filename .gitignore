@@ -17,6 +17,7 @@ __pycache__/
 # Keep agent handoff specifications in version control.
 !specs/changes/**/*.md
 !specs/references/**/*.md
+!specs/hardware-records/**/*.md
 
 # Fetched by `task font` (pinned upstream, see Taskfile.yml).
 /Iansui-Regular.ttf

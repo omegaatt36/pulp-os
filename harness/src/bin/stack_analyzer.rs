@@ -55,31 +55,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Parse .stack_sizes section
-    let mut stack_sizes: BTreeMap<u32, u32> = BTreeMap::new();
-    if let Some(sec) = obj.section_by_name(".stack_sizes") {
-        let data = sec.data()?;
-        let mut cursor = 0;
-        while cursor + 4 <= data.len() {
-            let addr = u32::from_le_bytes(data[cursor..cursor + 4].try_into().unwrap());
-            cursor += 4;
-            let mut val: u32 = 0;
-            let mut shift = 0;
-            while cursor < data.len() {
-                let b = data[cursor];
-                cursor += 1;
-                val |= ((b & 0x7f) as u32) << shift;
-                if (b & 0x80) == 0 {
-                    break;
-                }
-                shift += 7;
-            }
-            stack_sizes.insert(addr, val);
-        }
-    } else {
+    // Parse .stack_sizes section. Without it every frame would read as 0 B and the
+    // report would claim a full margin, so the stack usage is unknown: stop here.
+    let Some(sec) = obj.section_by_name(".stack_sizes") else {
         eprintln!(
-            "Warning: .stack_sizes section missing. Rebuild with RUSTFLAGS=\"-Z emit-stack-sizes\""
+            "stack usage unknown: ELF has no .stack_sizes section; rebuild with RUSTFLAGS=\"-Z emit-stack-sizes\""
         );
+        std::process::exit(2);
+    };
+    let mut stack_sizes: BTreeMap<u32, u32> = BTreeMap::new();
+    let data = sec.data()?;
+    let mut cursor = 0;
+    while cursor + 4 <= data.len() {
+        let addr = u32::from_le_bytes(data[cursor..cursor + 4].try_into().unwrap());
+        cursor += 4;
+        let mut val: u32 = 0;
+        let mut shift = 0;
+        while cursor < data.len() {
+            let b = data[cursor];
+            cursor += 1;
+            val |= ((b & 0x7f) as u32) << shift;
+            if (b & 0x80) == 0 {
+                break;
+            }
+            shift += 7;
+        }
+        stack_sizes.insert(addr, val);
     }
 
     let text_sec = obj.section_by_name(".text").expect("missing .text section");

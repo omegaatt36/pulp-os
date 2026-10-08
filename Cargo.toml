@@ -118,7 +118,6 @@ esp-backtrace = { version = "0.20", features = [
   "panic-handler",
   "println",
 ] }
-esp-println = { version = "0.18", features = ["log-04"] }
 
 # chip features: X4 = esp32c3 (riscv32imc)
 [target.riscv32imc-unknown-none-elf.dependencies]
@@ -128,7 +127,7 @@ esp-rtos               = { version = "=0.4.0", features = ["esp32c3"] }
 esp-radio              = { version = "=1.0.0-beta.1", optional = true, default-features = false, features = ["esp32c3"] }
 esp-bootloader-esp-idf = { version = "=0.6.0", features = ["esp32c3"] }
 esp-backtrace          = { version = "0.20", features = ["esp32c3"] }
-esp-println            = { version = "0.18", features = ["esp32c3"] }
+esp-println            = { version = "0.18", features = ["esp32c3", "log-04"] }
 
 # chip features: OnePage C61 = esp32c61 (riscv32imac)
 [target.riscv32imac-unknown-none-elf.dependencies]
@@ -138,7 +137,16 @@ esp-rtos               = { version = "=0.4.0", features = ["esp32c61"] }
 esp-radio              = { version = "=1.0.0-beta.1", optional = true, default-features = false, features = ["esp32c61"] }
 esp-bootloader-esp-idf = { version = "=0.6.0", features = ["esp32c61"] }
 esp-backtrace          = { version = "0.20", features = ["esp32c61"] }
-esp-println            = { version = "0.18", features = ["esp32c61"] }
+# jtag-serial instead of the default `auto`: auto falls back to UART0 on a cold boot
+# without USB, and UART0's default pins GPIO10/GPIO11 are the charge-control / USB-detect
+# lines of this board. colors and critical-section are the defaults, kept explicitly.
+esp-println            = { version = "0.18", default-features = false, features = [
+  "esp32c61",
+  "jtag-serial",
+  "log-04",
+  "colors",
+  "critical-section",
+] }
 
 [build-dependencies]
 fontdue = "0.9"

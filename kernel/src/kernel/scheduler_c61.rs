@@ -417,7 +417,14 @@ impl super::Kernel {
             return;
         };
         match monitor.measure() {
-            Ok(r) => self.cached_battery_mv = r.cell_mv,
+            Ok(r) => {
+                self.cached_battery_mv = r.cell_mv;
+                info!(
+                    "battery: cell {} mV, {}% (periodic)",
+                    r.cell_mv,
+                    r.percent()
+                );
+            }
             Err(e) => warn!("battery: sample failed: {:?} (charging resumed)", e),
         }
     }

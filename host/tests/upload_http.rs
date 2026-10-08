@@ -69,6 +69,8 @@ struct FakeSocket {
     input: Vec<u8>,
     pos: usize,
     read_slice: usize,
+    // absolute input offsets no single read may cross
+    splits: Vec<usize>,
     end: End,
     write_limit: usize,
     out: Vec<u8>,
@@ -91,9 +93,15 @@ impl Read for FakeSocket {
                 End::Pending => core::future::pending::<Result<usize, SockError>>().await,
             };
         }
+        let to_split = self
+            .splits
+            .iter()
+            .find(|&&s| s > self.pos)
+            .map_or(usize::MAX, |s| s - self.pos);
         let n = buf
             .len()
             .min(self.read_slice)
+            .min(to_split)
             .min(self.input.len() - self.pos);
         buf[..n].copy_from_slice(&self.input[self.pos..self.pos + n]);
         self.pos += n;
@@ -124,6 +132,7 @@ struct Scenario {
     files: Vec<(String, Vec<u8>)>,
     input: Vec<u8>,
     slice: usize,
+    splits: Vec<usize>,
     end: End,
     write_limit: usize,
     unmounted: bool,
@@ -138,6 +147,7 @@ impl Scenario {
             files: Vec::new(),
             input,
             slice: WHOLE,
+            splits: Vec::new(),
             end: End::Pending,
             write_limit: usize::MAX,
             unmounted: false,
@@ -149,6 +159,12 @@ impl Scenario {
 
     fn slice(mut self, n: usize) -> Self {
         self.slice = n;
+        self
+    }
+
+    // a read never returns bytes on both sides of input offset `at`
+    fn split_at(mut self, at: usize) -> Self {
+        self.splits.push(at);
         self
     }
 
@@ -308,6 +324,7 @@ fn run_inner(s: Scenario) -> Outcome {
         input: s.input.clone(),
         pos: 0,
         read_slice: s.slice.max(1),
+        splits: s.splits.clone(),
         end: s.end,
         write_limit: s.write_limit.max(1),
         out: Vec::new(),
@@ -1291,6 +1308,148 @@ fn interrupted_upload_is_a_failure() {
                 let out = run(Scenario::new(req.clone()).slice(slice).end(end));
                 assert_failure(&out, false, &ctx);
                 assert_eq!(out.event, ServerEvent::UploadFailed, "{ctx}");
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------ final delimiter
+
+// R13: a part is complete only when its closing delimiter is followed by "--".
+// The body is the usual one-part form up to the delimiter, then `tail` as is.
+fn upload_request_with_tail(
+    boundary: &str,
+    filename: &str,
+    content: &[u8],
+    tail: &[u8],
+) -> Vec<u8> {
+    let mut body = format!("--{boundary}\r\n{}", part_header(Some(filename))).into_bytes();
+    body.extend_from_slice(content);
+    body.extend_from_slice(format!("\r\n--{boundary}").as_bytes());
+    body.extend_from_slice(tail);
+    http_post(
+        "/upload",
+        Some(&format!("multipart/form-data; boundary={boundary}")),
+        body.len(),
+        &body,
+    )
+}
+
+const TAIL_SIZES: [usize; 6] = [0, 100, 2040, 2048, 2100, 5000];
+
+// R13: delimiter followed by anything but "--" (CRLF = another part follows)
+// is an error and never a stored upload
+#[test]
+fn upload_delimiter_not_followed_by_dashes_is_a_failure() {
+    let boundary = make_boundary(40);
+    let second_part = format!(
+        "\r\n--{boundary}\r\n{}other\r\n--{boundary}--\r\n",
+        part_header(Some("TWO.TXT"))
+    );
+    let tails: [(&str, Vec<u8>); 6] = [
+        ("CRLF only", b"\r\n".to_vec()),
+        ("CRLF and text", b"\r\nxx".to_vec()),
+        ("second part follows", second_part.into_bytes()),
+        ("two non-dash bytes", b"xx".to_vec()),
+        ("dash then other", b"-x".to_vec()),
+        ("other then dash", b"x-".to_vec()),
+    ];
+    for size in TAIL_SIZES {
+        let content = lcg_bytes(size, size as u64 + 900);
+        assert_well_formed(&boundary, &content);
+        for (label, tail) in &tails {
+            let req = upload_request_with_tail(&boundary, "UP.TXT", &content, tail);
+            for slice in [1, 7, 1460, WHOLE] {
+                let ctx = format!("{label} size {size} slice {slice}");
+                let out = run(Scenario::new(req.clone()).slice(slice));
+                assert_failure(&out, true, &ctx);
+                assert_eq!(out.event, ServerEvent::UploadFailed, "{ctx}");
+            }
+        }
+    }
+}
+
+// R13: the data after the delimiter ends before it can be judged
+// (0 or 1 byte, then the peer closes or the connection breaks) -> error
+#[test]
+fn upload_delimiter_with_too_little_after_it_is_a_failure() {
+    let boundary = make_boundary(40);
+    for size in TAIL_SIZES {
+        let content = lcg_bytes(size, size as u64 + 910);
+        assert_well_formed(&boundary, &content);
+        for (label, tail) in [("no byte after", &b""[..]), ("one dash after", &b"-"[..])] {
+            let req = upload_request_with_tail(&boundary, "UP.TXT", &content, tail);
+            for slice in [1, 7, WHOLE] {
+                for end in [End::Zero, End::Fail] {
+                    let ctx = format!("{label} size {size} slice {slice} {end:?}");
+                    let out = run(Scenario::new(req.clone()).slice(slice).end(end));
+                    assert_failure(&out, false, &ctx);
+                    assert_eq!(out.event, ServerEvent::UploadFailed, "{ctx}");
+                }
+            }
+        }
+    }
+}
+
+// R13: delimiter + "--" completes the upload, with or without the trailing
+// CRLF (the connection stays open, so no read past the "--" may be needed) and
+// with an epilogue
+#[test]
+fn upload_final_delimiter_completes_the_upload() {
+    let boundary = make_boundary(40);
+    let tails: [(&str, &[u8]); 3] = [
+        ("bare dashes", b"--"),
+        ("dashes CRLF", b"--\r\n"),
+        ("dashes CRLF epilogue", b"--\r\nepilogue\r\n"),
+    ];
+    for size in TAIL_SIZES {
+        let content = lcg_bytes(size, size as u64 + 920);
+        assert_well_formed(&boundary, &content);
+        for (label, tail) in tails {
+            let req = upload_request_with_tail(&boundary, "UP.TXT", &content, tail);
+            for slice in [1, 7, 1460, WHOLE] {
+                let ctx = format!("{label} size {size} slice {slice}");
+                let out = run(Scenario::new(req.clone()).slice(slice).watch("UP.TXT"));
+                assert_200(&out, None, b"OK", &ctx);
+                assert_uploaded(&out, "UP.TXT", &ctx);
+                match out.file("UP.TXT") {
+                    Some(stored) => assert_bytes_eq(stored, &content, &format!("{ctx}: file")),
+                    None => panic!("{ctx}: UP.TXT missing from the card"),
+                }
+            }
+        }
+    }
+}
+
+// R13: the final "--" may arrive in two reads, cut at every point from just
+// before the delimiter's dashes to inside the trailing CRLF
+#[test]
+fn upload_final_dashes_split_across_reads_still_complete() {
+    let boundary = make_boundary(40);
+    for size in [100, 2040, 2048, 5000] {
+        let content = lcg_bytes(size, size as u64 + 930);
+        assert_well_formed(&boundary, &content);
+        let req = upload_request_with_tail(&boundary, "UP.TXT", &content, b"--\r\n");
+        // offset of the first of the two closing dashes
+        let dashes = req.len() - 4;
+        for (label, cut) in [
+            ("before the dashes", dashes),
+            ("between the dashes", dashes + 1),
+            ("after the dashes", dashes + 2),
+            ("inside the CRLF", dashes + 3),
+        ] {
+            for slice in [1460, WHOLE] {
+                let ctx = format!("cut {label} size {size} slice {slice}");
+                let out = run(Scenario::new(req.clone())
+                    .slice(slice)
+                    .split_at(cut)
+                    .watch("UP.TXT"));
+                assert_200(&out, None, b"OK", &ctx);
+                assert_uploaded(&out, "UP.TXT", &ctx);
+                match out.file("UP.TXT") {
+                    Some(stored) => assert_bytes_eq(stored, &content, &format!("{ctx}: file")),
+                    None => panic!("{ctx}: UP.TXT missing from the card"),
+                }
             }
         }
     }

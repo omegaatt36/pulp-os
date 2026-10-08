@@ -19,7 +19,8 @@ C61 memory diagnostics
 CJK font installation
     Build one selected font with the pinned source in fonts/cjk.json:
 
-        cargo run -p pulp-fontconv --release -- bundle
+        cargo run -p pulp-fontconv --release --target host-tuple \
+            --config 'unstable.build-std=["std","test"]' -- bundle
 
     Copy target/cjk-sd/_PULP/FONTS to _PULP/FONTS on the SD card.
     Replace the previous FONTS directory to remove packs from the old font.
@@ -46,8 +47,9 @@ CJK font installation
     For other licenses, pass --license-name <actual-license-name>.
 
     The builder checks Cargo dependencies before it reuses cached packs.
-    The cache key includes the manifest, converter binary, source files,
-    Cargo.lock, Cargo configuration and rustc version.
+    The cache key includes the manifest, the converter and fontpack source
+    files (hashed at build time), Cargo.lock, Cargo configuration and rustc
+    version.
     Each cache hit checks every output hash. Corrupt cache files cause a
     rebuild. The builder replaces only directories with its BUNDLE.JSON.
     Use --cache <directory> to choose another cache location.

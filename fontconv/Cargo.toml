@@ -17,6 +17,9 @@ name = "pulp_fontconv"
 [[bin]]
 name = "pulp-fontconv"
 
+[build-dependencies]
+sha2 = { version = "0.11", default-features = false }
+
 [dependencies]
 pulp-fontpack = { path = "../fontpack", features = ["builder"] }
 fontdue       = "0.9"

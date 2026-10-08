@@ -9,7 +9,7 @@
 | 項目 | 要求 | 來源 |
 |---|---|---|
 | 工具鏈 | `rust-toolchain.toml` 的 pinned nightly（含 `rust-src`、`llvm-tools`），targets 含 `riscv32imac-unknown-none-elf` | baseline §1–6 |
-| 燒錄 | `espflash` **≥ 4.6.0**（4.3.0 不認得 esp32c61；本機目前沒有 `espflash`） | baseline §9 |
+| 燒錄 | `espflash` 最低 **4.4.0**（4.3.0 不認得 esp32c61），建議 4.6.0；本機目前沒有 `espflash` | baseline §9 |
 | 旗標 | flash **40 MHz DIO／16 MB**（80 MHz 在此板會 image-hash boot loop）；PSRAM 40 MHz；已寫在 `.cargo/config.toml` 的 runner | BSP README、baseline §9／§25 |
 | 序列 log | `esp-println`（`auto`）；`ESP_LOG=info`（`.cargo/config.toml`） | Cargo.toml、.cargo/config.toml |
 | 卡 | FAT 格式 SD，內含至少一本英文 `.txt` 與一本 `.epub`；另備一張**空白／未插卡**情境 | R9、R21 |

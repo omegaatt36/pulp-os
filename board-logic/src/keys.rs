@@ -224,17 +224,21 @@ pub struct KeyScanner<A, P, C> {
     start_us: u64,
     phase: Phase,
     now_us: u64,
+    /// Ladder mV of the latest `sample`; `None` when it did not read the ADC.
+    front_mv: Option<u16>,
 }
 
 impl<A: AdcSample, P: KeyPin, C: Clock> KeyScanner<A, P, C> {
     fn sample(&mut self) -> Option<Key> {
+        self.front_mv = None;
         let wake = self.gpio[0].is_low();
         let prev = self.gpio[1].is_low();
         let next = self.gpio[2].is_low();
         if let Some(k) = decode_gpio(wake, prev, next) {
             return Some(k);
         }
-        average_mv(&mut self.adc).and_then(decode_front_ladder)
+        self.front_mv = average_mv(&mut self.adc);
+        self.front_mv.and_then(decode_front_ladder)
     }
 }
 
@@ -293,6 +297,7 @@ impl<A: AdcSample, P: KeyPin, C: Clock> KeyInput<A, P, C> {
                 start_us: now,
                 phase: Phase::Grace,
                 now_us: now,
+                front_mv: None,
             },
         }
     }
@@ -308,6 +313,14 @@ impl<A: AdcSample, P: KeyPin, C: Clock> KeyInput<A, P, C> {
 
     pub fn reset_hold_state(&mut self) {
         self.core.reset_hold_state();
+    }
+
+    /// Front-ladder mV of the latest ADC sample (the one behind the event the
+    /// last `poll` returned; a queued second event shares it). `None` while
+    /// the grace window runs, when a side key was down (the ADC is not read) or
+    /// when the conversion failed.
+    pub fn last_front_mv(&self) -> Option<u16> {
+        self.scan.front_mv
     }
 }
 
@@ -968,5 +981,106 @@ mod tests {
         r.past_grace();
         r.set_gpio(false, false, true);
         assert_eq!(r.run(2600, 2700, 5), vec![(2615, Event::Press(Key::Next))]);
+    }
+
+    // ---- R7: ladder mV of the sample behind the latest poll -------------------
+
+    #[test]
+    fn r7_press_and_release_carry_the_mv_of_the_sample_that_caused_them() {
+        let mut r = Rig::new();
+        r.past_grace();
+        // jittery ENTER contact: inside 0..=250 the whole time, a different value
+        // each poll; the Press fires at 2615 ms and must report the 2615 ms sample
+        let mut press = None;
+        for (i, t) in (2600..=2640u64).step_by(5).enumerate() {
+            let mv = 10 + 7 * i as u16;
+            r.set_ladder(Some(mv));
+            if let Some(ev) = r.poll_at(t) {
+                press = Some((t, ev, r.input.last_front_mv(), mv));
+                break;
+            }
+        }
+        let (t, ev, got, sampled) = press.expect("press");
+        assert_eq!((t, ev), (2615, Event::Press(Key::Enter)));
+        assert_eq!(got, Some(sampled));
+        assert_eq!(got, Some(10 + 7 * 3), "fourth poll of the sequence");
+        // release: the stable reading is rest, and that is what the Release carries
+        r.set_ladder(Some(3099));
+        let mut rel = None;
+        for t in (2645..=2700u64).step_by(5) {
+            if let Some(ev) = r.poll_at(t) {
+                rel = Some((t, ev, r.input.last_front_mv()));
+                break;
+            }
+        }
+        assert_eq!(
+            rel,
+            Some((2660, Event::Release(Key::Enter), Some(3099))),
+            "Release at the first poll >= 15 ms after the reading changed"
+        );
+    }
+
+    #[test]
+    fn r7_each_ladder_window_event_reports_an_mv_inside_its_own_window() {
+        for w in FRONT_LADDER {
+            let mv = (w.min_mv + w.max_mv) / 2;
+            let mut r = Rig::new();
+            r.past_grace();
+            r.set_ladder(Some(mv));
+            let mut seen = None;
+            for t in (2600..=2700u64).step_by(5) {
+                if let Some(ev) = r.poll_at(t) {
+                    seen = Some((ev, r.input.last_front_mv()));
+                    break;
+                }
+            }
+            assert_eq!(seen, Some((Event::Press(w.key), Some(mv))), "{:?}", w.key);
+        }
+    }
+
+    #[test]
+    fn r7_queued_release_and_press_of_a_direct_key_change_share_the_new_sample() {
+        let mut r = Rig::new();
+        r.past_grace();
+        r.set_ladder(Some(1956)); // LEFT
+        assert_eq!(r.run(2600, 2625, 5), vec![(2615, Event::Press(Key::Left))]);
+        r.set_ladder(Some(1316)); // finger slides straight to RIGHT, no rest in between
+        let mut evs = Vec::new();
+        for t in (2630..=2700u64).step_by(5) {
+            if let Some(ev) = r.poll_at(t) {
+                evs.push((t, ev, r.input.last_front_mv()));
+            }
+        }
+        assert_eq!(
+            evs,
+            vec![
+                (2645, Event::Release(Key::Left), Some(1316)),
+                (2650, Event::Press(Key::Right), Some(1316)),
+            ]
+        );
+    }
+
+    #[test]
+    fn r7_side_key_events_have_no_ladder_mv() {
+        let mut r = Rig::new();
+        r.past_grace();
+        r.set_gpio(false, true, false);
+        assert_eq!(r.poll_at(2600), None);
+        assert_eq!(r.poll_at(2615), Some(Event::Press(Key::Prev)));
+        assert_eq!(r.input.last_front_mv(), None, "the ADC is not read for it");
+    }
+
+    #[test]
+    fn r7_no_mv_during_grace_or_when_the_adc_fails() {
+        let mut r = Rig::new();
+        r.set_ladder(Some(0));
+        assert_eq!(r.poll_at(100), None);
+        assert_eq!(r.input.last_front_mv(), None, "grace: nothing sampled");
+        r.set_ladder(REST);
+        r.past_grace();
+        assert_eq!(r.input.last_front_mv(), Some(3100));
+        r.set_ladder(None);
+        assert_eq!(r.poll_at(2600), None);
+        assert_eq!(r.input.last_front_mv(), None, "a failed read is not 0 mV");
     }
 }

@@ -32,7 +32,7 @@ cargo build-c61-wifi --locked
 cargo run-c61-wifi
 ```
 
-- `cargo run-c61-wifi` = `cargo run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,wifi --bin pulp-os-c61`（`.cargo/config.toml`）；runner 為 `espflash flash --monitor --chip esp32c61 --flash-mode dio --flash-freq 40mhz --flash-size 16mb`，需 espflash >= 4.6.0（`.cargo/config.toml` 註解：4.3.0 不認得 esp32c61）。
+- `cargo run-c61-wifi` = `cargo run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,wifi --bin pulp-os-c61`（`.cargo/config.toml`）；runner 為 `espflash flash --monitor --chip esp32c61 --flash-mode dio --flash-freq 40mhz --flash-size 16mb`，需 espflash >= 4.4.0（建議 4.6.0；4.3.0 不認得 esp32c61）。
 - 映像（預設 target 目錄）：`target/riscv32imac-unknown-none-elf/release/pulp-os-c61`。記錄 `shasum -a 256` 與 `espflash --version`。
 - 離線對照（第 W8 節比較 heap 大小用）：`cargo run-c61`。
 - 「韌體 commit」欄的限制：T1–T6 的改動目前**全部未 commit**（`git status` 起點含 `?? src/apps/upload/*.rs` 等未追蹤檔）。只記 `git rev-parse HEAD` 不足以重現被測韌體。每次驗收記錄：`git rev-parse HEAD`、`git status --porcelain` 完整輸出、映像 sha256。建議先由使用者決定是否 commit 再驗收。

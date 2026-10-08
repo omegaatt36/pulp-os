@@ -7,10 +7,10 @@
 
 ## 0. agent 執行規則
 
-1. **誠實規則**：狀態只能是 `UNVERIFIED`（預設）、`PASS`（附 log／量測／照片）、`FAIL`（附現象與處置）、`SKIPPED`（附原因）。沒有證據不得寫 `PASS`。編譯、link、host 測試通過不算實機通過。
-2. **記錄檔**：開始前複製第 5 節的表格到 `specs/hardware-records/<YYYY-MM-DD>-<板號>.md` 填寫；本檔保持全 `UNVERIFIED`。記錄檔頭部必填：`git rev-parse HEAD`、`git status --porcelain` 全文、各映像 `shasum -a 256`、`espflash --version`、SD 卡廠牌／容量／格式、log 通道（見 A1／A1b）、AP 型號。
-3. **順序即依賴**：關卡 G0 → G1 → G2 → G3／G4。上一關有 `FAIL` 或未結論，下一關的失敗無法歸因，不得往下走（除非記錄寫明原因）。見第 3 節。
-4. **哪些 agent 能自己做、哪些要人手**：agent 可執行建置、燒錄、監看序列輸出、`curl`、`shasum`、解析 log。**需要人手**的：進入下載模式（按鍵）、插拔 SD 卡、按實體鍵、肉眼判讀螢幕（方向、殘影、手感；請人拍照）、示波器／電流計／萬用表量測、改 AP／DHCP 環境。遇到時停下，明確列出要人做的動作與要回報的內容。
+1. **誠實規則**：狀態詞只有五個。`UNVERIFIED`（預設，尚未做）、`PASS`（附 log／量測／照片）、`FAIL`（附現象與處置）、`SKIPPED`（附原因：決定不驗，且不影響後續關卡，例如缺儀器而該項只是量測值、不是功能判定）、`DEFERRED`（附原因與補驗條件：之後會驗，例如需要電池／成品機）。沒有證據不得寫 `PASS`。編譯、link、host 測試通過不算實機通過。
+2. **記錄檔**：開始前複製 `specs/hardware-records/TEMPLATE.md` 為 `specs/hardware-records/<YYYY-MM-DD>-<板號>.md` 填寫；本檔狀態欄永遠保持 `UNVERIFIED`（基準）；「做法／判定」欄標〔預設延後：原因〕或〔預設跳過：原因〕的項目，記錄檔據此初始化為 `DEFERRED`／`SKIPPED`，其餘為 `UNVERIFIED`。記錄檔頭部必填：`git rev-parse HEAD`、`git status --porcelain` 全文、各映像 `shasum -a 256`、`espflash --version`、SD 卡廠牌／容量／格式、log 通道（見 A1／A1b）、AP 型號。
+3. **順序即依賴**：關卡 G0 → G1 → G2 → G3／G4。上一關有 `UNVERIFIED` 或沒有處置的 `FAIL`，下一關的失敗無法歸因，不得往下走（除非記錄寫明原因）；附理由的 `SKIPPED`／`DEFERRED` 可通過。G1→G2 的 USB-only gate 見第 3 節。
+4. **哪些 agent 能自己做、哪些要人手**：agent 可執行建置、燒錄、監看序列輸出、`curl`、`shasum`、解析 log。**需要人手**的：進入下載模式（按鍵）、插拔 SD 卡、按實體鍵、肉眼判讀螢幕（方向、殘影、手感；請人拍照）、示波器／電流計／萬用表量測（實際可用的儀器見 5.5）、改 AP／DHCP 環境。遇到時停下，明確列出要人做的動作與要回報的內容。
 5. **失敗時改哪裡**：見第 7 節。改 `board-logic` 任何常數後，先 `cargo test-board-logic` 再 `task acceptance`，並把原因與來源寫回 `specs/changes/archive/onepage-c61-port/baseline.md`（不要只改常數）。
 6. **不要擴大範圍**：async BUSY、OTA、BLE、音訊都不是本驗收的範圍（`onepage-c61-port/proposal.md` Out）。需要時另開 change。partial refresh 預設**關閉**（cargo feature `partial-refresh`），G0–G5 全程用預設映像驗收；它自成一關 G6（第 5 節），G2 通過後才做。
 
@@ -22,15 +22,15 @@
 |---|---|---|
 | 面板型號 | BSP 與 EPD 驅動是為 **Osptek EPD0426A02（4.26"、800×480、SSD1677）** 寫的（`bsp_onepage_c61/README.md:22`），pulp-os 的 init 序列只對到 X4 而沒有逐命令比對 BSP。你買的裸面板是否就是這型，文件沒有證據 | 接上前**人手**看面板 FPC 上的型號絲印／向賣家確認；型號或解析度不同，A4 的失敗不能算軟體問題 |
 | FPC 接線 | 裸面板靠 FPC 座連接，易損 | **斷電（拔 USB）後再插拔 FPC**；不要在通電時接面板 |
-| 無電池 | 韌體對電量**只顯示、不做低電量關機**（`scheduler_c61.rs` 的 `poll_battery`；取樣失敗保留前值、不當 0 mV；`kernel` 內沒有低電量 cutoff），所以無電池不會觸發保護性關機。但 GPIO5 在無電池時讀到什麼取決於充電 IC／電源路徑（原理圖：LGS4056HDA、LM66200），文件沒有記載 | A6a／A6b／B5a 改為**只記錄**（見表內備註），不判 FAIL；電池讀值與電量曲線等拿到電池或成品機再驗 |
+| 無電池 | 韌體對電量**只顯示、不做低電量關機**（`scheduler_c61.rs` 的 `poll_battery`；取樣失敗保留前值、不當 0 mV；`kernel` 內沒有低電量 cutoff），所以無電池不會觸發保護性關機。但 GPIO5 在無電池時讀到什麼取決於充電 IC／電源路徑（原理圖：LGS4056HDA、LM66200），文件沒有記載 | A6a／B5a 預設延後（需電池；記錄檔 `DEFERRED`，見表內備註），仍記錄讀值與 log，不判 FAIL；電池讀值與電量曲線等拿到電池或成品機再驗。A6b 不依賴電池，限制是缺時間量測儀器（預設跳過，見 5.5） |
 | USB 恆接 | `usb: GPIO11` 開機永遠讀到「插著」；A6c 的插拔事件要**人手拔插**才能看到兩個電平 | 這反而是定案 D6 極性的便宜機會：插著開機＝已知電平，拔掉 USB 後（需電池或電源）才有另一個電平 → 極性的「拔出」半邊要等有電池／成品機。**無電池時 USB 一拔機器就斷電**，不能在不重啟的情況下看到拔出事件 |
 | 深睡與 USB | deep sleep 時 USB-Serial-JTAG 外設斷電，主機端的 `/dev/cu.usbmodem*` 會消失（即使 USB 仍供電）→ 睡眠後 log 中斷、重刷要走手動下載模式或先按 WAKE | 先刷 boot 映像（預設不睡眠）；A7 驗睡眠時預期 log 在睡眠序列最後一行後中斷，喚醒後埠重新出現；記錄這個現象不算失敗 |
-| 睡眠電流 | USB 供電時量到的是整個板子加 USB 側 LDO／充電 IC 的靜態電流，**不是**深睡電流 | A7e／B4b／W6 的電流量測**不在 USB 供電下做**。路徑：SKU 板上有電池座（板上方白色 JST），可用**可調電源（約 3.7–4.2 V）＋串接電流計**自電池座供電、斷開 USB；**接之前必須用原理圖核對電池座極性**（接反會毀板），且斷開 USB 後就沒有序列 log，靠螢幕狀態標記。這項需要人手與儀器，可延到成品機＋電池 |
+| 睡眠電流 | USB 供電時量到的是整個板子加 USB 側 LDO／充電 IC 的靜態電流，**不是**深睡電流 | A7e／B4b 的深睡電流量測**不在 USB 供電下做**（W6 的 S0–S3 相對比較走 USB-C VBUS＋Debug Mate，見 5.5）。路徑：SKU 板上有電池座 `J1`（板上方白色 JST），可用**可調電源（約 3.7–4.2 V）＋串接電流計**自電池座供電、斷開 USB。**極性已由原理圖（`SCH_Sch_OnePage_V1_2026-08-19.pdf`）核對：`J1` pin1 = VBAT、pin2 = GND；與之並聯的測試點 `TP1` = VBAT、`TP3` = GND**（BOM 稱 `VBACKUP`）。接之前仍須對照 PCB 絲印確認實物 pin1 方向（接反會毀板）；斷開 USB 後就沒有序列 log，靠螢幕狀態標記。這項需要人手與儀器，可延到成品機＋電池。目前沒有電池、可調電源與電流計 → A7e／B4b 預設延後（見 5.5） |
 | 按鍵 | 單板 SKU 的 L 形長臂是側鍵板（照片絲印可見 `RESET`、`NEXT` 與上下箭頭）；底緣 K1–K4 看起來是 4 顆前鍵（對應 ADC ladder 四鍵）。成品機的橘色鍵是同一組鍵的外殼版本 | 實際鍵位與 GPIO 對應以實機＋原理圖為準；A5 測試時先逐鍵按、看 `key:` log 建立「實體鍵→Action」對照表並記錄 |
 | 供電 | Mac USB 埠供電足夠 EPD 刷新；Wi-Fi 發射電流峰值是否造成 USB 掉電重啟未知 | W1–W5 若出現無預警重啟（開機行重現），先懷疑供電（換有源 USB hub／直接接 Mac 後方埠）再懷疑軟體 |
 | 成品機 | 成品機用於日常使用，原廠 CrossPoint 韌體在上面 | **最後才刷**：在 SKU 上通過 G2（建議 G3、G4）、且**已在 SKU 上驗證過「備份 → 刷回原廠」的還原路徑**之後，才動成品機；成品機刷前同樣完整備份 16 MB 與 SD 卡。成品機的下載模式按鍵是否可從殼外按到、USB 口位置，到手後確認 |
 
-建議順序：**SKU＋面板（USB 供電）走 G0 → G1（跳過需電池的項目）→ G2 → G3 → G4**（partial refresh 的 G6 在 G2 之後任何時候可做，不依賴 G3／G4）；A6／A7e／B4b／W6 與電池相關項目等取得電池或改用成品機再補；成品機最後。
+建議順序：**SKU＋面板（USB 供電）走 G0 → G1（需電池的項目預設延後）→ G2 → G3 → G4**（partial refresh 的 G6 在 G2 之後任何時候可做，不依賴 G3／G4）；A6a、A6c 拔出半邊、A7e、B4b 與電池相關項目等取得電池或改用成品機再補（W6 見 5.5）；成品機最後。
 
 ## 1. 前置：軟體基準（在主機上，先於任何實機操作）
 
@@ -40,7 +40,7 @@ task acceptance        # 一鍵（Taskfile.yml）：五個映像（含 C61 parti
 
 預期：所有 stage `ok`，結尾印出 UNVERIFIED 清單（對應本文件第 5 節）。不綠就先修，不要拿一個軟體基線已壞的映像去刷機。
 
-工具鏈：`rust-toolchain.toml` 固定 `nightly-2026-09-22`（含 `rust-src`、`llvm-tools`，targets 含 `riscv32imac-unknown-none-elf`）。燒錄工具 `espflash` **≥ 4.4.0**（4.4.0 起支援 esp32c61，4.3.0 不認得；建議 4.6.0，專案以它驗證過 `save-image`；archive 與 `.cargo/config.toml` 寫的「≥ 4.6.0」已過時，見 2.2）。本機目前**沒有裝** `espflash`。
+工具鏈：`rust-toolchain.toml` 固定 `nightly-2026-09-22`（含 `rust-src`、`llvm-tools`，targets 含 `riscv32imac-unknown-none-elf`）。燒錄工具 `espflash` **≥ 4.4.0**（4.4.0 起支援 esp32c61，4.3.0 不認得；建議 4.6.0，專案以它驗證過 `save-image`；見 2.2）。本機目前**沒有裝** `espflash`。
 
 建置（兩個映像一次建出）：
 
@@ -69,9 +69,9 @@ cargo build-c61-partial --locked  # 完整韌體 + partial refresh（G6 用；fe
 | 映像大小約 855 KB（`.rodata`＋`.text`＋`.data`＋`.rwtext` 加總；遠小於 app0 的 6.4 MB） | 【推論】 | 現有 ELF 的 section |
 | secure boot、flash encryption 都沒啟用（只有 `SECURE_ROM_DL_MODE_ENABLED=y`，允許但未燒） | 【文件】 | `crosspoint-onepage/sdkconfig.onepage:439-444`。espflash 4.4.0 新增了 eFuse 寫入功能，**刷機流程不要呼叫它** |
 
-### 2.2 espflash 版本：archive 的 ≥ 4.6.0 說法已過時
+### 2.2 espflash 版本
 
-- 【文件】espflash CHANGELOG：**4.4.0（2026-04-16）起支援 ESP32-C61**（"Added ESP32-C61 chip support (#1009)"）；4.3.0 不認得（`baseline.md:171`）；crates.io 最新為 4.6.0（2026-09-10）。專案先前用 4.6.0 驗證過 `save-image`（`baseline.md` §9）。**最低 4.4.0，建議直接用 4.6.0。** `.cargo/config.toml:27-28` 與 `onepage-c61-port/bringup.md:12` 的「≥ 4.6.0」是過度保守的舊註解。
+- 【文件】espflash CHANGELOG：**4.4.0（2026-04-16）起支援 ESP32-C61**（"Added ESP32-C61 chip support (#1009)"）；4.3.0 不認得（`baseline.md:171`）；crates.io 最新為 4.6.0（2026-09-10）。專案先前用 4.6.0 驗證過 `save-image`（`baseline.md` §9）。**最低 4.4.0，建議直接用 4.6.0。**
 - 本機現況：**沒有** `espflash`、`esptool`、`cargo-espflash`（只有 `probe-rs`）。安裝由使用者／agent 在拿到板子時執行：`cargo install espflash --version 4.6.0 --locked`（MSRV 1.95）。
 - espflash 預設使用 flasher stub；Puya 板有風險時要加 `--no-stub`，但 `cargo run-c61*` 的 runner 沒有這個旗標 → 改為手動呼叫 espflash（下面 2.5），只有確定需要才去改 runner。
 
@@ -145,7 +145,7 @@ espflash write-bin 0x0 onepage-factory-16MB.bin -c esp32c61 -p /dev/cu.usbmodemX
 |---|---|---|---|---|
 | G0 | 刷機、能開機、有 log | boot | 第 1 節綠、硬體到手 | 第 2 節、A1、A1b |
 | G1 | 硬體逐項（PSRAM、SD、EPD、按鍵、電池／USB、深睡） | `pulp-os-c61-boot` | G0 PASS | A2–A7 |
-| G2 | 完整離線韌體（Home、TXT／EPUB、書籤、設定、睡眠、穩定度） | `pulp-os-c61` | **A1–A7 每項有結論**（PASS 或附原因的 FAIL／SKIPPED） | B1–B5 |
+| G2 | 完整離線韌體（Home、TXT／EPUB、書籤、設定、睡眠、穩定度） | `pulp-os-c61` | **USB-only gate**：A1–A7（含 A7c-1／A7c-2、A7d-1／A7d-2）每項在記錄檔為 `PASS`／`FAIL`／附理由的 `SKIPPED`／附理由與補驗條件的 `DEFERRED`；不得有 `UNVERIFIED`；任何 `FAIL` 須附處置（修正或使用者接受） | B1–B5 |
 | G3 | 繁中 Iansui | `pulp-os-c61` + SD 字庫 | G2 的 B1、B2a、B2b、B3 PASS | K1–K9、H1 |
 | G4 | Wi-Fi upload | `pulp-os-c61`（`build-c61-wifi`） | G2 的 B1、B3 PASS（boot／SD／EPD／BACK 與 ENTER 鍵無結論前，Wi-Fi 任何失敗都無法歸因） | W1–W8 |
 | G5（選配） | X4 實機回歸 | X4 映像 | 手上有 X4 | X1–X3 |
@@ -159,12 +159,12 @@ agent 不得自行定案；在記錄檔「結論」處留空或寫「待使用�
 |---|---|---|---|
 | D1 | 睡眠只靠 idle timeout（沒有手動睡眠鍵；Menu 動作無實體鍵） | 是（`sleep_timeout`，預設 10 分鐘） | B4 |
 | D2 | Reader 內長按 ENTER 開 quick menu；Files 刪除在 C61 不可用 | 是 | B2h |
-| D3 | restore 成功不刪 session、失敗才刪並正常開機 | 是 | B1、A7c |
+| D3 | restore 成功不刪 session、失敗才刪並正常開機 | 是 | B1、A7c-1 |
 | D4 | 熱路徑配置不加 uninit 版本（`alloc_external_uninit`） | 不加 | B2e：只有章節載入「明顯變慢」才重開 |
 | D5 | 無 boot console；C61 預設一律 full refresh（`Partial` 升級為 full）；只有 `partial-refresh` 映像才做 partial（G6） | 是 | A4、B2f、G6 |
 | D6 | **USB polarity**：BSP 實作與 BSP README 矛盾，原理圖推論 active-low，未實測 | `ActiveLow` | A6c：以實測電平定案 |
 | D7 | 電流、BUSY 時間、手感沒有來源門檻 | 只記錄量測值，不判 pass／fail | A4c、A7e、B4b、W6 |
-| D8 | 電流量測儀器、量程、量測點（W6：USB 供電同時給 log，量測會混入充電） | 未定 | A7e、W6 |
+| D8 | 電流量測儀器、量程、量測點。W6（S0–S3 相對比較）：Debug Mate，量測點為 USB-C VBUS 輸入（5V 側，經改裝 USB-C 線，見 5.5），量程 1 µA–1 A，數值含 DC/DC、LM66200、充電 IC 與 LED1 的損耗。A7e／B4b（深睡）：目前無可用儀器，預定量測點 `TP1`(+)／`TP3`(GND)（電池側），需電池＋µA 級電流計 | W6：Debug Mate＋VBUS；A7e／B4b：延後 | A7e、W6 |
 | D10 | 面板型號是否為 BSP 目標的 EPD0426A02（4.26"、800×480、SSD1677）；不是的話 A4 的結論不適用 | 未確認 | 接面板前 |
 | D11 | 成品機何時刷：建議 SKU 通過 G2（最好 G3、G4）且「備份→刷回原廠」還原路徑已在 SKU 上驗過之後 | 最後 | G5 之後／日常使用前 |
 | D12 | partial refresh 要不要成為預設（移除 feature、`Partial` 不再升級）：G6 全 PASS、殘影可接受、ghost_clear 預設值（10）合適之後才決定 | 否（feature 關） | G6 結束後 |
@@ -173,7 +173,7 @@ agent 不得自行定案；在記錄檔「結論」處留空或寫「待使用�
 
 ## 5. 驗收項目與追蹤表
 
-狀態欄預設 `UNVERIFIED`。「失敗改哪裡」的代號見第 7 節。細節程序欄的路徑都在 `specs/changes/archive/` 下（簡寫，見第 9 節）。
+狀態欄預設 `UNVERIFIED`。「失敗改哪裡」的代號見第 7 節；需要儀器的項目與可用儀器見 5.5。細節程序欄的路徑都在 `specs/changes/archive/` 下（簡寫，見第 9 節）。
 
 ### G1：Boot 映像（`cargo run-c61-boot`＝`espflash flash --monitor …`）
 
@@ -185,35 +185,37 @@ agent 不得自行定案；在記錄檔「結論」處留空或寫「待使用�
 | A2b | PSRAM 連續開關機穩定 | 冷開機 ≥ 10 次 | 10 次皆偵測成功、無 image-hash loop | S1、S2 | `UNVERIFIED` |
 | A2c | DMA／ISR 用 internal buffer 正常（R15） | 結合 A3／A4 | SD、EPD 傳輸成功且無 `refused` log | S2 | `UNVERIFIED` |
 | A3a | 冷開機 GPIO27 power-cycle 後 SD 掛載成功（R6） | 插卡冷開機 | `sd: card detect GPIO28 reads …`，無 `sd: init failed`／`volume mount failed` | S3 | `UNVERIFIED` |
-| A3b | SD 初始化後 GPIO27 保持供電（R7） | 觀察 SD 讀寫期間（需示波器或讀寫不中斷） | 讀寫全程不掉電 | S3 | `UNVERIFIED` |
+| A3b | SD 初始化後 GPIO27 保持供電（R7） | 觀察 SD 讀寫期間（以讀寫不中斷判定；掉電瞬態需示波器，見 5.5） | 讀寫全程不掉電 | S3 | `UNVERIFIED` |
 | A3c | EPD／SD 共用 SPI2 無互相干擾（R8） | 刷新畫面同時讀寫 SD | 兩者皆成功 | S3 | `UNVERIFIED` |
-| A3d | 無卡冷開機：可恢復錯誤、不 panic（R9） | 不插卡開機 | 顯示可恢復的儲存錯誤，無 panic | — | `UNVERIFIED` |
+| A3d | 無卡冷開機：boot 映像只輸出 log、不 panic（R9） | 不插卡冷開機 | log 出現 `storage error: <e> (<status>)`（`src/bin/c61_boot.rs:438`，`report_storage`），無 panic。boot 映像**沒有錯誤畫面**，UI 由 B3 驗 | — | `UNVERIFIED` |
 | A3e | 執行中拔卡／再插卡 | 人手插拔 | `sd: card removed` → 再插卡後恢復 | S3 | `UNVERIFIED` |
 | A3f | card detect 極性（GPIO28；BSP `board_c61.c:419` 自己也只是 "assume"） | 記錄插卡時讀到的電平 | 與預期一致；相反則改極性函式。**記錄實測電平** | S3 | `UNVERIFIED` |
 | A4a | EPD init 與 full refresh 成功（R10） | 看 log 與畫面 | `epd: full refresh done (480x800 portrait test card)`。`epd: init failed` ＝ init 序列只對到 X4，要與 BSP 逐命令比對；`display reset refused` ＝ GPIO27 已為 SD 上電，只能用軟體 reset（設計如此） | S4 | `UNVERIFIED` |
 | A4b | 畫面方向／480×800 直向正確 | 人手看（請拍照）。測試卡：左上 64×64 實心、右上與左下 24×24、右下無 | 四角圖樣位置正確；任一位置不對＝rotation／mirror 錯 | S4 | `UNVERIFIED` |
 | A4c | full refresh 耗時（ms）（D7：只記錄） | log／碼表 | 記錄值（BUSY 上限 5000 ms，超過回 `BusyTimeout`） | S4 | `UNVERIFIED` |
-| A4d | BUSY 異常時於上限內回 display failure（R11） | 拔掉／懸空 BUSY（GPIO29）腳（人手） | 上限內回錯、不卡死（log `epd: full refresh failed: …`） | S4 | `UNVERIFIED` |
+| A4d | BUSY 異常時於上限內回 display failure（R11） | 〔預設延後：BUSY 為 `Pull::None`（`kernel/src/board_c61/epd.rs:85`）、高電位為忙（`is_busy()` 為 `is_high()`，同檔 :70）；拔掉／懸空 BUSY（GPIO29）腳電平不確定，讀低時驅動視為不忙而立即返回，刷新「成功」且無錯誤，驗不到逾時路徑，會得到假 `PASS`。**不建議**以拔腳／懸空驗收。補驗條件：改由另行設計的可控測試模式（例如在測試映像強制 BUSY 逾時）驗證；本 change 不實作〕 | 上限內回錯、不卡死（log `epd: full refresh failed: …`） | S4 | `UNVERIFIED` |
 | A4e | 殘影／對比（人手判讀） | 拍照 | 記錄 | — | `UNVERIFIED` |
-| A5a | ADC ladder 四鍵電壓落在窗口（R12）：BACK 2400–2800、LEFT 1780–2140、RIGHT 1140–1500、ENTER 0–250 mV（BSP `board_keys.c`，是「那塊板」量測值） | 人手按鍵＋萬用表量 GPIO4 | 各鍵電壓落在窗口且互不重疊。**本專案沒有 mV 診斷輸出**，要靠萬用表或先補 instrumentation（第 6 節） | S5 | `UNVERIFIED` |
-| A5b | GPIO 三鍵 WAKE(GPIO2)／PREV(GPIO6)／NEXT(GPIO9) 與優先序 WAKE>PREV>NEXT（R12） | 人手逐鍵、同時按 | 每次按鍵一行 `key: <event> -> <action>`；優先序符合。GPIO9 是 strapping pin：按住開機的影響也記錄 | S5 | `UNVERIFIED` |
+| A5a | ADC ladder 四鍵電壓落在窗口（R12）：BACK 2400–2800、LEFT 1780–2140、RIGHT 1140–1500、ENTER 0–250 mV（BSP `board_keys.c`，是「那塊板」量測值） | 人手按鍵＋萬用表量 GPIO4 | 各鍵電壓落在窗口且互不重疊。boot 映像的 `key:` 事件行附 `ladder_mv=Some(<mV>)`，用它比對窗口（側鍵事件為 `None`；完整韌體不輸出）。mV 值本身是否準確仍需實機；萬用表只作選配的交叉驗證（GPIO4 沒有測試點，見 5.5） | S5 | `UNVERIFIED` |
+| A5b | GPIO 三鍵 WAKE(GPIO2)／PREV(GPIO6)／NEXT(GPIO9) 與優先序 WAKE>PREV>NEXT（R12） | 人手逐鍵、同時按 | 每次按鍵一行 `key: <event> -> <action> (ladder_mv=<Some(mV)|None>)`（`c61_boot.rs:245`；側鍵為 `None`）；優先序符合。GPIO9 是 strapping pin：按住開機的影響也記錄 | S5 | `UNVERIFIED` |
 | A5c | 短按／長按／repeat 手感、15 ms 去抖（D7） | 人手 | 記錄是否漏鍵／重複 | S5 | `UNVERIFIED` |
 | A5d | startup grace 2.5 s（R13） | 上電後 2.5 s 內按 front ladder 鍵；再測 2.5 s 後仍按住的鍵 | 2.5 s 內無 key 事件；按住的鍵無假事件 | S5 | `UNVERIFIED` |
-| A6a | 電池電壓讀值對照萬用表（R16）**〔無電池階段：只記錄 GPIO5 讀值與 log、確認不 panic 且不當 0 V，狀態維持 `UNVERIFIED`，電壓對照等電池／成品機〕** | 萬用表量電池端 | `battery: pin <mV> mV -> cell <mV> mV, <N>%`（開機一次，之後每 30 s；x2 分壓）與萬用表一致。取樣失敗為 `battery: sample failed …`，**絕不當 0 V** | S6 | `UNVERIFIED` |
-| A6b | 取樣期間 GPIO10 低 ≥ 30 ms 並恢復（R16） | 示波器（人手） | 契約：GPIO10 拉低暫停充電 → 30 ms → 16 次 ADC → 還原 | S6 | `UNVERIFIED` |
-| A6c | USB 插拔事件與 polarity（R17；D6）**〔無電池階段只能驗「插著」的電平；「拔出」電平與事件需電池或成品機，見 0.5〕** | 插著 USB 開機、不插開機各一次；執行中插拔 | 開機印 `usb: GPIO11 reads <level> -> <plugged?> (polarity …, UNVERIFIED on hardware)`。插入顯示為拔出＝相反，**只改** `USB_POLARITY`。記錄實測電平與來源 | S6 | `UNVERIFIED` |
+| A6a | 電池電壓讀值對照萬用表（R16）**〔預設延後：需電池／成品機，記錄檔狀態為 `DEFERRED`；無電池階段仍要記錄 GPIO5 讀值與 log、確認不 panic 且不當 0 V，電壓對照等電池／成品機〕** | 萬用表量電池端 | `battery: pin <mV> mV -> cell <mV> mV, <N>%`（開機一次，之後每 30 s；x2 分壓）與萬用表一致。取樣失敗為 `battery: sample failed …`，**絕不當 0 V**。完整韌體另有週期 log `battery: cell <mV> mV, <N>% (periodic)`（`scheduler_c61.rs:419`，見 B5a），但 A6a 本身仍是 boot 映像項目 | S6 | `UNVERIFIED` |
+| A6b | 取樣期間 GPIO10 低 ≥ 30 ms 並恢復（R16） | 〔預設跳過：無示波器；用 S3 時間戳記錄器且接得到 GPIO10 時才可驗，見 5.5〕示波器（人手） | 契約：GPIO10 拉低暫停充電 → 30 ms → 16 次 ADC → 還原 | S6 | `UNVERIFIED` |
+| A6c | USB 插拔事件與 polarity（R17；D6）**〔預設延後：需電池／成品機，記錄檔狀態為 `DEFERRED`；無電池階段只能驗「插著」的電平，仍要記錄 GPIO11 的讀值；「拔出」電平與事件需電池或成品機，見 0.5〕** | 插著 USB 開機、不插開機各一次；執行中插拔 | 開機印 `usb: GPIO11 reads <level> -> <plugged?> (polarity …, UNVERIFIED on hardware)`。插入顯示為拔出＝相反，**只改** `USB_POLARITY`。記錄實測電平與來源 | S6 | `UNVERIFIED` |
 | A6d | keys（GPIO4）與 battery（GPIO5）共用 ADC1 無干擾 | 按鍵同時等電池取樣 | 兩者讀值皆正常 | S5、S6 | `UNVERIFIED` |
-| A7a | 睡眠序列 log 順序完整（R19） | 把 `src/bin/c61_boot.rs:95` 的 `DEMO_IDLE_SLEEP_SECS` 改為 N 秒，重建重燒 | 依序：`session: saved to slot …` → `sleep: GPIO2 wake armed …` → `sleep: epd parked …` → `sleep: sd flushed and closed` → `sleep: shared lines driven low`，然後斷電睡眠。`sleep: aborted, staying awake: …` ＝ wake 未能 arm／WAKE 鍵仍按著／rail 狀態不符 | S7 | `UNVERIFIED` |
+| A7a | 睡眠序列 log 順序完整（R19） | 把 `src/bin/c61_boot.rs:96` 的 `DEMO_IDLE_SLEEP_SECS` 改為 N 秒，重建重燒 | 依序：`sleep: GPIO2 wake armed …` → `sleep: epd parked …` → `sleep: sd flushed and closed` → `sleep: shared lines driven low` → `sleep: session saved before power-off` → `sleep: entering deep sleep, wake = GPIO2 …`，然後斷電睡眠（序列第 1 步存 session 本身不印 log，結果由倒數第 2 行回報；`session: saved to slot …` 只在開機沒有有效 session 時出現，不屬於睡眠序列；來源 `kernel/src/board_c61/sleep.rs`）。`sleep: aborted, staying awake: …` ＝ wake 未能 arm／WAKE 鍵仍按著／rail 狀態不符 | S7 | `UNVERIFIED` |
 | A7b | GPIO2 喚醒有效（arm 提前於 BSP 順序，**T11 必查**） | 人手按 GPIO2 | 能喚醒；不能時先查 arm 時序與 LP pad hold | S7 | `UNVERIFIED` |
-| A7c | 睡前保存、喚醒後恢復位置（R18／R20；D3） | 喚醒後看 `boot: wake cause …`、`boot plan …`／`session[…]` | 恢復上次位置 | S7 | `UNVERIFIED` |
-| A7d | session 檔損壞時正常開機（R20） | 在讀卡機上截斷或改一個位元組 `_PULP/SESSA.BIN`／`SESSB.BIN`（雙槽、CRC、序號），重開機 | log `session[…]: normal boot (…)`，無 panic | S7 | `UNVERIFIED` |
-| A7e | 深睡電流（D7、D8）**〔不可在 USB 供電下量；見 0.5：電池座＋可調電源，或成品機＋電池〕** | 電流計（µA 級） | 記錄值（門檻待定） | S7 | `UNVERIFIED` |
+| A7c-1 | boot 映像：睡前保存與喚醒後恢復的機制（R18／R20；D3） | 接 A7a 的睡眠 demo，喚醒後看 log | 睡前 `sleep: session saved before power-off`（`kernel/src/board_c61/sleep.rs:207`；無有效 session 的那次開機另有 `session: saved to slot … seq …`，`c61_boot.rs:406`）；喚醒後 `boot: wake cause …`（`c61_boot.rs:127`）、`boot plan: RESTORE position (cause …, slot … seq …, reader chapter … offset …)`（:388）、`session[boot]: restore slot … seq … nav_depth …`（:418）。boot 睡眠 demo 存的是 `SessionState::home()`（:403、:260），所以只驗到以 Home state 恢復；**boot 映像不驗閱讀位置** | S7 | `UNVERIFIED` |
+| A7c-2 | 完整韌體：閱讀位置恢復（R18／R20；D3） | 〔預設延後：需完整韌體（G2），在 G1 之前無法驗；補驗條件：B1、B4a 有結論〕 | 閱讀位置由 B1、B4a 驗，A7c-2 引用其結論 | S7 | `UNVERIFIED` |
+| A7d-1 | 單槽損壞、另一槽有效 → 恢復有效槽（R20；雙槽、CRC、序號） | 前提：先睡眠使 `_PULP/SESSA.BIN`、`SESSB.BIN` 兩檔都在且有效（無 session 的首次開機存一槽，睡眠存另一槽；不足時再睡眠一次）。在讀卡機上截斷或改一個位元組其中一個槽，重開機；較新槽、較舊槽各測一次 | log `session[boot]: restore slot <未損壞的槽> seq <N> nav_depth …`（`c61_boot.rs:418`），無 panic | S7 | `UNVERIFIED` |
+| A7d-2 | 兩槽皆損壞 → normal boot（R20） | 同上，兩個槽都截斷或改位元組，重開機 | log `boot plan: normal boot (cause …, …)`（`c61_boot.rs:396`）與 `session[boot]: normal boot (Corrupt(…))`（:421），無 panic，位置不恢復（Home） | S7 | `UNVERIFIED` |
+| A7e | 深睡電流（D7、D8）**〔不可在 USB 供電下量；見 0.5：電池座＋可調電源，或成品機＋電池〕** | 〔預設延後：無電池、可調電源與 µA 級電流計；Debug Mate 量的是 5V 路徑，不是深睡電流，見 5.5。補驗條件：取得電池＋可調電源＋電流計，或成品機＋電池〕電流計（µA 級） | 記錄值（門檻待定） | S7 | `UNVERIFIED` |
 | A7f | 睡眠中 GPIO27／GPIO10 pad 狀態；EPD／SPI 腳無反灌（**T11 必查**：BSP 與本移植都沒有 hold／isolate，GPIO27 若浮接，SD／MIC／EPD 可能被重新供電而吃電） | 示波器／萬用表 | 記錄 GPIO27 睡眠中電位 | S7 | `UNVERIFIED` |
 | A7g | 睡眠中 EPD 影像保留、無殘影 | 人手看 | 影像保留 | S7 | `UNVERIFIED` |
 | A7h | 喚醒後 SD 重新初始化成功 | log | 同 A3a 路徑成功 | S7 | `UNVERIFIED` |
 | A7i | WAKE 鍵仍按著時進入睡眠（`AlreadyAsserted`） | 人手按住 GPIO2 再觸發睡眠 | 預期 `sleep: aborted, staying awake`；記錄實際行為 | S7 | `UNVERIFIED` |
 
-**G1 通過條件**：A1–A7 每項在記錄中有「PASS（附證據）」或「FAIL（附現象與修正）」。不得留 `UNVERIFIED` 就進 G2。
+**G1 通過條件（USB-only gate）**：A1–A7（含 A7c-1／A7c-2、A7d-1／A7d-2）每項在記錄檔中為 `PASS`（附證據）、`FAIL`（附現象與處置：修正或使用者接受）、`SKIPPED`（附原因）或 `DEFERRED`（附原因與補驗條件）。不得有 `UNVERIFIED` 就進 G2；`FAIL` 沒有處置也不得進 G2。`DEFERRED` 在補驗條件滿足（取得電池／成品機、進 G2）後回頭補驗。
 
 ### G2：完整離線韌體（`cargo run-c61`；準備：FAT 卡內含至少一本英文 `.txt` 與一本 `.epub`）
 
@@ -230,8 +232,8 @@ agent 不得自行定案；在記錄檔「結論」處留空或寫「待使用�
 | B2h | Reader 長按 ENTER 開 quick menu（D2） | 人手 | 開啟；記錄是否合用 | `UNVERIFIED` |
 | B3 | 無卡開機顯示儲存錯誤、不 panic；插卡後行為（R9） | 不插卡開機再插卡 | 顯示錯誤、不 panic。已知限制：插卡後 Files 的 error 欄位**不會自動清除**，記錄操作上的影響 | `UNVERIFIED` |
 | B4a | idle timeout 後睡眠，GPIO2 喚醒回原位置（R18／R19；D1） | 等 `sleep_timeout` | 先畫 `(sleep)` 畫面 → 儲存位置 → 睡眠；喚醒回原位置。序列中止時要多一次 full refresh | `UNVERIFIED` |
-| B4b | 完整韌體睡眠電流（D7、D8）〔同 A7e，不可在 USB 供電下量〕 | 電流計 | 記錄值，與 A7e 對照 | `UNVERIFIED` |
-| B5a | 電池週期更新；USB 插拔進 log〔無電池階段：只確認 30 s 取樣週期照跑、不 panic〕 | log | 30 s 週期更新；`USB_PLUGGED` 目前**無 UI**（只進 log） | `UNVERIFIED` |
+| B4b | 完整韌體睡眠電流（D7、D8）〔同 A7e，不可在 USB 供電下量〕 | 〔預設延後：同 A7e〕電流計 | 記錄值，與 A7e 對照 | `UNVERIFIED` |
+| B5a | 電池週期更新；USB 插拔進 log〔預設延後：需電池／成品機，記錄檔 `DEFERRED`；無電池階段只確認 30 s 取樣週期照跑、不 panic〕 | log | 完整韌體 log 每 30 s 出現 `battery: cell <mV> mV, <N>% (periodic)`（失敗為 `battery: sample failed: … (charging resumed)`；開機第一次為 `battery: cell <mV> mV, <N>%`）；`USB_PLUGGED` 目前**無 UI**（只進 log）。週期 log 目前只有 link-level 證據（ELF 含該字串） | `UNVERIFIED` |
 | B5b | 連續閱讀／翻頁 ≥ 30 分鐘穩定；heap／stack 高水位 | 看 `stats:` 行 | 無 panic／重啟。靜態預算：statics 178,080 B、stack headroom 29,392 B（**後續 CJK／Wi-Fi 改動後數字已漂移，以當時 `task size`／`cargo test-harness` 輸出為準**）；高水位只能由 `stats:` 的 `hwm` 取得 | `UNVERIFIED` |
 
 ### G3：繁體中文 Iansui
@@ -241,7 +243,7 @@ agent 不得自行定案；在記錄檔「結論」處留空或寫「待使用�
 準備：
 
 ```sh
-cargo run -p pulp-fontconv --release -- bundle      # 產生 target/cjk-sd/_PULP/FONTS/（需要 repo 根目錄的 Iansui-Regular.ttf；它是未追蹤輸入，不隨 clone 出現）
+cargo run -p pulp-fontconv --release --target host-tuple --config 'unstable.build-std=["std","test"]' -- bundle      # 產生 target/cjk-sd/_PULP/FONTS/（需要 repo 根目錄的 Iansui-Regular.ttf；它是未追蹤輸入，不隨 clone 出現）
 # 把 target/cjk-sd/_PULP/FONTS/ 整個複製到 SD 卡根目錄的 _PULP/FONTS/（先換掉舊目錄；保留 PROV.TXT、OFL.TXT、COVERAGE.TXT）
 ```
 
@@ -284,7 +286,7 @@ wifi_pass=<密碼 8–63 字元>
 | W3 | HTTP 內容（R6、R7、R8、R14） | 頁面、`GET /files`、上傳 0 B／1 B／2047／2048／2049 B／100 KiB／1 MiB（`ACC1M.EPUB`→存成 `ACC1M.EPU`）／長檔名（→`ACCEPTAN.TXT`）、delete、404／431／500、中斷上傳、瀏覽器；上傳後退出、取卡、在 PC 以 `shasum -c` 驗證 | 全部 sha256 一致；應失敗的請求不得回 200；`../X` 類名稱不得刪任何檔；錯誤後伺服器仍可用；中斷的上傳**不得**出現 `upload: file saved as`；`/files` 只列根目錄 TXT／EPUB／EPU／MD、最多 64 筆。記錄 `NOSUCH.TXT` 刪除在 FAT 實機的結果（host 只驗過虛擬儲存體） | `UNVERIFIED` |
 | W4 | mDNS `pulp.local`（R9、R14） | macOS：`dns-sd -G v4 pulp.local`；Linux：`avahi-resolve -4 -n pulp.local`；每次先清快取，10 次；負向 `other.local`、AAAA；選做 `tcpdump 'igmp or udp port 5353'`。**不要用 `dig`**（回應固定以 ID 0 送 224.0.0.251:5353） | 解析到與螢幕一致的 IP，10 次中 ≥ 9 次在 5 s 內成功（自訂門檻）；負向無答案；每次成功對應一行 `upload: mDNS answered pulp.local`。裝置端沒有「收到 query」log，分辨「query 沒到」與「回應送不出」要靠 PC 端封包 | `UNVERIFIED` |
 | W5 | 重入與資源釋放（R10、R11、R14） | A：連續成功 N=10 次（自訂）；B：Associating／DHCP／serving／傳輸中各階段 BACK（各 3 次，之後立刻再進）；C：失敗後再進入（`AssociationFailed`／`DhcpTimeout`／`MissingCredentials`） | 每次可進 serving 與退出；無 panic／重啟（不得再出現開機行 `pulp-os c61: esp32c61 rv32imac, rtos + embassy up`）；無 `RadioUnavailable`／`upload: station interface already taken`；`stats:` 的 `used`（以第 1 次退出後為基準）第 2–10 次沒有連續 5 次以上嚴格遞增；`hwm` < 50K（≥ 48K 標警示）。第 1 次相對第 0 次的增量記為一次性 init 配置，不判 fail 但必須記錄 | `UNVERIFIED` |
-| W6 | 功耗（R14；D7、D8）〔需自電池座／電池供電量測，USB 供電下不可做；可延到成品機〕 | S0 Home 基準；S1 associated 閒置；S2 serving 有負載；S3 退出後 Home；各 ≥ 60 s | 只記錄，不訂門檻。S3 明顯高於 S0 ＝ radio 未完全關閉的跡象，另開 issue。量測時改電池供電並斷開 USB（USB 供電會混入充電） | `UNVERIFIED` |
+| W6 | 功耗（R14；D7、D8）〔S0–S3 相對比較走 USB-C VBUS＋Debug Mate；絕對電池功耗需電池供電量測，可延到成品機〕 | 〔預設延後：需先改裝 USB-C 線並驗證 5.5 列的三項前提。補驗條件：改裝線就緒且前提通過後，以 5.5 的相對比較驗 S0–S3；絕對電池功耗等電池／成品機〕S0 Home 基準；S1 associated 閒置；S2 serving 有負載；S3 退出後 Home；各 ≥ 60 s | 只記錄，不訂門檻。S3 明顯高於 S0 ＝ radio 未完全關閉的跡象，另開 issue。經 VBUS 量到的值含電源路徑與充電電路損耗，**不得宣稱為電池模式功耗**；電池模式量測需斷開 USB | `UNVERIFIED` |
 | W7 | HTTP 靜默對端逾時（R6／R10 邊界；G9：使用者決定不改程式） | serving 中 `nc -v $IP 80` 不送資料，另一終端每 ~2 s `curl -m 3 …/files` 至成功或 120 s；變體：送不完整 header 後靜默 | PASS＝已取得實測資料，且靜默連線存在時 BACK 仍能退出並釋放、之後可再進入。記錄第二個請求失敗型態與 `code=200` 首次出現時間（或「未回收」）。程式沒呼叫 `set_keep_alive`，依 smoltcp 文件靜默對端可能不會被 30 s 回收 | `UNVERIFIED` |
 | W8 | radio 執行期 internal heap、stack 高水位、PSRAM 分工（R12 執行期部分；`[assumed]` 52 KiB） | 開機 `stats:` 的 `<total>`；W5 的 `peak`／`hwm`；開機 `log_report`；在 wifi 建置上開與離線相同的 EPUB／含圖書 | wifi 建置 `<total>` 約 114K 級（離線約 158K 級；若 wifi 顯示 158K ＝燒到離線映像）；W1 通過且 W5 無 OOM／panic；閱讀路徑無 `bigbuf: … refused`／panic，或有差異時記錄供使用者決定是否調整 52 KiB | `UNVERIFIED` |
 
@@ -313,7 +315,7 @@ X4 為遷移 HAL 1.2 改了 SPI（`SpiDmaBus`→`SpiDma`）、deep sleep（`LowP
 |---|---|---|---|---|---|
 | P0 | 預設映像不受影響；partial 映像確實不同 | 先燒 `pulp-os-c61` 翻頁 5 次；再用 `cargo run-c61-partial` 燒 partial 映像（同樣叫 `pulp-os-c61`，只差 feature），同操作。記錄兩個映像的 `shasum -a 256` | 預設映像 log 完全沒有 `display: partial`／`promoted partial`；每次翻頁都是全刷。partial 映像翻頁出現 `display: partial refresh …` | S9 | `UNVERIFIED` |
 | P1 | 開機首幀全刷、之後第一次翻頁就是 partial | 冷開機進 Reader，翻 1 頁 | 開機畫面為全刷（閃）；翻頁 log 為 `partial refresh … (partial count 1)`，不是 `full` | S9 | `UNVERIFIED` |
-| P2 | partial 耗時（D7：只記錄） | Reader 連續翻頁 20 次，抄 log 的 ms（含 phase 1＋BUSY＋phase 3＋app 繪製）；有示波器則量 GPIO29（BUSY）高電位寬度＝波形時間 | 記錄中位數與最大值。參考（不是門檻）：X4 README 寫 ~400 ms，Arduino SDK guide 寫 ~600 ms；全刷 ~1600 ms（A4c） | S9 | `UNVERIFIED` |
+| P2 | partial 耗時（D7：只記錄） | Reader 連續翻頁 20 次，抄 log 的 ms（含 phase 1＋BUSY＋phase 3＋app 繪製）；有示波器或 S3 時間戳記錄器（見 5.5）則量 GPIO29（BUSY）高電位寬度＝波形時間 | 記錄中位數與最大值。參考（不是門檻）：X4 README 寫 ~400 ms，Arduino SDK guide 寫 ~600 ms；全刷 ~1600 ms（A4c） | S9 | `UNVERIFIED` |
 | P3 | 殘影／對比（人手判讀） | 連續 partial 翻頁，在第 1、5、10 次後各拍一張同倍率的照片；與 A4e 全刷照片對照 | 記錄：字緣是否變淡、前一頁字影是否可見、白底是否發灰。**沒有量化門檻**；明顯不可接受時先把 Settings 的 `ghost_clear` 降到 5 再判，仍不行才走 S9 | S9 | `UNVERIFIED` |
 | P4 | ghost-clear 週期與設定一致 | `ghost_clear` 設 5、預設 10 各驗一次：連續 Reader 翻頁數 | 連續 N 次 partial 後，下一次出現 `promoted partial to full (ghosting clear)` 與 `full refresh`，`partial count` 回 0 | S9 | `UNVERIFIED` |
 | P5 | 區域邊緣（不是 8 的倍數）不破壞鄰近像素 | 開關 quick menu（Reader 長按 ENTER）、按鍵 feedback（B2g）、位置 overlay、載入指示；每次拍照 | 區域外相鄰像素無缺損、無白邊／黑邊；關掉 overlay 後下方頁面完整還原（不殘留 overlay 邊框）。邊緣有白色缺口＝改回 X4 的遮罩做法（S9） | S9 | `UNVERIFIED` |
@@ -321,23 +323,52 @@ X4 為遷移 HAL 1.2 改了 SPI（`SpiDmaBus`→`SpiDma`）、deep sleep（`LowP
 | P7 | 刷新期間短按遺失（阻塞版；對照 B2f） | partial 映像連按 NEXT 5 次（約 200 ms 間隔），數實際翻幾頁；再用預設映像做同樣操作 | 只記錄兩者差異。已知限制：partial 仍阻塞，只是視窗比全刷短 | — | `UNVERIFIED` |
 | P8 | 整頁切換仍為全刷並歸零計數 | Home→Reader、開書、換章（`Redraw::Full` 的路徑） | log 為 `full refresh`、`partial count 0` | S9 | `UNVERIFIED` |
 | P9 | 睡眠喚醒後首幀全刷，之後 partial 正常 | idle 睡眠後喚醒（restore 成功），再翻頁 | 喚醒首幀為全刷；翻頁恢復 `partial refresh`；螢幕無殘留睡眠畫面痕跡 | S7、S9 | `UNVERIFIED` |
-| P10 | BUSY 異常的恢復（延伸 A4d） | partial 映像下，在翻頁瞬間讓 GPIO29 懸空／拔掉（人手），再恢復 | 上限內（BUSY 5 s×最多 2 次）回錯、不卡死：`display: partial refresh failed: display busy timeout` → reinit → 重試為 `full refresh`；若仍失敗 `giving up on this frame`，下一次按鍵整頁重畫。無 panic | S9 | `UNVERIFIED` |
+| P10 | BUSY 異常的恢復（延伸 A4d） | 〔預設延後：原因同 A4d，BUSY 為 `Pull::None`、高電位為忙，懸空腳可能讀低而使刷新「成功」且無錯誤，會得到假 `PASS`，**不建議**拔腳／懸空。補驗條件：另行設計的可控測試模式（例如在測試映像強制 BUSY 逾時）；本 change 不實作〕 | 上限內（BUSY 5 s×最多 2 次）回錯、不卡死：`display: partial refresh failed: display busy timeout` → reinit → 重試為 `full refresh`；若仍失敗 `giving up on this frame`，下一次按鍵整頁重畫。無 panic | S9 | `UNVERIFIED` |
 
-**G6 通過條件**：P0–P10 每項有「PASS（附證據）」或「FAIL（附現象與修正）」；D12 由使用者決定是否讓 partial 成為預設。
+**G6 通過條件**：P0–P10 每項為 `PASS`（附證據）、`FAIL`（附現象與修正）或附理由與補驗條件的 `DEFERRED`（P10）；D12 由使用者決定是否讓 partial 成為預設。
+
+## 5.5 儀器對照（只有萬用表／S3／Debug Mate／Expansion Board）
+
+器材：三用電錶（無示波器、無電流計）、ESP32-S3 DevKitC-1／XIAO ESP32-S3 Plus（下稱 S3）、XIAO Debug Mate、XIAO Expansion Board（OLED、PCF8563 RTC、TF 座、蜂鳴器、按鍵、servo 接頭、JST 電池座與充電管理；目前無電池，**用不到**；SD 插槽不是 PC 讀卡機，編輯／驗證 SD 內容仍需 PC 讀卡機）。**沒有鋰電池、沒有可調電源。**
+
+測試點：OnePage 單板 SKU 的 BOM 只有 `TP1`、`TP3`（BOM 稱 `VBACKUP`；原理圖顯示 `TP1` = VBAT、`TP3` = GND，與電池座 `J1` 並聯，**不是 5V 入口**）。GPIO4、5、10、11、27、29 **都沒有測試點**，探測要接觸元件腳／SD 座／FPC 接點，可否做到看實物（未確認）。「接不到」時依下表處置，不得改記為 `PASS`。
+
+| 項目 | 儀器 | 前提／做法 | 不可驗或未確認時的處置 |
+|---|---|---|---|
+| A3b | 萬用表（選用） | 以 SD 讀寫全程不中斷（log）判定；萬用表量 GPIO27 靜態高電平，需接觸得到。掉電瞬態看不到 | 接不到 GPIO27 → 只憑讀寫不中斷判定，記錄檔註明 |
+| A4c、B2e、K8 | 無 | log／碼表即可，不需儀器 | — |
+| A4d、P10 | 無（S3 無法替代） | S3 記錄器只能量測、不能注入 BUSY 逾時 | 已〔預設延後〕，見各列 |
+| A5a | 萬用表 | 按住鍵量 GPIO4 靜態電壓；需接觸 ladder 節點或 MCU 腳 | 接不到 → 記錄檔 `SKIPPED（無法接觸 GPIO4）`；A5b／A5c 的 `key:` log 仍驗功能，窗口邊界無證據 |
+| A6a | 萬用表 | 需電池 | 已〔預設延後〕 |
+| A6b | S3 時間戳記錄器 | 量 GPIO10 低電位 ≥ 30 ms；需接得到 GPIO10、共地 | 已〔預設跳過〕；萬用表看不到 30 ms 脈衝 |
+| A6c | 萬用表（選用） | 量 GPIO11 插著電平（log 已印讀值）；拔出半邊需電池 | 已〔預設延後〕 |
+| A7e、B4b | 無 | Debug Mate 量 5V 路徑，不是深睡電流（見下） | 已〔預設延後〕 |
+| A7f | 萬用表 | 睡眠中量 GPIO27（及 GPIO10）電位；睡眠時 USB 埠消失，只能靠量測；需接觸得到 | 接不到 → 記錄檔 `DEFERRED（無可接觸點；補驗：找到接點或成品機測試點）`，不得 `SKIPPED`（T11 必查） |
+| P2 | log；S3 時間戳記錄器（選用） | 總耗時 log 已足；BUSY 寬度量 GPIO29，需接得到 | 接不到 → 只記 log 的 ms |
+| W1(d)、W2、W5C | S3 | 關閉 SoftAP＝「AP 關閉」；停用 DHCP 的 SoftAP＝「連得上但無 DHCP」；W1 (a)–(c) 不需 S3，任何 AP 即可 | 沒有 S3 測試 AP 時：記錄檔 `DEFERRED（缺無 DHCP 的 AP）` |
+| W6 | Debug Mate | S0／S1／S2／S3 的**相對**比較；5V 入口只有 USB-C VBUS，需改裝線（見下） | 已〔預設延後〕：改裝線與下列前提驗證完成後才做 |
+
+- **Debug Mate**：功耗量測 1 µA–1 A（10 µA–1 A 精度 ±1%），需自備 5V/1A USB，包含其 5V→3.3V 轉換損耗；**取樣率與 burden voltage 官方頁未載**，不可據以判定 Wi-Fi 發射瞬間峰值。數值只作相對比較；量到的是 5V 輸入路徑，含板上電源／充電電路靜態電流，**USB 供電下不是深睡電流**，不得宣稱 A7e／B4b／W6 的電池模式功耗。Debug Mate 量的是它自己的 5V 腳：被量的板子必須從這支腳取電，從 3.3V 腳取電的部分不會被量到（[Seeed wiki](https://wiki.seeedstudio.com/xiao_debug_mate_power/)）。
+  - **5V 入口**：V1 原理圖（`onepage-reader/electronics/c61/SCH_Sch_OnePage_V1_2026-08-19.pdf`）上，USB-C `USB1` 的 VBUS 經 `D5`（B5817WS）成為 `VOBUS`，接充電 IC `U3` 與電源路徑 IC `U12`（LM66200）。**除 USB-C 外沒有其他 5V 入口**（只有電池座 `J1`／`TP1`／`TP3`，皆為 VBAT／GND；`FPC1` 為 EPD；`CARD1` 為 microSD）。MoveCall 的三個 repo（`onepage-reader`、`bsp_onepage_c61`、`crosspoint-onepage`）與 `onepage-reader-web` 沒有記載 Debug Mate、量測儀器或量測點。
+  - **W6 接法（推論，未實測）**：改裝一條 USB-C 線（或 USB-C breakout），板端 VBUS／GND 接 Debug Mate 的 5V／GND 排母，Debug Mate 另接 5V/1A USB。若要保留序列 log，D+／D− 繼續接 Mac、Mac 側 VBUS 斷開並與 Debug Mate 共地。**同時只能有一條供電路徑**。
+  - **W6 前提（未驗證）**：(1) C61 的 USB-Serial-JTAG 在板端沒有 Mac 供給的 VBUS 時能否被列舉；(2) 韌體在 `usb: GPIO11` 讀到「插著」（`U12` 的 ST 隨 VOBUS）時，Home 閒置行為與充電路徑是否改變（`board-logic/src/usb.rs` 有去抖事件，行為未檢查）；(3) `LED1` 陽極接 VOBUS、經 R9／R10（2.2 kΩ）接 `U3` 的 CHRG／DONE，無電池時可能閃爍並混入約 1 mA 量級的電流（原理圖估算，未量測），S0–S3 是相對比較，影響有限，**但這是 A7e／B4b 不能走 5V 路徑的另一個理由**。
+  - **不得把 Debug Mate 的 5V 接到電池座／`TP1`**（5V 會加在 `U3` 的 BAT 腳與 VBAT 上）。無序列 log 的備案：整條 USB 資料線不接，只靠螢幕狀態標記。其 DAPLink 為 ARM SWD，官方相容表列 ESP32-C3／C5／C6／S3 為不支援，C61 未列，**不用它除錯 C61**（C61 有原生 USB-Serial-JTAG）。萬用表不建議串在 Wi-Fi 電流路徑上（burden voltage 加發射峰值可能造成重啟）。
+- **S3**：兩項用途都需自寫小韌體，本 repo 不提供。(1) 無 DHCP 的測試 AP（`esp_netif_dhcps_stop`；2.4 GHz、WPA2-PSK、頻道 1–11）。(2) GPIO 邊緣時間戳記錄器（中斷＋時間戳；共地、3.3 V 邏輯、輸入高阻），受限於上述沒有測試點。
 
 ## 6. 需要先補 instrumentation 才能驗收的項目
 
-目前韌體**沒有**下列輸出；在實機上直接驗會變成只能憑間接證據。先決定要不要加（另開小 change，不要夾在驗收中途改程式）：
+目前韌體**沒有**下列輸出（標「已補」者除外）；在實機上直接驗會變成只能憑間接證據。先決定要不要加（另開小 change，不要夾在驗收中途改程式）：
 
 | 缺口 | 影響項目 | 目前的替代方法 |
 |---|---|---|
-| ladder 各鍵的 mV 診斷輸出 | A5a | 萬用表量 GPIO4（BSP 的 `board_front_key_mv()` 沒有等價物） |
+| ladder 各鍵的 mV 診斷輸出 | A5a | **已補**（boot 映像 `key:` 行附 `ladder_mv=`，`c61_boot.rs:245`；完整韌體不輸出；mV 準確度仍需實機）。選配：萬用表量 GPIO4（BSP 的 `board_front_key_mv()` 沒有等價物） |
 | mDNS「收到 query」log | W4 | PC 端 `tcpdump` |
 | upload 期間的 heap／stack 時間曲線（upload 期間主迴圈暫停，沒有 `stats:`） | W5、W8 | 退出後那一行 `stats:` 的 `peak`／`hwm`（只含自開機起的高水位） |
 | radio／esp-rtos 其他 task 的 stack 高水位、殘留 task 清單 | W5、W8 | 無 |
 | Wi-Fi 期間 PSRAM／internal 分項（`log_report` 只在開機呼叫） | W8 | 無 |
 | 連線 RSSI | W6、W1 | 無 |
-| partial 刷新的分項時間（phase 1／BUSY／phase 3）與 SSD1677 實際使用的溫度 | P2、P3 | 只有每次刷新的總 ms；BUSY 寬度要用示波器量 GPIO29 |
+| partial 刷新的分項時間（phase 1／BUSY／phase 3）與 SSD1677 實際使用的溫度 | P2、P3 | 只有每次刷新的總 ms；BUSY 寬度要用示波器或 S3 時間戳記錄器量 GPIO29（見 5.5） |
+| BUSY 逾時的可控注入（例如測試映像強制 BUSY 逾時） | A4d、P10 | 無（拔腳不可靠） |
 
 ## 7. 失敗時改哪裡
 
@@ -346,7 +377,7 @@ X4 為遷移 HAL 1.2 改了 SPI（`SpiDmaBus`→`SpiDma`）、deep sleep（`LowP
 | S1 | 無法開機／image-hash loop／無 log | `.cargo/config.toml` runner 的 flash 參數（必須 `--flash-mode dio --flash-freq 40mhz --flash-size 16mb`；80 MHz 在此板 image-hash boot loop）；espflash 版本；序列口／log channel |
 | S2 | PSRAM 不穩／降級 | `kernel/src/board_c61/memory.rs`（PSRAM 40 MHz 設定）；`board-logic/src/memory.rs` 預算常數；esp-hal 預設 `flash_tuning`／`ram_tuning`（`din_mode 3, din_num 1, extra_dummy 2`）在 40 MHz 下是否合適未驗 |
 | S3 | card detect 相反／SD 不穩 | `board-logic/src/sd.rs`（GPIO28 電平→有卡的對應函式約 line 40、去抖；測試 `r9_cd_polarity_is_bsp_low_means_inserted` 要跟著改）。未驗風險：MISO pull-up 未套用、SPI 400 kHz→10 MHz 切換、GPIO27 power-cycle 後 20 ms 內能否 probe |
-| S4 | 畫面方向錯／BUSY 逾時／全刷對比或殘影差 | `board-logic/src/ssd1677.rs`（`Rotation`；BSP `board_c61.c:50,211,216,222`；BUSY 上限 5000 ms 可配置）。init 序列最初只對到 X4；moui 驅動（`MoveCall/moui` 的 `src/drivers/moui_drv_ssd1677.c`，BSP 實際用的，用 `gh api repos/MoveCall/moui/contents/src/drivers/moui_drv_ssd1677.c` 讀）對 EPD0426A02（OTP 波形）的 init 與本專案 `configure()` 有兩處差異，**尚未驗證哪個對**：(1) `0x0C` booster soft-start：moui 送 `[AE C7 C3 80 C0]`，本專案送 `[AE C7 C3 C0 80]`（第 4、5 個位元組互換）；(2) moui 在 init 多送 `0x1A [5A]`（溫度暫存器，其 update 序列也不載入溫度），本專案只送 `0x18 [80]` 並在全刷用 `0xF7` 載入溫度。全刷對比／殘影不佳時先對照這兩點。GPIO8（DC）是 strapping pin、需外部上拉 |
+| S4 | 畫面方向錯／BUSY 逾時／全刷對比或殘影差 | `board-logic/src/ssd1677.rs`（`Rotation`；BSP `board_c61.c:50,211,216,222`；BUSY 上限 5000 ms 可配置）。init 序列最初只對到 X4；moui 驅動（`MoveCall/moui` 的 `src/drivers/moui_drv_ssd1677.c`，BSP 實際用的，用 `gh api repos/MoveCall/moui/contents/src/drivers/moui_drv_ssd1677.c` 讀）對 EPD0426A02（OTP 波形）的 init 與本專案 `configure()` 原有兩處差異，**尚未驗證哪個對**：(1) `0x0C` booster soft-start：C61 現已改用 moui／BSP 的 OTP 值 `[AE C7 C3 80 C0]`（X4 仍為 `[AE C7 C3 C0 80]`），**仍 UNVERIFIED，待實機**；(2) moui 在 init 多送 `0x1A [5A]`（溫度暫存器，其 update 序列也不載入溫度），本專案只送 `0x18 [80]` 並在全刷用 `0xF7` 載入溫度。全刷對比／殘影不佳時先對照這兩點。GPIO8（DC）是 strapping pin、需外部上拉 |
 | S5 | 按鍵窗口不符／手感 | `board-logic/src/keys.rs`（ladder mV 窗口、優先序、grace）。與 BSP 的有意差異：long-press 1000 ms（BSP 800）、無 120 ms 同鍵鎖 |
 | S6 | 電池讀值偏／USB 插拔相反 | `board-logic/src/usb.rs:59` `USB_POLARITY`（目前 `ActiveLow`）；`board-logic/src/battery.rs`（分壓、取樣契約；充電暫停沉澱 BSP 30 ms、crosspoint 5 ms，哪個足夠未驗） |
 | S7 | 睡眠無法喚醒／吃電 | `board-logic/src/sleep.rs`（序列順序）、`kernel/src/board_c61/sleep.rs`（wake 配置；LP pad hold；GPIO27 睡眠中 pad 狀態） |

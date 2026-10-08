@@ -324,31 +324,44 @@ where
     let mut total_written: u32 = 0;
 
     loop {
-        if let Some(pos) = find_subsequence(&work[..filled], end_marker) {
+        let marker_found = if let Some(pos) = find_subsequence(&work[..filled], end_marker) {
+            // flush the content and keep the marker at the start of the buffer,
+            // so the two bytes that decide final vs. more parts always fit
             if pos > 0 {
                 storage::append_root_file(sd, name_str, &work[..pos])
                     .map_err(|_| "write failed")?;
                 total_written += pos as u32;
+                work.copy_within(pos..filled, 0);
+                filled -= pos;
             }
-            log::info!("upload: complete, {} bytes written", total_written);
-            return Ok((file_name_buf, file_name_len));
-        }
+            // only "--" after the delimiter completes the upload
+            if filled >= em_len + 2 {
+                if &work[em_len..em_len + 2] != b"--" {
+                    return Err("malformed multipart end");
+                }
+                log::info!("upload: complete, {} bytes written", total_written);
+                return Ok((file_name_buf, file_name_len));
+            }
+            true
+        } else {
+            if filled > em_len {
+                let safe = filled - em_len;
+                storage::append_root_file(sd, name_str, &work[..safe])
+                    .map_err(|_| "write failed")?;
+                total_written += safe as u32;
 
-        if filled > end_marker.len() {
-            let safe = filled - end_marker.len();
-            storage::append_root_file(sd, name_str, &work[..safe]).map_err(|_| "write failed")?;
-            total_written += safe as u32;
-
-            work.copy_within(safe..filled, 0);
-            filled = end_marker.len();
-        }
+                work.copy_within(safe..filled, 0);
+                filled = em_len;
+            }
+            false
+        };
 
         let n = socket
             .read(&mut work[filled..])
             .await
             .map_err(|_| "read error during upload")?;
         if n == 0 {
-            if filled > 0 {
+            if !marker_found && filled > 0 {
                 let _ = storage::append_root_file(sd, name_str, &work[..filled]);
             }
             return Err("upload incomplete");

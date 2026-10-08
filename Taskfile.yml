@@ -73,7 +73,7 @@ tasks:
       - cmd: |
           echo
           echo "Software acceptance passed. NOT verified on hardware: every item in"
-          echo "specs/hardware-acceptance.md is UNVERIFIED until run on a OnePage C61."
+          echo "specs/references/hardware-acceptance.md is UNVERIFIED until run on a OnePage C61."
         silent: true
 
   size:

@@ -8,6 +8,9 @@
 | [onepage-host-validation](archive/onepage-host-validation/proposal.md) | 7 | 已封存；host 測試／preview 通過（見 evidence.md），R1 linker 掃描器、R7 詮釋、provenance 待補，硬體未驗 |
 | [onepage-cjk-iansui](archive/onepage-cjk-iansui/proposal.md) | 10 | 已封存；host 測試 719 通過，R1–R14／R16 untagged、R14 限縮、R8／R16 無完整 red-proof 經使用者接受，硬體未驗 |
 | [onepage-wifi-upload](archive/onepage-wifi-upload/proposal.md) | 7 | 已封存；host880／board333、enabled／disabled link通過；3項red-proof例外與未標註provenance經使用者接受，實機未驗 |
+| [onepage-pre-hardware-hardening](archive/onepage-pre-hardware-hardening/proposal.md) | 11 | 已封存；`task acceptance` 1394／0／1；R8–R12／R14／R15 無 red-proof 與 R7／R13 `[assumed]` 經使用者接受，硬體仍未驗 |
+
+Partial refresh（commit `4785a36 feat: add partial refresh`，涉及 `board-logic/src/ssd1677.rs`、`kernel/src/kernel/scheduler_c61.rs`、`partial-refresh` cargo feature）**沒有 change 資料夾**；程式與 host 證據、實機項目 P0–P10 見 [../references/hardware-acceptance.md](../references/hardware-acceptance.md) G6。預設映像不含此功能，實機未驗。
 
 **實機到手後的入口：[../references/hardware-acceptance.md](../references/hardware-acceptance.md)**（刷機、關卡順序、四個 change 全部未驗項目的總表）。
 
