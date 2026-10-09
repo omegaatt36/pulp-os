@@ -7,7 +7,97 @@ use core::cmp::Ordering;
 use core::fmt;
 
 use crate::format::Record;
-use crate::{FontInfo, HEADER_LEN, Header, INDEX_RECORD_LEN, Metrics, PackError};
+use crate::{FontInfo, HEADER_LEN, Header, INDEX_RECORD_LEN, Metrics, PackError, bitmap_size};
+
+// records the final, uncached stretch of a search may span and still be read in
+// one go; a larger stretch is halved by single-record probes first. Kept small
+// because it lives on the stack.
+pub const SPAN_RECORDS: usize = 32;
+const SPAN_BYTES: usize = SPAN_RECORDS * INDEX_RECORD_LEN;
+// codepoint stored for a cache node not read yet; no valid record has it
+// (a validated record is a unicode scalar, at most 0x10ffff)
+const UNFILLED: u32 = u32::MAX;
+
+// what a cache's contents are valid for
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct CacheKey {
+    font_id: u64,
+    pixel_size: u16,
+    glyph_count: u32,
+    bitmap_len: u32,
+}
+
+// The top levels of the binary search over one pack's index, kept between
+// `find_cached` calls. Node `n` (heap order: children `2n + 1` and `2n + 2`)
+// holds the codepoint of the record the search probes there, read and checked
+// the first time a search passes it. The shape of the search depends only on
+// `glyph_count`, so nothing but the codepoint is stored. `storage` holds
+// `2^levels - 1` words for `levels` levels; any length works, a partial level
+// caches its leftmost nodes.
+//
+// A cache binds to the pack it is first used with and empties itself when a
+// different pack (`font_id`, size, record count or bitmap size) shows up.
+pub struct IndexCache<S> {
+    nodes: S,
+    key: Option<CacheKey>,
+}
+
+impl<S: AsRef<[u32]> + AsMut<[u32]>> IndexCache<S> {
+    // words of storage for `levels` levels of the search
+    pub const fn nodes_for_levels(levels: u32) -> usize {
+        (1usize << levels) - 1
+    }
+
+    pub fn new(storage: S) -> Self {
+        Self {
+            nodes: storage,
+            key: None,
+        }
+    }
+
+    // forgets everything read so far
+    pub fn invalidate(&mut self) {
+        self.key = None;
+    }
+
+    // nodes holding a read record
+    pub fn filled(&self) -> usize {
+        match self.key {
+            Some(_) => self
+                .nodes
+                .as_ref()
+                .iter()
+                .filter(|&&n| n != UNFILLED)
+                .count(),
+            None => 0,
+        }
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.nodes.as_ref().len()
+    }
+
+    fn bind(&mut self, header: &Header) {
+        let key = CacheKey {
+            font_id: header.info.font_id,
+            pixel_size: header.info.pixel_size,
+            glyph_count: header.glyph_count,
+            bitmap_len: header.bitmap_len,
+        };
+        if self.key != Some(key) {
+            self.nodes.as_mut().fill(UNFILLED);
+            self.key = Some(key);
+        }
+    }
+
+    fn get(&self, node: usize) -> Option<u32> {
+        self.nodes
+            .as_ref()
+            .get(node)
+            .copied()
+            .filter(|&n| n != UNFILLED)
+    }
+}
 
 // positioned reads from the pack file. A read that cannot be satisfied in full
 // is an error; there are no short reads.
@@ -68,6 +158,34 @@ pub struct GlyphRef {
     bitmap_offset: u32,
 }
 
+impl Record {
+    fn glyph_ref(&self) -> GlyphRef {
+        GlyphRef {
+            metrics: self.metrics,
+            bitmap_len: self.bitmap_len,
+            bitmap_offset: self.bitmap_offset,
+        }
+    }
+}
+
+impl GlyphRef {
+    // the bitmap position within the bitmap region, for callers that keep a lookup
+    pub fn bitmap_offset(&self) -> u32 {
+        self.bitmap_offset
+    }
+
+    // rebuilds a ref from a kept lookup of the same pack: a validated record's
+    // bitmap length is always `bitmap_size` of its metrics, and `read_bitmap`
+    // still range-checks the position against the reader it is used with
+    pub fn from_located(metrics: Metrics, bitmap_offset: u32) -> Self {
+        Self {
+            metrics,
+            bitmap_len: bitmap_size(metrics.width, metrics.height),
+            bitmap_offset,
+        }
+    }
+}
+
 pub struct PackReader<R: ReadAt> {
     src: R,
     header: Header,
@@ -112,22 +230,108 @@ impl<R: ReadAt> PackReader<R> {
         let (mut lo, mut hi) = (0u32, self.header.glyph_count);
         while lo < hi {
             let mid = lo + (hi - lo) / 2;
-            let mut raw = [0u8; INDEX_RECORD_LEN];
-            let at = HEADER_LEN as u64 + INDEX_RECORD_LEN as u64 * u64::from(mid);
-            self.src.read_at(at, &mut raw).map_err(FontError::Io)?;
-            let rec = Record::decode(&raw).ok_or(FontError::Corrupt(PackError::BadLayout))?;
+            let rec = self.read_record(mid)?;
+            match rec.codepoint.cmp(&want) {
+                Ordering::Less => lo = mid + 1,
+                Ordering::Greater => hi = mid,
+                Ordering::Equal => return Ok(Some(rec.glyph_ref())),
+            }
+        }
+        Ok(None)
+    }
+
+    // one validated record: a 22 byte read at its position
+    fn read_record(&mut self, index: u32) -> Result<Record, FontError<R::Error>> {
+        let mut raw = [0u8; INDEX_RECORD_LEN];
+        let at = HEADER_LEN as u64 + INDEX_RECORD_LEN as u64 * u64::from(index);
+        self.src.read_at(at, &mut raw).map_err(FontError::Io)?;
+        let rec = Record::decode(&raw).ok_or(FontError::Corrupt(PackError::BadLayout))?;
+        rec.validate(index, None, self.header.bitmap_len)
+            .map_err(FontError::Corrupt)?;
+        Ok(rec)
+    }
+
+    // `find` with the top of the search answered from `cache` and the rest read
+    // in one go. Finds the same glyph, or fails the same way, as `find`: every
+    // record the search relies on is checked on its own, once when it enters the
+    // cache and each time it is read from the pack. Differences: a record
+    // already in the cache is not read again (a pack that changes under an open
+    // reader is not noticed there), and the last stretch of the search is read
+    // as a whole, so a damaged tail of the file fails the search even where the
+    // plain search would not have gone.
+    pub fn find_cached<S: AsRef<[u32]> + AsMut<[u32]>>(
+        &mut self,
+        c: char,
+        cache: &mut IndexCache<S>,
+    ) -> Result<Option<GlyphRef>, FontError<R::Error>> {
+        cache.bind(&self.header);
+        let want = u32::from(c);
+        let (mut lo, mut hi) = (0u32, self.header.glyph_count);
+        let mut node = 0usize;
+        // the cached levels
+        while lo < hi && node < cache.capacity() {
+            let mid = lo + (hi - lo) / 2;
+            let at_mid = match cache.get(node) {
+                Some(codepoint) => codepoint,
+                None => {
+                    let rec = self.read_record(mid)?;
+                    if let Some(slot) = cache.nodes.as_mut().get_mut(node) {
+                        *slot = rec.codepoint;
+                    }
+                    if rec.codepoint == want {
+                        return Ok(Some(rec.glyph_ref()));
+                    }
+                    rec.codepoint
+                }
+            };
+            match at_mid.cmp(&want) {
+                Ordering::Less => {
+                    lo = mid + 1;
+                    node = 2 * node + 2;
+                }
+                Ordering::Greater => {
+                    hi = mid;
+                    node = 2 * node + 1;
+                }
+                // a cache holds the codepoint only
+                Ordering::Equal => return Ok(Some(self.read_record(mid)?.glyph_ref())),
+            }
+        }
+        // below the cache: halve by probes until the rest fits the buffer
+        while hi - lo > SPAN_RECORDS as u32 {
+            let mid = lo + (hi - lo) / 2;
+            let rec = self.read_record(mid)?;
+            match rec.codepoint.cmp(&want) {
+                Ordering::Less => lo = mid + 1,
+                Ordering::Greater => hi = mid,
+                Ordering::Equal => return Ok(Some(rec.glyph_ref())),
+            }
+        }
+        if lo >= hi {
+            return Ok(None);
+        }
+        // one read of what is left, searched in memory like `find` searches the file
+        let mut buf = [0u8; SPAN_BYTES];
+        let len = (hi - lo) as usize * INDEX_RECORD_LEN;
+        let span = buf
+            .get_mut(..len)
+            .ok_or(FontError::Corrupt(PackError::BadLayout))?;
+        let at = HEADER_LEN as u64 + INDEX_RECORD_LEN as u64 * u64::from(lo);
+        self.src.read_at(at, span).map_err(FontError::Io)?;
+        let first = lo;
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            let start = (mid - first) as usize * INDEX_RECORD_LEN;
+            let raw = span
+                .get(start..)
+                .ok_or(FontError::Corrupt(PackError::BadLayout))?;
+            let rec = Record::decode(raw).ok_or(FontError::Corrupt(PackError::BadLayout))?;
             rec.validate(mid, None, self.header.bitmap_len)
                 .map_err(FontError::Corrupt)?;
             match rec.codepoint.cmp(&want) {
                 Ordering::Less => lo = mid + 1,
                 Ordering::Greater => hi = mid,
-                Ordering::Equal => {
-                    return Ok(Some(GlyphRef {
-                        metrics: rec.metrics,
-                        bitmap_len: rec.bitmap_len,
-                        bitmap_offset: rec.bitmap_offset,
-                    }));
-                }
+                Ordering::Equal => return Ok(Some(rec.glyph_ref())),
             }
         }
         Ok(None)

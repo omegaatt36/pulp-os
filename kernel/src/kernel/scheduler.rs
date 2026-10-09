@@ -167,6 +167,16 @@ impl super::Kernel {
             //      EPD charge pump is driving pixels with no SPI commands
             //   4. prepare_render may read font packs immediately before
             //      each draw; no other SD I/O happens outside these sites
+            //   5. a long CJK glyph preparation (fonts::cjk) is cut into
+            //      slices, one per run_background call. A slice is plain
+            //      synchronous code that opens, reads and closes the pack
+            //      inside one `with_pulp_subdir_file` call, so at every
+            //      suspension point (the yield that ends it, the select
+            //      above, render) no SD transaction is open and no handle
+            //      is held. A panel refresh therefore never overlaps one:
+            //      on the C61 `render` blocks until the controller is idle
+            //      before the next slice can start; on the X4 the slice
+            //      runs in the waveform window of point 3
             //
             // when input arrives during run_background, the background
             // future is dropped. this is safe: partial chapter cache

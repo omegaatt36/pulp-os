@@ -307,6 +307,60 @@ impl ReaderApp {
         self.pg.prefetch_len = 0;
         self.page_img = None;
         self.fullscreen_img = false;
+        self.paused.index = false;
+        self.paused.restore = false;
+        self.paused.window = None;
+        self.paused.verified = false;
+    }
+
+    /// The current page, or with a restore position pending the walk from the
+    /// first page up to it; the position is spent on every outcome but a pause
+    /// between CJK slices, which the next call resumes at the page it stopped in.
+    pub(super) fn load_page_step(&mut self, k: &mut KernelHandle<'_>) -> crate::error::Result<()> {
+        let result = match self.restore_offset {
+            Some(target_off) => self.walk_to(k, target_off),
+            None => self.load_and_prefetch(k, true),
+        };
+        if !matches!(&result, Err(e) if fonts::cjk::is_slice_end(e)) {
+            self.restore_offset = None;
+            self.paused.restore = false;
+        }
+        result
+    }
+
+    fn walk_to(&mut self, k: &mut KernelHandle<'_>, target_off: u32) -> crate::error::Result<()> {
+        if !self.paused.restore {
+            self.pg.page = 0;
+        }
+        self.paused.restore = true;
+        loop {
+            self.load_and_prefetch(k, false)?;
+            if self.pg.page + 1 >= self.pg.total_pages {
+                break;
+            }
+            if self.pg.offsets[self.pg.page + 1] > target_off {
+                break;
+            }
+            self.pg.page += 1;
+        }
+        self.prepare_page_fonts(k)
+    }
+
+    /// Page table of the chapter in RAM and, for a backwards chapter change,
+    /// the last page up to which it is walked. Between CJK slices
+    /// (`paused.index`) it carries on where it stopped.
+    pub(super) fn index_chapter_pages(
+        &mut self,
+        k: &mut KernelHandle<'_>,
+        want_last: bool,
+    ) -> crate::error::Result<()> {
+        if self.is_epub && (self.paused.index || self.epub.try_cache_chapter(k)) {
+            self.preindex_all_pages(k)?;
+        }
+        if want_last {
+            self.scan_to_last_page(k)?;
+        }
+        Ok(())
     }
 
     pub(super) fn load_and_prefetch(
@@ -339,57 +393,74 @@ impl ReaderApp {
         let (nb, nl) = self.name_copy();
         let name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
 
-        if self.pg.prefetch_page == self.pg.page {
-            let pf_len = self.pg.prefetch_len;
-            self.pg.buf[..pf_len].copy_from_slice(&self.pg.prefetch[..pf_len]);
-            self.pg.buf_len = pf_len;
-            self.pg.prefetch_page = NO_PREFETCH;
-            self.pg.prefetch_len = 0;
-        } else if self.is_epub && self.epub.chapters_cached {
-            let cf_str = self.epub.cache_file_str();
-            let ch = self.epub.chapter as usize;
-            let ch_base = self.epub.chapter_table[ch].0;
-            let n = k.read_cache_chunk(
-                cf_str,
-                ch_base + self.pg.offsets[self.pg.page],
-                &mut self.pg.buf,
-            )?;
-            self.pg.buf_len = n;
-        } else if self.file_size == 0 {
-            let (size, n) = k.read_file_start(name, &mut self.pg.buf)?;
-            self.file_size = size;
-            self.pg.buf_len = n;
-            log::info!("reader: opened {} ({} bytes)", name, size);
-
-            if size == 0 {
-                self.pg.fully_indexed = true;
-                self.pg.line_count = 0;
-                return Ok(());
-            }
-        } else {
-            let n = k.read_chunk(name, self.pg.offsets[self.pg.page], &mut self.pg.buf)?;
-            self.pg.buf_len = n;
-        }
-
-        // A short device read is not EOF when the known file size says more
-        // bytes remain. Complete this bounded window before deriving pages.
+        // A pause of this very window (CJK glyph slices) left its bytes in
+        // `pg.buf`: lay them out again without opening the file on the card.
         let base = self.pg.offsets[self.pg.page];
-        while self.pg.buf_len < PAGE_BUF
-            && base as usize + self.pg.buf_len < self.file_size as usize
-        {
-            let at = base + self.pg.buf_len as u32;
-            let out = &mut self.pg.buf[self.pg.buf_len..];
-            let n = if self.is_epub && self.epub.chapters_cached {
+        let source = if self.is_epub && self.epub.chapters_cached {
+            self.epub.chapter + 1
+        } else {
+            0
+        };
+        let kept = self.paused.window.is_some_and(|w| {
+            w.chapter == source && w.offset == base && w.len as usize == self.pg.buf_len
+        });
+        if !kept {
+            if self.pg.prefetch_page == self.pg.page {
+                let pf_len = self.pg.prefetch_len;
+                self.pg.buf[..pf_len].copy_from_slice(&self.pg.prefetch[..pf_len]);
+                self.pg.buf_len = pf_len;
+                self.pg.prefetch_page = NO_PREFETCH;
+                self.pg.prefetch_len = 0;
+            } else if self.is_epub && self.epub.chapters_cached {
                 let cf_str = self.epub.cache_file_str();
-                let ch_base = self.epub.chapter_table[self.epub.chapter as usize].0;
-                k.read_cache_chunk(cf_str, ch_base + at, out)?
+                let ch = self.epub.chapter as usize;
+                let ch_base = self.epub.chapter_table[ch].0;
+                let n = k.read_cache_chunk(
+                    cf_str,
+                    ch_base + self.pg.offsets[self.pg.page],
+                    &mut self.pg.buf,
+                )?;
+                self.pg.buf_len = n;
+            } else if self.file_size == 0 {
+                let (size, n) = k.read_file_start(name, &mut self.pg.buf)?;
+                self.file_size = size;
+                self.pg.buf_len = n;
+                log::info!("reader: opened {} ({} bytes)", name, size);
+
+                if size == 0 {
+                    self.pg.fully_indexed = true;
+                    self.pg.line_count = 0;
+                    return Ok(());
+                }
             } else {
-                k.read_chunk(name, at, out)?
-            };
-            if n == 0 || n > out.len() {
-                return Err(crate::error::Error::READ_FAILED);
+                let n = k.read_chunk(name, self.pg.offsets[self.pg.page], &mut self.pg.buf)?;
+                self.pg.buf_len = n;
             }
-            self.pg.buf_len += n;
+
+            // A short device read is not EOF when the known file size says more
+            // bytes remain. Complete this bounded window before deriving pages.
+            while self.pg.buf_len < PAGE_BUF
+                && base as usize + self.pg.buf_len < self.file_size as usize
+            {
+                let at = base + self.pg.buf_len as u32;
+                let out = &mut self.pg.buf[self.pg.buf_len..];
+                let n = if self.is_epub && self.epub.chapters_cached {
+                    let cf_str = self.epub.cache_file_str();
+                    let ch_base = self.epub.chapter_table[self.epub.chapter as usize].0;
+                    k.read_cache_chunk(cf_str, ch_base + at, out)?
+                } else {
+                    k.read_chunk(name, at, out)?
+                };
+                if n == 0 || n > out.len() {
+                    return Err(crate::error::Error::READ_FAILED);
+                }
+                self.pg.buf_len += n;
+            }
+            self.paused.window = Some(super::TextWindow {
+                chapter: source,
+                offset: base,
+                len: self.pg.buf_len as u32,
+            });
         }
         let at_eof =
             self.pg.offsets[self.pg.page] as usize + self.pg.buf_len >= self.file_size as usize;
@@ -444,6 +515,8 @@ impl ReaderApp {
             self.pg.prefetch_len = 0;
         }
 
+        // loaded: only a pause keeps the window for the next slice
+        self.paused.window = None;
         self.decode_page_images(k);
         Ok(())
     }
@@ -457,12 +530,19 @@ impl ReaderApp {
         }
 
         let total = self.epub.ch_cache.len();
-        self.pg.offsets[0] = 0;
-        self.pg.style_flags[0] = 0;
-        self.pg.indents[0] = 0;
-        self.pg.total_pages = 1;
+        if self.paused.index {
+            // resumed: the table is complete up to the page the pause came in
+            if self.pg.fully_indexed {
+                return Ok(());
+            }
+        } else {
+            self.pg.offsets[0] = 0;
+            self.pg.style_flags[0] = 0;
+            self.pg.indents[0] = 0;
+            self.pg.total_pages = 1;
+        }
 
-        let mut offset = 0usize;
+        let mut offset = self.pg.offsets[self.pg.total_pages - 1] as usize;
         while offset < total && self.pg.total_pages < MAX_PAGES {
             self.pg.page = self.pg.total_pages - 1;
             let end = (offset + PAGE_BUF).min(total);

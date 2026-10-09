@@ -72,6 +72,10 @@ pub(super) const LINES_PER_PAGE: usize = 37;
 
 pub(super) const PAGE_BUF: usize = 8192;
 
+// glyph preparation expected to run at least this long (in total since its
+// first pause) is announced on the panel before it continues
+const CJK_NOTICE_US: u64 = 1_500_000;
+
 pub(super) const MAX_PAGES: usize = 512;
 
 pub(super) const HEADER_REGION: Region = Region::new(MARGIN, HEADER_Y, HEADER_W, HEADER_H);
@@ -357,6 +361,45 @@ pub(super) struct LayoutIdentity {
     version: u16,
 }
 
+// Where a CJK preparation paused between slices (fonts::cjk::SLICE_US) resumes:
+// chapter indexing or the page walk to a restored position keeps its place in
+// the page table instead of starting over.
+#[derive(Clone, Copy)]
+pub(super) struct Paused {
+    pub(super) index: bool,
+    pub(super) restore: bool,
+    // when the first pause of this load happened, and whether the loading
+    // indication for the glyph work was raised
+    since: Option<u64>,
+    notice: bool,
+    // The text window a pause left in `pg.buf`: the next slice lays out the
+    // same bytes instead of reading them from the card again (the open of the
+    // text file costs far more than the glyph work of a slice).
+    pub(super) window: Option<TextWindow>,
+    // The layout identity was verified for this load; the slices after the
+    // first do not open the packs to verify it again.
+    pub(super) verified: bool,
+}
+impl Paused {
+    const NONE: Self = Self {
+        index: false,
+        restore: false,
+        since: None,
+        notice: false,
+        window: None,
+        verified: false,
+    };
+}
+
+/// Where the bytes of `pg.buf` came from: the book file itself (`chapter` 0)
+/// or the cache file of chapter `chapter - 1`, from `offset` on, `len` bytes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) struct TextWindow {
+    pub(super) chapter: u16,
+    pub(super) offset: u32,
+    pub(super) len: u32,
+}
+
 pub struct ReaderApp {
     pub(super) filename: [u8; 32],
     pub(super) filename_len: usize,
@@ -374,6 +417,7 @@ pub struct ReaderApp {
     pub(super) is_epub: bool,
     pub(super) goto_last_page: bool,
     pub(super) restore_offset: Option<u32>,
+    pub(super) paused: Paused,
     session_position: Option<(u16, u32)>,
 
     pub(super) page_img: Option<DecodedImage>,
@@ -424,6 +468,7 @@ impl ReaderApp {
             is_epub: false,
             goto_last_page: false,
             restore_offset: None,
+            paused: Paused::NONE,
             session_position: None,
 
             page_img: None,
@@ -539,10 +584,42 @@ impl ReaderApp {
         ctx.set_loading(LOADING_REGION, lbuf.as_str(), pct);
     }
 
+    // A slice of CJK glyph preparation ended and the page is not ready. Show
+    // the loading indication once the work is known to take a while, then give
+    // the executor back so keys are polled before the next slice. A raised
+    // indication returns without yielding: the scheduler refreshes the panel
+    // first, which blocks until the controller is idle, so no refresh is in
+    // flight when the next slice starts reading the card.
+    async fn cjk_pause(&mut self, ctx: &mut AppContext) {
+        let now = self.cjk.now_us();
+        let since = *self.paused.since.get_or_insert(now);
+        if !self.paused.notice
+            && now.saturating_sub(since) + self.cjk.remaining_us() >= CJK_NOTICE_US
+        {
+            self.paused.notice = true;
+            let (done, total) = self.cjk.progress();
+            let mut lbuf = StackFmt::<28>::new();
+            let _ = write!(lbuf, "Glyphs {}/{}", done, total);
+            let pct = (u64::from(done) * 100 / u64::from(total.max(1))).min(100) as u8;
+            ctx.set_loading(LOADING_REGION, lbuf.as_str(), pct);
+            return;
+        }
+        embassy_futures::yield_now().await;
+    }
+
+    // the load that paused is over (page ready, or failed)
+    fn cjk_idle(&mut self) {
+        self.paused.since = None;
+        self.paused.notice = false;
+        self.paused.window = None;
+        self.paused.verified = false;
+    }
+
     // transition to error state with consistent handling
     fn enter_error(&mut self, ctx: &mut AppContext, e: Error) {
         self.error = Some(e);
         self.state = State::Error;
+        self.cjk_idle();
         ctx.clear_loading();
         ctx.mark_dirty(PAGE_REGION);
     }
@@ -930,6 +1007,7 @@ impl App<AppId> for ReaderApp {
         self.rebuild_quick_actions();
         self.apply_theme_layout();
         self.reset_paging();
+        self.paused = Paused::NONE;
         self.epub.ch_cache = BigBuf::empty();
         self.cjk.clear();
         self.layout_identity = None;
@@ -963,6 +1041,7 @@ impl App<AppId> for ReaderApp {
         }
 
         self.cjk.clear();
+        self.paused = Paused::NONE;
         self.title_fonts.clear();
         self.toc_fonts.clear();
         self.pg.line_count = 0;
@@ -1013,12 +1092,19 @@ impl App<AppId> for ReaderApp {
     }
 
     async fn background(&mut self, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
+        // Glyph preparation of this step runs in slices: it ends one early
+        // (`cjk_pause`) instead of holding the executor, see fonts::cjk::SLICE_US.
+        self.cjk.arm_slice();
         loop {
-            if matches!(self.state, State::NeedIndex | State::NeedPage) {
+            // once per load: a pack cannot change between two slices of it
+            // (a removed card fails the next card access with an error), and the
+            // check opens the packs again
+            if matches!(self.state, State::NeedIndex | State::NeedPage) && !self.paused.verified {
                 if let Err(e) = self.check_layout_identity(k) {
                     self.enter_error(ctx, e);
                     break;
                 }
+                self.paused.verified = true;
             }
             match self.state {
                 State::NeedBookmark => {
@@ -1162,96 +1248,77 @@ impl App<AppId> for ReaderApp {
                 },
 
                 State::NeedIndex => {
-                    // ensure the target chapter is cached before
-                    // indexing (it may not be if background caching
-                    // hasn't reached it yet)
-                    if self.is_epub
-                        && self.epub.chapters_cached
-                        && !self.epub.ch_cached[self.epub.chapter as usize]
-                    {
-                        // async version yields during deflate so the
-                        // scheduler's select can interrupt on input
-                        let ch = self.epub.chapter as usize;
-                        let (nb, nl) = self.name_copy();
-                        let epub_name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
-                        if let Err(e) = self.epub.cache_chapter_async(k, ch, epub_name).await {
+                    if !self.paused.index {
+                        // ensure the target chapter is cached before
+                        // indexing (it may not be if background caching
+                        // hasn't reached it yet)
+                        if self.is_epub
+                            && self.epub.chapters_cached
+                            && !self.epub.ch_cached[self.epub.chapter as usize]
+                        {
+                            // async version yields during deflate so the
+                            // scheduler's select can interrupt on input
+                            let ch = self.epub.chapter as usize;
+                            let (nb, nl) = self.name_copy();
+                            let epub_name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
+                            if let Err(e) = self.epub.cache_chapter_async(k, ch, epub_name).await {
+                                self.enter_error(ctx, e);
+                                break;
+                            }
+                        }
+
+                        self.epub_index_chapter();
+                    }
+
+                    // goto_last_page stays set while the indexing is paused
+                    let want_last = self.goto_last_page;
+                    match self.index_chapter_pages(k, want_last) {
+                        Err(e) if fonts::cjk::is_slice_end(&e) => {
+                            self.paused.index = true;
+                            self.cjk_pause(ctx).await;
+                            return;
+                        }
+                        Err(e) => {
+                            self.paused.index = false;
+                            self.goto_last_page = false;
                             self.enter_error(ctx, e);
                             break;
                         }
-                    }
-
-                    let want_last = self.goto_last_page;
-                    self.goto_last_page = false;
-
-                    self.epub_index_chapter();
-
-                    if self.is_epub && self.epub.try_cache_chapter(k) {
-                        if let Err(e) = self.preindex_all_pages(k) {
-                            self.enter_error(ctx, e);
-                            break;
+                        Ok(()) => {
+                            self.paused.index = false;
+                            self.goto_last_page = false;
                         }
                     }
 
                     if want_last {
-                        match self.scan_to_last_page(k) {
-                            Ok(()) => {
-                                self.defer_image_decode = false;
-                                self.state = State::Ready;
-                                ctx.clear_loading();
-                                ctx.mark_dirty(PAGE_REGION);
-                            }
-                            Err(e) => self.enter_error(ctx, e),
-                        }
+                        self.defer_image_decode = false;
+                        self.state = State::Ready;
+                        self.cjk_idle();
+                        ctx.clear_loading();
+                        ctx.mark_dirty(PAGE_REGION);
                     } else {
                         self.state = State::NeedPage;
                         ctx.set_loading(LOADING_REGION, "Loading page", 90);
                     }
                 }
 
-                State::NeedPage => {
-                    if let Some(target_off) = self.restore_offset.take() {
-                        self.pg.page = 0;
-                        loop {
-                            match self.load_and_prefetch(k, false) {
-                                Ok(()) => {}
-                                Err(e) => {
-                                    self.enter_error(ctx, e);
-                                    break;
-                                }
-                            }
-                            if self.pg.page + 1 >= self.pg.total_pages {
-                                break;
-                            }
-                            if self.pg.offsets[self.pg.page + 1] > target_off {
-                                break;
-                            }
-                            self.pg.page += 1;
-                        }
-                        if self.state != State::Error {
-                            if let Err(e) = self.prepare_page_fonts(k) {
-                                self.enter_error(ctx, e);
-                                break;
-                            }
-                            self.defer_image_decode = false;
-                            self.state = State::Ready;
-                            ctx.clear_loading();
-                            ctx.mark_dirty(PAGE_REGION);
-                        }
-                    } else {
-                        match self.load_and_prefetch(k, true) {
-                            Ok(()) => {
-                                self.defer_image_decode = false;
-                                self.state = State::Ready;
-                                ctx.clear_loading();
-                                ctx.mark_dirty(PAGE_REGION);
-                            }
-                            Err(e) => {
-                                log::info!("reader: load failed: {}", e);
-                                self.enter_error(ctx, e);
-                            }
-                        }
+                State::NeedPage => match self.load_page_step(k) {
+                    Ok(()) => {
+                        self.defer_image_decode = false;
+                        self.state = State::Ready;
+                        self.cjk_idle();
+                        ctx.clear_loading();
+                        ctx.mark_dirty(PAGE_REGION);
                     }
-                }
+                    Err(e) if fonts::cjk::is_slice_end(&e) => {
+                        self.cjk_pause(ctx).await;
+                        return;
+                    }
+                    Err(e) => {
+                        log::info!("reader: load failed: {}", e);
+                        self.enter_error(ctx, e);
+                    }
+                },
 
                 _ => {}
             }
@@ -1518,6 +1585,8 @@ impl App<AppId> for ReaderApp {
 
     fn prepare_render(&mut self, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
         if self.state == State::Ready && self.render_fonts_released {
+            // runs right before the draw, with nothing to yield to: not sliced
+            self.cjk.disarm_slice();
             let restored = if let Some(fs) = self.fonts {
                 let idx = usize::from(self.book_font_size_idx.min(4));
                 self.cjk

@@ -112,6 +112,17 @@ impl<'k> KernelHandle<'k> {
         storage::read_chunk_in_pulp_subdir(&self.kernel.sd, dir, name, offset, buf)
     }
 
+    // one open of _PULP/<dir>/<name> for many positioned reads; None when absent
+    #[inline]
+    pub fn with_app_subdir_file<T>(
+        &mut self,
+        dir: &str,
+        name: &str,
+        f: impl FnOnce(Option<&mut storage::SubdirFile<'_>>) -> Result<T>,
+    ) -> Result<T> {
+        storage::with_pulp_subdir_file(&self.kernel.sd, dir, name, f)
+    }
+
     #[inline]
     pub fn write_app_subdir(&mut self, dir: &str, name: &str, data: &[u8]) -> Result<()> {
         storage::write_in_pulp_subdir(&self.kernel.sd, dir, name, data)

@@ -48,3 +48,6 @@ wifi              = []
 # OnePage C61: differential partial refresh for `Redraw::Partial` (off: every
 # refresh is full). Not verified on hardware, see specs/references/hardware-acceptance.md.
 partial-refresh   = []
+# CJK pack read counters and one log line per preparation (forwarded by the root
+# `sd-metrics` feature). Off: no counters, no clock reads, no log lines.
+sd-metrics        = []

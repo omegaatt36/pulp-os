@@ -1,0 +1,1434 @@
+warning: associated items `FLAG_BOLD`, `FLAG_ITALIC`, `FLAG_HEADING`, `style`, and `pack_flags` are never used
+   --> src/apps/reader/mod.rs:186:22
+    |
+178 | impl LineSpan {
+    | ------------- associated items in this implementation
+...
+186 |     pub(super) const FLAG_BOLD: u8 = 1 << 0;
+    |                      ^^^^^^^^^
+187 |     pub(super) const FLAG_ITALIC: u8 = 1 << 1;
+    |                      ^^^^^^^^^^^
+188 |     pub(super) const FLAG_HEADING: u8 = 1 << 2;
+    |                      ^^^^^^^^^^^^
+...
+201 |     pub(super) fn style(&self) -> fonts::Style {
+    |                   ^^^^^
+...
+213 |     pub(super) fn pack_flags(bold: bool, italic: bool, heading: bool) -> u8 {
+    |                   ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `pulp-os` (lib) generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.09s
+     Running `/home/raiven/dev/pulp-os/scripts/run-c61.sh target/riscv32imac-unknown-none-elf/release/pulp-os-c61`
+[2026-10-09T10:39:13Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T10:39:13Z INFO ] Connecting...
+[2026-10-09T10:39:13Z INFO ] Using flash stub
+[2026-10-09T10:39:13Z INFO ] Flash content successfully read and written to '/tmp/tmp.Gd4zXeGTPJ/head.bin'!
+Chip type:         esp32c61
+Merge:             false
+Skip padding:      false
+App/part. size:    877,696/16,384,000 bytes, 5.36%
+[2026-10-09T10:39:14Z INFO ] Image successfully saved!
+[2026-10-09T10:39:14Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T10:39:14Z INFO ] Connecting...
+[2026-10-09T10:39:15Z INFO ] Using flash stub
+Chip type:         esp32c61 (revision v1.1)
+Crystal frequency: 40 MHz
+Flash size:        16MB
+Features:          WiFi 6, BT 5
+MAC address:       88:56:a6:cf:da:90
+[2026-10-09T10:39:25Z INFO ] Binary successfully written to flash!
+[2026-10-09T10:39:25Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T10:39:25Z INFO ] Connecting...
+[2026-10-09T10:39:25Z INFO ] Using flash stub
+Commands:
+    CTRL+R    Reset chip
+    CTRL+C    Exit
+
+ESP-ROM:esp32c61-eco4-20250829
+Build:Aug 29 2025
+rst:0x15 (USB_UART_HPSYS),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPI mode:DIO, clock div:1
+load:0x40845b90,len:0x11e0
+load:0x4083bd70,len:0xad4
+load:0x4083ea70,len:0x3008
+entry 0x4083bd70
+[32mINFO - Detected PSRAM chip id = e3b4135a5d0d[0m
+[32mINFO - Detected PSRAM chip density = 2[0m
+[32mINFO - PSRAM size is 8388608[0m
+[32mINFO - PSRAM size: 8 MB[0m
+[32mINFO - psram: 2097152 B at 0x420d0000, heap registered[0m
+[32mINFO - psram: ready[0m
+[32mINFO - memory Internal: pool 0 / 162304 B[0m
+[32mINFO - memory Psram: pool 0 / 1900544 B[0m
+[32mINFO - memory class chapter-text Psram: reserved 0 / 262144 B, peak 0 B[0m
+[32mINFO - memory class image-data   Psram: reserved 0 / 524288 B, peak 0 B[0m
+[32mINFO - memory class page-table   Psram: reserved 0 / 65536 B, peak 0 B[0m
+[32mINFO - memory class zip-toc      Psram: reserved 0 / 262144 B, peak 0 B[0m
+[32mINFO - memory class font-glyphs  Psram: reserved 0 / 262144 B, peak 0 B[0m
+[32mINFO - memory class net-scratch  Psram: reserved 0 / 32768 B, peak 0 B[0m
+[32mINFO - heap internal: used 0 B, free 162304 B; psram heap: used 0 B, free 2097152 B[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B[0m
+[32mINFO - gpio27 power-cycled, state=PowerCycled[0m
+[32mINFO - pulp-os c61: esp32c61 rv32imac, rtos + embassy up, wake PowerOn[0m
+[32mINFO - spi2: sck=GPIO22 mosi=GPIO23 miso=GPIO24, epd_cs=GPIO25 sd_cs=GPIO26, dma ch0 4096B tx+rx, 400 kHz[0m
+[32mINFO - sd: 63864569856 bytes (60906 MB), attempt 1[0m
+[32mINFO - SD card: filesystem mounted[0m
+[32mINFO - SD: ok[0m
+[32mINFO - spi2: 400 kHz -> 10000 kHz[0m
+[32mINFO - sd: fat32 mounted[0m
+[32mINFO - battery: cell 4570 mV, 100%[0m
+[32mINFO - bookmarks: loaded 3 slots from SD[0m
+[32mINFO - settings: loaded from SETTINGS.TXT[0m
+[32mINFO - font: size_idx=3 line_h=37 (native 37 x 100%) ascent=30 max_lines=20 margin=8[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 8K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B[0m
+[32mINFO - boot: session restore (cause PowerOn, slot B seq 6)[0m
+[32mINFO - session: restored nav stack depth=1 active=Home[0m
+[32mINFO - home: restore_state state=Menu selected=0[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=52 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=56 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=3 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=4 scalars=0 lookups=0[0m
+[32mINFO - ui ready.[0m
+[32mINFO - kernel ready.[0m
+[32mINFO - [work] worker ready[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 8K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B[0m
+[32mINFO - display: partial refresh 280x118 at (100, 87) in 656 ms (partial count 1)[0m
+[32mINFO - app: Home -> Files[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 13K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=36 bytes=814 open_us=189881 read_us=40368 max_read_us=2075 wall_us=230787 scalars=3 lookups=3[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=4 bytes=360 open_us=189337 read_us=7885 max_read_us=2846 wall_us=198054 scalars=3 lookups=0[0m
+[32mINFO - titles: scan complete[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x167 at (16, 8) in 672 ms (partial count 1)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x223 at (16, 8) in 683 ms (partial count 2)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x279 at (16, 8) in 692 ms (partial count 3)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x335 at (16, 8) in 703 ms (partial count 4)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x391 at (16, 8) in 714 ms (partial count 5)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - app: Files -> Reader[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - [work] reset -> gen 1[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - reader: opening ZH1.TXT[0m
+[32mINFO - reader: opened ZH1.TXT (43 bytes)[0m
+[32mINFO - cjk: lookup 1/14 glyphs, about 5278 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188994 read_us=13975 max_read_us=2059 wall_us=203786 scalars=14 lookups=1[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 316 B; reserved 0 / 1900544 B, peak 320 B[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=8 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=56 scalars=0 lookups=0[0m
+[32mINFO - cjk: lookup 2/14 glyphs, about 3240 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189538 read_us=14947 max_read_us=2050 wall_us=205437 scalars=14 lookups=1[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 316 B; reserved 0 / 1900544 B, peak 320 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189609 read_us=14948 max_read_us=2023 wall_us=204948 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189636 read_us=13713 max_read_us=2046 wall_us=203752 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=189518 read_us=12880 max_read_us=2011 wall_us=202735 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189608 read_us=14883 max_read_us=2035 wall_us=204881 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=189553 read_us=14905 max_read_us=2016 wall_us=204783 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189564 read_us=14647 max_read_us=2025 wall_us=204590 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189524 read_us=18504 max_read_us=2006 wall_us=208360 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=189643 read_us=14903 max_read_us=2036 wall_us=204924 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=189579 read_us=14951 max_read_us=2014 wall_us=204859 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189608 read_us=15880 max_read_us=2024 wall_us=205874 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=189647 read_us=14969 max_read_us=2003 wall_us=204945 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189641 read_us=14911 max_read_us=2033 wall_us=204882 scalars=14 lookups=1[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=188709 read_us=1000 max_read_us=1000 wall_us=189817 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=53 open_us=189478 read_us=3196 max_read_us=2040 wall_us=193692 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189952 read_us=1088 max_read_us=1088 wall_us=191198 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=64 scalars=14 lookups=0[0m
+[32mINFO - cjk: bitmap 2/14 glyphs, about 5421 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=64 open_us=190174 read_us=3233 max_read_us=2066 wall_us=194484 scalars=14 lookups=0[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.5V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 1020 B, free 2096132 B, peak 1020 B; reserved 1024 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=190159 read_us=1126 max_read_us=1126 wall_us=191487 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=57 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=63 open_us=189927 read_us=3216 max_read_us=2073 wall_us=193880 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189825 read_us=1083 max_read_us=1083 wall_us=191110 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=61 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=128 open_us=189768 read_us=4218 max_read_us=3069 wall_us=194676 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189549 read_us=1129 max_read_us=1129 wall_us=190873 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=60 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189429 read_us=3262 max_read_us=2112 wall_us=193406 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189742 read_us=1074 max_read_us=1074 wall_us=191019 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=61 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189813 read_us=3217 max_read_us=2069 wall_us=193703 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189836 read_us=1116 max_read_us=1116 wall_us=191147 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=59 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189864 read_us=3267 max_read_us=2126 wall_us=193837 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189793 read_us=1073 max_read_us=1073 wall_us=191068 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=61 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189945 read_us=3243 max_read_us=2093 wall_us=193872 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189987 read_us=1117 max_read_us=1117 wall_us=191298 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=60 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189978 read_us=3254 max_read_us=2108 wall_us=193940 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189895 read_us=1078 max_read_us=1078 wall_us=191177 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=60 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189933 read_us=3224 max_read_us=2072 wall_us=193837 scalars=14 lookups=0[0m
+[32mINFO - battery: cell 4182 mV, 98% (periodic)[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189897 read_us=1136 max_read_us=1136 wall_us=191246 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=57 scalars=14 lookups=0[0m
+[32mINFO - cjk: bitmap 11/14 glyphs, about 1356 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189934 read_us=4195 max_read_us=3057 wall_us=195329 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189707 read_us=1086 max_read_us=1086 wall_us=190986 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=60 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=190027 read_us=3309 max_read_us=2158 wall_us=194033 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189890 read_us=1135 max_read_us=1135 wall_us=191223 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=60 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189989 read_us=4221 max_read_us=3080 wall_us=194917 scalars=14 lookups=0[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 1020 B, free 2096132 B, peak 1020 B; reserved 1024 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=190041 read_us=1136 max_read_us=1136 wall_us=191402 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=57 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=52 open_us=189861 read_us=3299 max_read_us=2145 wall_us=193811 scalars=14 lookups=0[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 1020 B, free 2096132 B, peak 1020 B; reserved 1024 / 1900544 B, peak 1024 B[0m
+[32mINFO - display: partial refresh 480x794 at (0, 6) in 776 ms (partial count 1)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 1020 B, free 2096132 B, peak 1020 B; reserved 1024 / 1900544 B, peak 1024 B[0m
+[32mINFO - app: Reader -> Files[0m
+[32mINFO - bookmark: cached off=0 ch=0 gen=10 for "ZH1.TXT"[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=36 bytes=814 open_us=190848 read_us=40443 max_read_us=2016 wall_us=231837 scalars=3 lookups=3[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=4 bytes=360 open_us=189368 read_us=7871 max_read_us=2847 wall_us=198055 scalars=3 lookups=0[0m
+[32mINFO - display: partial refresh 480x800 at (0, 0) in 794 ms (partial count 2)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 1020 B; reserved 320 / 1900544 B, peak 1024 B[0m
+[32mINFO - display: partial refresh 448x447 at (16, 8) in 724 ms (partial count 3)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 1020 B; reserved 320 / 1900544 B, peak 1024 B[0m
+[32mINFO - app: Files -> Reader[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - [work] reset -> gen 2[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - reader: opening ZH2.TXT[0m
+[32mINFO - reader: opened ZH2.TXT (1189 bytes)[0m
+[32mINFO - cjk: lookup 1/247 glyphs, about 101727 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189179 read_us=14037 max_read_us=2051 wall_us=204165 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=18 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=56 scalars=0 lookups=0[0m
+[32mINFO - cjk: lookup 2/247 glyphs, about 66638 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=189064 read_us=13930 max_read_us=2027 wall_us=204060 scalars=247 lookups=1[0m
+[32mINFO - bookmarks: flushed 4 slots to SD[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189419 read_us=16948 max_read_us=2010 wall_us=206875 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=189065 read_us=14957 max_read_us=2027 wall_us=204455 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189529 read_us=14935 max_read_us=2019 wall_us=204880 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189158 read_us=14929 max_read_us=2027 wall_us=204513 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189585 read_us=12716 max_read_us=2010 wall_us=202683 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189366 read_us=15593 max_read_us=2030 wall_us=205381 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189466 read_us=13626 max_read_us=2016 wall_us=203470 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189691 read_us=13679 max_read_us=2031 wall_us=203791 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=189612 read_us=12649 max_read_us=2004 wall_us=202635 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=189579 read_us=13664 max_read_us=2022 wall_us=203660 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189428 read_us=16542 max_read_us=2005 wall_us=206354 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189681 read_us=13651 max_read_us=2033 wall_us=203752 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189459 read_us=12650 max_read_us=2007 wall_us=202495 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189605 read_us=12711 max_read_us=2025 wall_us=202736 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 17/247 glyphs, about 62660 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189529 read_us=14607 max_read_us=2005 wall_us=205024 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=189734 read_us=12711 max_read_us=2034 wall_us=202855 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189452 read_us=13686 max_read_us=2024 wall_us=203524 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188851 read_us=13627 max_read_us=2009 wall_us=202933 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188586 read_us=12662 max_read_us=2012 wall_us=201629 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188629 read_us=13644 max_read_us=2017 wall_us=202698 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188693 read_us=13622 max_read_us=2020 wall_us=202687 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188797 read_us=15471 max_read_us=2000 wall_us=204685 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188622 read_us=13645 max_read_us=2007 wall_us=202649 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188591 read_us=13627 max_read_us=2009 wall_us=202635 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188694 read_us=14567 max_read_us=2012 wall_us=203638 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188730 read_us=14589 max_read_us=2002 wall_us=203735 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=11 bytes=264 open_us=188487 read_us=13715 max_read_us=2008 wall_us=202574 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188585 read_us=13632 max_read_us=2011 wall_us=202631 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=188686 read_us=12598 max_read_us=2014 wall_us=201652 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 32/247 glyphs, about 58178 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188762 read_us=13615 max_read_us=2002 wall_us=203196 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188592 read_us=13622 max_read_us=2005 wall_us=202606 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188793 read_us=13625 max_read_us=2006 wall_us=202837 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188492 read_us=12666 max_read_us=2013 wall_us=201536 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188591 read_us=12665 max_read_us=1998 wall_us=201672 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188453 read_us=15615 max_read_us=2004 wall_us=204453 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188820 read_us=13639 max_read_us=2011 wall_us=202878 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188765 read_us=13628 max_read_us=2020 wall_us=202850 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188745 read_us=13626 max_read_us=2005 wall_us=202796 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188850 read_us=14614 max_read_us=2015 wall_us=203871 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188767 read_us=12719 max_read_us=2019 wall_us=201906 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188619 read_us=13617 max_read_us=2014 wall_us=202622 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188580 read_us=17445 max_read_us=2009 wall_us=206443 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188410 read_us=13613 max_read_us=2007 wall_us=202405 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188786 read_us=15536 max_read_us=2009 wall_us=204733 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 47/247 glyphs, about 54444 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188805 read_us=15529 max_read_us=2015 wall_us=205079 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188610 read_us=14547 max_read_us=2005 wall_us=203583 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188446 read_us=14574 max_read_us=2004 wall_us=203397 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188790 read_us=14522 max_read_us=2001 wall_us=203724 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188749 read_us=13574 max_read_us=2005 wall_us=202710 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188503 read_us=14538 max_read_us=2005 wall_us=203458 scalars=247 lookups=1[0m
+[32mINFO - battery: cell 4158 mV, 97% (periodic)[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188903 read_us=13639 max_read_us=2023 wall_us=202975 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188683 read_us=13629 max_read_us=2008 wall_us=202740 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188842 read_us=14635 max_read_us=1983 wall_us=203854 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188918 read_us=13750 max_read_us=2014 wall_us=203094 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=188750 read_us=13634 max_read_us=2008 wall_us=202828 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188904 read_us=14703 max_read_us=2009 wall_us=204028 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188626 read_us=14772 max_read_us=2004 wall_us=203814 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188954 read_us=14669 max_read_us=2018 wall_us=204042 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188489 read_us=13660 max_read_us=1995 wall_us=202536 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 62/247 glyphs, about 50289 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188944 read_us=14638 max_read_us=2019 wall_us=204384 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188664 read_us=15590 max_read_us=1997 wall_us=204648 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188951 read_us=13719 max_read_us=2019 wall_us=203096 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188758 read_us=15578 max_read_us=1994 wall_us=204716 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188700 read_us=15578 max_read_us=2020 wall_us=204695 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188550 read_us=14634 max_read_us=2004 wall_us=203576 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188909 read_us=14751 max_read_us=2011 wall_us=204074 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=188661 read_us=13683 max_read_us=2000 wall_us=202716 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188757 read_us=13703 max_read_us=2019 wall_us=202878 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188589 read_us=16601 max_read_us=1996 wall_us=205576 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188937 read_us=13771 max_read_us=2021 wall_us=203128 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188790 read_us=14659 max_read_us=1996 wall_us=203814 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188940 read_us=18570 max_read_us=2009 wall_us=207933 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188686 read_us=15623 max_read_us=2022 wall_us=204767 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188913 read_us=13741 max_read_us=2008 wall_us=203086 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 77/247 glyphs, about 46328 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188680 read_us=15748 max_read_us=2016 wall_us=205212 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188907 read_us=15780 max_read_us=2008 wall_us=205125 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188517 read_us=17585 max_read_us=2011 wall_us=206485 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188595 read_us=16650 max_read_us=2005 wall_us=205666 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188564 read_us=14695 max_read_us=2009 wall_us=203641 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188988 read_us=14693 max_read_us=2002 wall_us=204100 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188505 read_us=14697 max_read_us=2007 wall_us=203592 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188729 read_us=14687 max_read_us=2010 wall_us=203838 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188565 read_us=14736 max_read_us=2012 wall_us=203685 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188941 read_us=14712 max_read_us=1998 wall_us=204068 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188504 read_us=17532 max_read_us=2003 wall_us=206423 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188589 read_us=20418 max_read_us=2009 wall_us=209432 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188571 read_us=16549 max_read_us=2013 wall_us=205510 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188953 read_us=22389 max_read_us=3848 wall_us=211769 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188519 read_us=22318 max_read_us=3847 wall_us=211215 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 92/247 glyphs, about 43042 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188946 read_us=20429 max_read_us=3843 wall_us=210191 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188722 read_us=17607 max_read_us=2014 wall_us=206804 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188947 read_us=17619 max_read_us=2018 wall_us=206997 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=188724 read_us=16540 max_read_us=2006 wall_us=205666 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188944 read_us=17562 max_read_us=2018 wall_us=206922 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188494 read_us=15731 max_read_us=1999 wall_us=204608 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188755 read_us=14728 max_read_us=2014 wall_us=203895 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188809 read_us=14788 max_read_us=1998 wall_us=203984 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189048 read_us=13896 max_read_us=2010 wall_us=203357 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188524 read_us=13902 max_read_us=2011 wall_us=202814 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=9 bytes=220 open_us=188893 read_us=11840 max_read_us=2017 wall_us=201153 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188672 read_us=13877 max_read_us=2010 wall_us=202938 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188928 read_us=12872 max_read_us=2002 wall_us=202226 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188567 read_us=13881 max_read_us=2014 wall_us=202840 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188963 read_us=14840 max_read_us=2005 wall_us=204219 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 107/247 glyphs, about 38003 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188595 read_us=14875 max_read_us=2011 wall_us=204404 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188921 read_us=12875 max_read_us=2004 wall_us=202230 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188448 read_us=16887 max_read_us=2015 wall_us=205729 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188883 read_us=16862 max_read_us=2009 wall_us=206171 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188766 read_us=16600 max_read_us=2010 wall_us=205759 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=188982 read_us=12719 max_read_us=2005 wall_us=202154 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188632 read_us=12757 max_read_us=2012 wall_us=201780 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189016 read_us=13826 max_read_us=2004 wall_us=203272 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188798 read_us=13808 max_read_us=2011 wall_us=202984 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=188935 read_us=12802 max_read_us=2010 wall_us=202148 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188815 read_us=13820 max_read_us=2015 wall_us=203020 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=7 bytes=176 open_us=188946 read_us=9806 max_read_us=2010 wall_us=199155 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188772 read_us=15829 max_read_us=2016 wall_us=204991 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188919 read_us=12839 max_read_us=2019 wall_us=202185 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188730 read_us=14821 max_read_us=2016 wall_us=203942 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 122/247 glyphs, about 34134 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188970 read_us=15822 max_read_us=2004 wall_us=205750 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188559 read_us=14825 max_read_us=2006 wall_us=203785 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188937 read_us=12839 max_read_us=2011 wall_us=202205 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188791 read_us=12834 max_read_us=2013 wall_us=202024 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188943 read_us=12834 max_read_us=2007 wall_us=202202 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188757 read_us=12834 max_read_us=2006 wall_us=201988 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189032 read_us=13932 max_read_us=2018 wall_us=203379 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188854 read_us=13905 max_read_us=1993 wall_us=203156 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188957 read_us=13926 max_read_us=2019 wall_us=203347 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=11 bytes=264 open_us=188591 read_us=13885 max_read_us=1999 wall_us=202860 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=189016 read_us=14901 max_read_us=2020 wall_us=204343 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188788 read_us=12902 max_read_us=1995 wall_us=202088 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=188939 read_us=13801 max_read_us=2015 wall_us=203149 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188791 read_us=13814 max_read_us=2001 wall_us=203003 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188895 read_us=14828 max_read_us=2016 wall_us=204147 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 137/247 glyphs, about 29862 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188838 read_us=14790 max_read_us=1998 wall_us=204395 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188934 read_us=14826 max_read_us=2015 wall_us=204192 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188735 read_us=15804 max_read_us=2000 wall_us=204923 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188939 read_us=13853 max_read_us=2017 wall_us=203222 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188833 read_us=15769 max_read_us=1997 wall_us=204993 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188941 read_us=16807 max_read_us=2016 wall_us=206174 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188742 read_us=15776 max_read_us=2006 wall_us=204910 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188901 read_us=14805 max_read_us=2018 wall_us=204126 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188787 read_us=14830 max_read_us=1998 wall_us=204021 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188931 read_us=14834 max_read_us=2011 wall_us=204170 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188854 read_us=15866 max_read_us=2015 wall_us=205121 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188965 read_us=13842 max_read_us=2005 wall_us=203279 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=11 bytes=264 open_us=188565 read_us=14831 max_read_us=2009 wall_us=203783 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189056 read_us=14828 max_read_us=2011 wall_us=204319 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188768 read_us=14831 max_read_us=2010 wall_us=203994 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 152/247 glyphs, about 25927 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188952 read_us=15672 max_read_us=2001 wall_us=205601 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188824 read_us=15667 max_read_us=2002 wall_us=204894 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188915 read_us=16659 max_read_us=2009 wall_us=206001 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188765 read_us=18645 max_read_us=2012 wall_us=207808 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188944 read_us=15672 max_read_us=2005 wall_us=205047 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188758 read_us=16541 max_read_us=2005 wall_us=205689 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=11 bytes=264 open_us=188989 read_us=16530 max_read_us=2000 wall_us=205941 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188555 read_us=15531 max_read_us=2009 wall_us=204488 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188940 read_us=16524 max_read_us=2000 wall_us=205897 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188508 read_us=16512 max_read_us=2008 wall_us=205411 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=4 bytes=110 open_us=188938 read_us=6881 max_read_us=2008 wall_us=196221 scalars=247 lookups=1[0m
+[32mINFO - battery: cell 4146 mV, 96% (periodic)[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188902 read_us=15512 max_read_us=2020 wall_us=204865 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188776 read_us=13715 max_read_us=2000 wall_us=202924 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188767 read_us=12627 max_read_us=1996 wall_us=201805 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188994 read_us=13543 max_read_us=2005 wall_us=203008 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 167/247 glyphs, about 21614 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188577 read_us=13618 max_read_us=2010 wall_us=202987 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=189068 read_us=13670 max_read_us=2010 wall_us=203179 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188772 read_us=13670 max_read_us=2009 wall_us=202840 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188957 read_us=13630 max_read_us=2002 wall_us=203010 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=188821 read_us=12603 max_read_us=2005 wall_us=201809 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188987 read_us=13652 max_read_us=2010 wall_us=203067 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188816 read_us=12676 max_read_us=2013 wall_us=201888 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=11 bytes=264 open_us=188959 read_us=13615 max_read_us=2005 wall_us=202993 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188780 read_us=12636 max_read_us=2006 wall_us=201819 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188921 read_us=12695 max_read_us=2010 wall_us=202047 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188826 read_us=12668 max_read_us=2012 wall_us=201893 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188993 read_us=17483 max_read_us=2002 wall_us=206905 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188798 read_us=14551 max_read_us=2004 wall_us=203748 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188943 read_us=16570 max_read_us=2008 wall_us=205947 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188782 read_us=18460 max_read_us=2014 wall_us=207649 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 182/247 glyphs, about 17864 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188950 read_us=17626 max_read_us=2000 wall_us=207386 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188901 read_us=15628 max_read_us=1988 wall_us=204923 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188911 read_us=15612 max_read_us=2020 wall_us=204956 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188604 read_us=14733 max_read_us=2004 wall_us=203818 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188904 read_us=13776 max_read_us=2022 wall_us=203124 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188628 read_us=15738 max_read_us=2016 wall_us=204792 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188931 read_us=15742 max_read_us=2031 wall_us=205103 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188831 read_us=14734 max_read_us=2001 wall_us=203964 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188938 read_us=14622 max_read_us=2011 wall_us=203994 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188817 read_us=14615 max_read_us=1994 wall_us=203831 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188949 read_us=13752 max_read_us=2019 wall_us=203131 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188817 read_us=13814 max_read_us=2003 wall_us=203035 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=188901 read_us=13814 max_read_us=2012 wall_us=203135 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188763 read_us=14809 max_read_us=1995 wall_us=203976 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=11 bytes=264 open_us=188910 read_us=13821 max_read_us=2020 wall_us=203156 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 197/247 glyphs, about 13577 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188774 read_us=14857 max_read_us=2005 wall_us=204405 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188939 read_us=15882 max_read_us=2016 wall_us=205267 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188605 read_us=14862 max_read_us=2006 wall_us=203869 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188932 read_us=14875 max_read_us=2017 wall_us=204243 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188966 read_us=17882 max_read_us=2011 wall_us=207241 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188923 read_us=16872 max_read_us=2006 wall_us=206235 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188633 read_us=13883 max_read_us=2018 wall_us=202998 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188952 read_us=17886 max_read_us=2015 wall_us=207278 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188700 read_us=15862 max_read_us=2018 wall_us=204983 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188919 read_us=14870 max_read_us=2014 wall_us=204224 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188474 read_us=14862 max_read_us=2007 wall_us=203738 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188958 read_us=14871 max_read_us=2005 wall_us=204267 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188485 read_us=14867 max_read_us=2000 wall_us=203758 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188988 read_us=14912 max_read_us=2027 wall_us=204328 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188844 read_us=14878 max_read_us=2011 wall_us=204127 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 212/247 glyphs, about 9621 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188906 read_us=17703 max_read_us=2012 wall_us=207451 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188831 read_us=17696 max_read_us=2009 wall_us=206926 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188918 read_us=17575 max_read_us=2021 wall_us=206930 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188607 read_us=21356 max_read_us=2001 wall_us=210362 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=11 bytes=264 open_us=188939 read_us=16622 max_read_us=2012 wall_us=205993 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188826 read_us=16603 max_read_us=1992 wall_us=205829 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188949 read_us=16649 max_read_us=2017 wall_us=206033 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188772 read_us=16625 max_read_us=2009 wall_us=205782 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=10 bytes=242 open_us=188932 read_us=14761 max_read_us=1998 wall_us=204122 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188648 read_us=17769 max_read_us=2010 wall_us=206896 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188944 read_us=17764 max_read_us=2007 wall_us=207147 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188603 read_us=19779 max_read_us=2017 wall_us=208812 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=189006 read_us=18784 max_read_us=2013 wall_us=208226 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188817 read_us=16778 max_read_us=2011 wall_us=205998 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188942 read_us=14806 max_read_us=2011 wall_us=204191 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 227/247 glyphs, about 5425 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=11 bytes=264 open_us=188579 read_us=14759 max_read_us=2002 wall_us=204098 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188948 read_us=15792 max_read_us=2005 wall_us=205192 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188764 read_us=16776 max_read_us=2011 wall_us=205935 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188995 read_us=15791 max_read_us=2003 wall_us=205231 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188801 read_us=14849 max_read_us=2006 wall_us=204053 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188916 read_us=14902 max_read_us=2007 wall_us=204263 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=11 bytes=264 open_us=188760 read_us=12876 max_read_us=2009 wall_us=202028 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188911 read_us=12910 max_read_us=2004 wall_us=202261 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=14 bytes=330 open_us=188796 read_us=14890 max_read_us=2007 wall_us=204091 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188949 read_us=13911 max_read_us=2004 wall_us=203303 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188768 read_us=13900 max_read_us=2010 wall_us=203076 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188905 read_us=14910 max_read_us=2004 wall_us=204253 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188814 read_us=14898 max_read_us=2010 wall_us=204128 scalars=247 lookups=1[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188971 read_us=14915 max_read_us=2008 wall_us=204356 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=11 bytes=264 open_us=188503 read_us=12888 max_read_us=2006 wall_us=201788 scalars=247 lookups=1[0m
+[32mINFO - cjk: lookup 242/247 glyphs, about 1360 ms left[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=189056 read_us=14773 max_read_us=2011 wall_us=204653 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=13 bytes=308 open_us=188576 read_us=14799 max_read_us=2001 wall_us=203786 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188918 read_us=14842 max_read_us=2005 wall_us=204204 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188697 read_us=14781 max_read_us=2003 wall_us=203879 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=15 bytes=352 open_us=188944 read_us=14829 max_read_us=2002 wall_us=204216 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=stage opens=1 reads=12 bytes=286 open_us=188643 read_us=14784 max_read_us=2001 wall_us=203784 scalars=247 lookups=1[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=188530 read_us=995 max_read_us=995 wall_us=189632 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=51 open_us=189810 read_us=3201 max_read_us=2020 wall_us=195112 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189514 read_us=1125 max_read_us=1125 wall_us=190868 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=53 open_us=189432 read_us=3226 max_read_us=2092 wall_us=193559 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189089 read_us=1077 max_read_us=1077 wall_us=190345 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=96 open_us=189373 read_us=3194 max_read_us=2062 wall_us=193367 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189245 read_us=1111 max_read_us=1111 wall_us=190561 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=113 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=96 open_us=189416 read_us=3209 max_read_us=2072 wall_us=193436 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189104 read_us=1072 max_read_us=1072 wall_us=190358 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=64 open_us=189431 read_us=3130 max_read_us=2001 wall_us=193348 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189226 read_us=1112 max_read_us=1112 wall_us=190536 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=113 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 6/133 glyphs, about 57827 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=63 open_us=189350 read_us=3224 max_read_us=2092 wall_us=193759 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189161 read_us=1082 max_read_us=1082 wall_us=190425 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=64 open_us=189366 read_us=3192 max_read_us=2071 wall_us=193364 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189528 read_us=1122 max_read_us=1122 wall_us=190848 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=113 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189319 read_us=3236 max_read_us=2103 wall_us=193385 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189146 read_us=1071 max_read_us=1071 wall_us=190419 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=114 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=132 open_us=189331 read_us=3148 max_read_us=2016 wall_us=193273 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189349 read_us=1124 max_read_us=1124 wall_us=190667 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=128 open_us=189271 read_us=4221 max_read_us=3086 wall_us=194293 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189096 read_us=1072 max_read_us=1072 wall_us=190365 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=113 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=189361 read_us=4181 max_read_us=3052 wall_us=194327 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189240 read_us=1105 max_read_us=1105 wall_us=190535 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=114 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189344 read_us=3231 max_read_us=2099 wall_us=193378 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189090 read_us=1074 max_read_us=1074 wall_us=190361 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189363 read_us=3141 max_read_us=2010 wall_us=193298 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189168 read_us=1115 max_read_us=1115 wall_us=190474 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189332 read_us=4183 max_read_us=3048 wall_us=194338 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189069 read_us=1068 max_read_us=1068 wall_us=190330 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 15/133 glyphs, about 53731 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189384 read_us=3170 max_read_us=2041 wall_us=193675 scalars=133 lookups=0[0m
+[32mINFO - battery: cell 4120 mV, 94% (periodic)[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189412 read_us=1123 max_read_us=1123 wall_us=190738 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=113 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189204 read_us=4211 max_read_us=3035 wall_us=194247 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189043 read_us=1078 max_read_us=1078 wall_us=190318 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189400 read_us=3157 max_read_us=2024 wall_us=193346 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189501 read_us=1119 max_read_us=1119 wall_us=190823 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=113 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189371 read_us=3240 max_read_us=2107 wall_us=193433 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189043 read_us=1073 max_read_us=1073 wall_us=190318 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=115 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189191 read_us=3148 max_read_us=2020 wall_us=193131 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189315 read_us=1129 max_read_us=1129 wall_us=190641 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189350 read_us=3228 max_read_us=2088 wall_us=193372 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189028 read_us=1074 max_read_us=1074 wall_us=190300 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189420 read_us=3181 max_read_us=2057 wall_us=193383 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189333 read_us=1107 max_read_us=1107 wall_us=190635 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189330 read_us=3216 max_read_us=2084 wall_us=193345 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189102 read_us=1077 max_read_us=1077 wall_us=190384 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189368 read_us=3144 max_read_us=2013 wall_us=193293 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189242 read_us=1110 max_read_us=1110 wall_us=190546 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 24/133 glyphs, about 49647 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189351 read_us=3233 max_read_us=2094 wall_us=193893 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189088 read_us=1078 max_read_us=1078 wall_us=190356 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189376 read_us=3187 max_read_us=2068 wall_us=193349 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189222 read_us=1110 max_read_us=1110 wall_us=190530 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189337 read_us=3228 max_read_us=2097 wall_us=193378 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189010 read_us=1072 max_read_us=1072 wall_us=190272 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189504 read_us=3181 max_read_us=2041 wall_us=193476 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189304 read_us=1121 max_read_us=1121 wall_us=190624 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189349 read_us=3210 max_read_us=2072 wall_us=193355 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189436 read_us=1133 max_read_us=1133 wall_us=190780 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189330 read_us=3247 max_read_us=2110 wall_us=193381 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189254 read_us=1119 max_read_us=1119 wall_us=190585 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189339 read_us=3208 max_read_us=2078 wall_us=193347 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189180 read_us=1121 max_read_us=1121 wall_us=190501 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189330 read_us=3191 max_read_us=2077 wall_us=193295 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189288 read_us=1119 max_read_us=1119 wall_us=190614 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=110 open_us=189332 read_us=3223 max_read_us=2096 wall_us=193355 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189135 read_us=1068 max_read_us=1068 wall_us=190394 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 33/133 glyphs, about 45649 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=136 open_us=189405 read_us=4211 max_read_us=3075 wall_us=194897 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189211 read_us=1117 max_read_us=1117 wall_us=190534 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189392 read_us=3228 max_read_us=2094 wall_us=193425 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189149 read_us=1071 max_read_us=1071 wall_us=190406 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189418 read_us=3178 max_read_us=2049 wall_us=193382 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189246 read_us=1114 max_read_us=1114 wall_us=190559 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189294 read_us=3219 max_read_us=2093 wall_us=193318 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189041 read_us=1065 max_read_us=1065 wall_us=190294 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189340 read_us=3192 max_read_us=2061 wall_us=193324 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189330 read_us=1120 max_read_us=1120 wall_us=190649 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189485 read_us=3276 max_read_us=2122 wall_us=193565 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189156 read_us=1085 max_read_us=1085 wall_us=190424 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189379 read_us=3189 max_read_us=2058 wall_us=193366 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189422 read_us=1120 max_read_us=1120 wall_us=190740 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189371 read_us=3244 max_read_us=2117 wall_us=193441 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189178 read_us=1094 max_read_us=1094 wall_us=190469 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189262 read_us=3152 max_read_us=2020 wall_us=193205 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189323 read_us=1127 max_read_us=1127 wall_us=190650 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 42/133 glyphs, about 41529 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189328 read_us=4150 max_read_us=3019 wall_us=194654 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189076 read_us=1104 max_read_us=1104 wall_us=190370 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189313 read_us=4180 max_read_us=3064 wall_us=194282 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189301 read_us=1123 max_read_us=1123 wall_us=190620 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189331 read_us=3190 max_read_us=2059 wall_us=193325 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189093 read_us=1078 max_read_us=1078 wall_us=190360 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189351 read_us=3198 max_read_us=2064 wall_us=193331 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189310 read_us=1126 max_read_us=1126 wall_us=190632 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=189318 read_us=4197 max_read_us=3067 wall_us=194330 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189058 read_us=1085 max_read_us=1085 wall_us=190334 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189393 read_us=4182 max_read_us=3056 wall_us=194374 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189245 read_us=1111 max_read_us=1111 wall_us=190552 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189326 read_us=3226 max_read_us=2095 wall_us=193352 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189160 read_us=1070 max_read_us=1070 wall_us=190420 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189561 read_us=3214 max_read_us=2075 wall_us=193572 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189325 read_us=1120 max_read_us=1120 wall_us=190641 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=136 open_us=189363 read_us=3244 max_read_us=2119 wall_us=193412 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189431 read_us=1133 max_read_us=1133 wall_us=190772 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 51/133 glyphs, about 37377 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=132 open_us=189341 read_us=3246 max_read_us=2104 wall_us=193934 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189297 read_us=1117 max_read_us=1117 wall_us=190625 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189234 read_us=3232 max_read_us=2108 wall_us=193281 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189259 read_us=1120 max_read_us=1120 wall_us=190574 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189359 read_us=3235 max_read_us=2110 wall_us=193384 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189250 read_us=1118 max_read_us=1118 wall_us=190567 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189380 read_us=3215 max_read_us=2092 wall_us=193398 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189039 read_us=1063 max_read_us=1063 wall_us=190288 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189295 read_us=3200 max_read_us=2069 wall_us=193282 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189363 read_us=1128 max_read_us=1128 wall_us=190692 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189471 read_us=3248 max_read_us=2118 wall_us=193531 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189130 read_us=1080 max_read_us=1080 wall_us=190398 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189310 read_us=3237 max_read_us=2096 wall_us=193338 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189252 read_us=1120 max_read_us=1120 wall_us=190573 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189298 read_us=4201 max_read_us=3079 wall_us=194304 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189057 read_us=1080 max_read_us=1080 wall_us=190324 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189312 read_us=3213 max_read_us=2075 wall_us=193316 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189296 read_us=1136 max_read_us=1136 wall_us=190632 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 60/133 glyphs, about 33257 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189425 read_us=3260 max_read_us=2116 wall_us=193873 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189139 read_us=1090 max_read_us=1090 wall_us=190412 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189371 read_us=4147 max_read_us=3024 wall_us=194322 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189577 read_us=1129 max_read_us=1129 wall_us=190907 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189352 read_us=4216 max_read_us=3087 wall_us=194390 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189229 read_us=1085 max_read_us=1085 wall_us=190514 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189376 read_us=3196 max_read_us=2063 wall_us=193364 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189477 read_us=1133 max_read_us=1133 wall_us=190807 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189406 read_us=3234 max_read_us=2098 wall_us=193438 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189178 read_us=1077 max_read_us=1077 wall_us=190448 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189386 read_us=3195 max_read_us=2063 wall_us=193373 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189279 read_us=1121 max_read_us=1121 wall_us=190594 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189329 read_us=3253 max_read_us=2124 wall_us=193391 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189150 read_us=1086 max_read_us=1086 wall_us=190429 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189318 read_us=3202 max_read_us=2070 wall_us=193311 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189291 read_us=1124 max_read_us=1124 wall_us=190625 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189346 read_us=3242 max_read_us=2105 wall_us=193386 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189108 read_us=1081 max_read_us=1081 wall_us=190388 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 69/133 glyphs, about 29150 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189357 read_us=3193 max_read_us=2061 wall_us=193860 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189250 read_us=1115 max_read_us=1115 wall_us=190564 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189289 read_us=3249 max_read_us=2119 wall_us=193356 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189084 read_us=1084 max_read_us=1084 wall_us=190362 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=116 open_us=189537 read_us=4235 max_read_us=3093 wall_us=194583 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189286 read_us=1136 max_read_us=1136 wall_us=190615 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189350 read_us=3234 max_read_us=2105 wall_us=193385 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189408 read_us=1137 max_read_us=1137 wall_us=190756 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189339 read_us=3257 max_read_us=2121 wall_us=193414 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189343 read_us=1130 max_read_us=1130 wall_us=190687 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=156 open_us=189339 read_us=3235 max_read_us=2103 wall_us=193388 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189147 read_us=1131 max_read_us=1131 wall_us=190475 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189350 read_us=4200 max_read_us=3076 wall_us=194329 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189303 read_us=1124 max_read_us=1124 wall_us=190634 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189285 read_us=3236 max_read_us=2114 wall_us=193320 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189078 read_us=1081 max_read_us=1081 wall_us=190352 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189303 read_us=3216 max_read_us=2080 wall_us=193306 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189312 read_us=1130 max_read_us=1130 wall_us=190653 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 78/133 glyphs, about 25053 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189348 read_us=3243 max_read_us=2113 wall_us=193744 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189124 read_us=1082 max_read_us=1082 wall_us=190393 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189391 read_us=3177 max_read_us=2050 wall_us=193380 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189269 read_us=1123 max_read_us=1123 wall_us=190598 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189303 read_us=3243 max_read_us=2121 wall_us=193347 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189122 read_us=1079 max_read_us=1079 wall_us=190394 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=189325 read_us=3234 max_read_us=2097 wall_us=193350 scalars=133 lookups=0[0m
+[32mINFO - battery: cell 4094 mV, 92% (periodic)[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189382 read_us=1144 max_read_us=1144 wall_us=190736 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189389 read_us=3252 max_read_us=2112 wall_us=193476 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189093 read_us=1075 max_read_us=1075 wall_us=190353 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189351 read_us=3210 max_read_us=2082 wall_us=193356 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 92% 4.0V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189431 read_us=1130 max_read_us=1130 wall_us=190767 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189315 read_us=3264 max_read_us=2134 wall_us=193401 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189246 read_us=1083 max_read_us=1083 wall_us=190529 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189283 read_us=3225 max_read_us=2090 wall_us=193308 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189387 read_us=1133 max_read_us=1133 wall_us=190721 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189364 read_us=3242 max_read_us=2111 wall_us=193404 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189085 read_us=1086 max_read_us=1086 wall_us=190364 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 87/133 glyphs, about 20978 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189310 read_us=4177 max_read_us=3047 wall_us=194651 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189341 read_us=1117 max_read_us=1117 wall_us=190661 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189456 read_us=3264 max_read_us=2133 wall_us=193535 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189165 read_us=1082 max_read_us=1082 wall_us=190441 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=116 open_us=189330 read_us=3226 max_read_us=2091 wall_us=193345 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189290 read_us=1125 max_read_us=1125 wall_us=190611 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189338 read_us=3259 max_read_us=2123 wall_us=193395 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189114 read_us=1078 max_read_us=1078 wall_us=190384 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189357 read_us=3220 max_read_us=2087 wall_us=193369 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189278 read_us=1117 max_read_us=1117 wall_us=190592 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189290 read_us=3266 max_read_us=2137 wall_us=193364 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189108 read_us=1090 max_read_us=1090 wall_us=190392 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189326 read_us=3238 max_read_us=2099 wall_us=193381 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189329 read_us=1125 max_read_us=1125 wall_us=190653 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189341 read_us=3245 max_read_us=2115 wall_us=193393 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 92% 4.0V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189471 read_us=1135 max_read_us=1135 wall_us=190816 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=156 open_us=189288 read_us=3278 max_read_us=2144 wall_us=193387 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189336 read_us=1130 max_read_us=1130 wall_us=190680 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 96/133 glyphs, about 16904 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189339 read_us=4257 max_read_us=3125 wall_us=194813 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189294 read_us=1123 max_read_us=1123 wall_us=190610 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=123 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189306 read_us=3237 max_read_us=2117 wall_us=193359 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189249 read_us=1120 max_read_us=1120 wall_us=190576 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189328 read_us=3254 max_read_us=2127 wall_us=193396 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189230 read_us=1081 max_read_us=1081 wall_us=190499 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189310 read_us=3208 max_read_us=2058 wall_us=193317 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189279 read_us=1126 max_read_us=1126 wall_us=190612 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=116 open_us=189344 read_us=3221 max_read_us=2091 wall_us=193368 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189136 read_us=1071 max_read_us=1071 wall_us=190396 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189351 read_us=3181 max_read_us=2046 wall_us=193322 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189278 read_us=1125 max_read_us=1125 wall_us=190611 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=113 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189278 read_us=3261 max_read_us=2137 wall_us=193347 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189083 read_us=1081 max_read_us=1081 wall_us=190353 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189301 read_us=4250 max_read_us=3115 wall_us=194347 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189416 read_us=1131 max_read_us=1131 wall_us=190755 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189453 read_us=3258 max_read_us=2126 wall_us=193516 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189198 read_us=1079 max_read_us=1079 wall_us=190467 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=122 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 105/133 glyphs, about 12752 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189345 read_us=3232 max_read_us=2095 wall_us=193903 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 92% 4.0V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189542 read_us=1134 max_read_us=1134 wall_us=190887 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189310 read_us=3268 max_read_us=2144 wall_us=193415 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189184 read_us=1073 max_read_us=1073 wall_us=190455 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189302 read_us=4238 max_read_us=3103 wall_us=194332 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189297 read_us=1140 max_read_us=1140 wall_us=190646 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=113 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189257 read_us=3232 max_read_us=2098 wall_us=193301 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189137 read_us=1072 max_read_us=1072 wall_us=190402 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189469 read_us=3261 max_read_us=2127 wall_us=193536 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189347 read_us=1124 max_read_us=1124 wall_us=190679 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189386 read_us=3252 max_read_us=2123 wall_us=193449 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189155 read_us=1133 max_read_us=1133 wall_us=190485 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189369 read_us=3227 max_read_us=2100 wall_us=193393 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189233 read_us=1124 max_read_us=1124 wall_us=190566 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189360 read_us=3266 max_read_us=2132 wall_us=193434 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189143 read_us=1083 max_read_us=1083 wall_us=190415 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189353 read_us=3233 max_read_us=2100 wall_us=193379 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189298 read_us=1118 max_read_us=1118 wall_us=190629 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=114 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 114/133 glyphs, about 8653 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189337 read_us=3224 max_read_us=2100 wall_us=193744 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189271 read_us=1096 max_read_us=1096 wall_us=190554 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189297 read_us=4184 max_read_us=3059 wall_us=194297 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189341 read_us=1122 max_read_us=1122 wall_us=190672 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189265 read_us=3191 max_read_us=2058 wall_us=193264 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 92% 4.0V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189159 read_us=1144 max_read_us=1144 wall_us=190510 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189274 read_us=3230 max_read_us=2099 wall_us=193325 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189432 read_us=1125 max_read_us=1125 wall_us=190768 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189314 read_us=3228 max_read_us=2093 wall_us=193357 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189087 read_us=1132 max_read_us=1132 wall_us=190409 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189338 read_us=3221 max_read_us=2102 wall_us=193364 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189396 read_us=1119 max_read_us=1119 wall_us=190722 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189294 read_us=3226 max_read_us=2097 wall_us=193334 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189217 read_us=1084 max_read_us=1084 wall_us=190483 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189325 read_us=3207 max_read_us=2072 wall_us=193337 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189368 read_us=1125 max_read_us=1125 wall_us=190697 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189263 read_us=3269 max_read_us=2134 wall_us=193343 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189184 read_us=1102 max_read_us=1102 wall_us=190472 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 123/133 glyphs, about 4556 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189363 read_us=3256 max_read_us=2124 wall_us=193753 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189439 read_us=1120 max_read_us=1120 wall_us=190767 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=189333 read_us=3281 max_read_us=2150 wall_us=193439 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189197 read_us=1091 max_read_us=1091 wall_us=190470 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=189350 read_us=3259 max_read_us=2130 wall_us=193417 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189415 read_us=1133 max_read_us=1133 wall_us=190753 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189362 read_us=3226 max_read_us=2091 wall_us=193401 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189215 read_us=1086 max_read_us=1086 wall_us=190483 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189360 read_us=3205 max_read_us=2074 wall_us=193369 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 92% 4.0V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 12424 B, free 2084728 B, peak 12424 B; reserved 12432 / 1900544 B, peak 12432 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189622 read_us=1130 max_read_us=1130 wall_us=190955 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189348 read_us=4194 max_read_us=3064 wall_us=194378 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189211 read_us=1085 max_read_us=1085 wall_us=190490 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189355 read_us=3243 max_read_us=2105 wall_us=193418 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189351 read_us=1134 max_read_us=1134 wall_us=190690 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189345 read_us=3290 max_read_us=2154 wall_us=193439 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189232 read_us=1077 max_read_us=1077 wall_us=190499 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=52 open_us=189392 read_us=3233 max_read_us=2100 wall_us=193420 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189413 read_us=1117 max_read_us=1117 wall_us=190730 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=113 scalars=247 lookups=0[0m
+[32mINFO - cjk: bitmap 132/133 glyphs, about 455 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=49 open_us=189222 read_us=3295 max_read_us=2164 wall_us=193677 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189238 read_us=1094 max_read_us=1094 wall_us=190522 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189353 read_us=3275 max_read_us=2147 wall_us=193400 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 92% 4.0V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 480x794 at (0, 6) in 835 ms (partial count 1)[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 92% 4.0V | up 0:02 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - battery: cell 4176 mV, 98% (periodic)[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 98% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - battery: cell 4146 mV, 96% (periodic)[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=190600 read_us=1148 max_read_us=1148 wall_us=192037 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=112 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 1/130 glyphs, about 50383 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=51 open_us=188981 read_us=3169 max_read_us=2052 wall_us=193547 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 480x794 at (0, 6) in 818 ms (partial count 2)[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189874 read_us=1150 max_read_us=1150 wall_us=191294 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=53 open_us=189227 read_us=3238 max_read_us=2095 wall_us=193291 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189603 read_us=1080 max_read_us=1080 wall_us=190880 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=129 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=96 open_us=189429 read_us=3210 max_read_us=2081 wall_us=193419 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189398 read_us=1141 max_read_us=1141 wall_us=190752 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=96 open_us=189386 read_us=3209 max_read_us=2074 wall_us=193396 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189487 read_us=1135 max_read_us=1135 wall_us=190836 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=64 open_us=189305 read_us=3223 max_read_us=2094 wall_us=193332 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189426 read_us=1126 max_read_us=1126 wall_us=190754 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=129 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=63 open_us=189310 read_us=3199 max_read_us=2065 wall_us=193301 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189196 read_us=1127 max_read_us=1127 wall_us=190516 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=64 open_us=189330 read_us=3150 max_read_us=2042 wall_us=193252 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189360 read_us=1116 max_read_us=1116 wall_us=190678 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=129 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 8/130 glyphs, about 55505 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189341 read_us=3223 max_read_us=2091 wall_us=193862 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189195 read_us=1090 max_read_us=1090 wall_us=190471 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=129 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=189360 read_us=4212 max_read_us=3088 wall_us=194353 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189460 read_us=1116 max_read_us=1116 wall_us=190778 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=129 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189309 read_us=3194 max_read_us=2061 wall_us=193299 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189182 read_us=1073 max_read_us=1073 wall_us=190441 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189335 read_us=3198 max_read_us=2069 wall_us=193314 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189383 read_us=1126 max_read_us=1126 wall_us=190713 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=128 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=136 open_us=189314 read_us=3238 max_read_us=2102 wall_us=193359 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189184 read_us=1079 max_read_us=1079 wall_us=190449 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189364 read_us=3142 max_read_us=2014 wall_us=193300 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189413 read_us=1113 max_read_us=1113 wall_us=190729 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=129 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189357 read_us=4152 max_read_us=3020 wall_us=194308 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189229 read_us=1079 max_read_us=1079 wall_us=190495 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189306 read_us=4182 max_read_us=3057 wall_us=194270 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189689 read_us=1126 max_read_us=1126 wall_us=191031 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189373 read_us=3200 max_read_us=2065 wall_us=193389 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189017 read_us=1079 max_read_us=1079 wall_us=190285 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=123 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 17/130 glyphs, about 51366 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189378 read_us=3198 max_read_us=2069 wall_us=193683 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189233 read_us=1136 max_read_us=1136 wall_us=190569 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=132 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189334 read_us=4252 max_read_us=3114 wall_us=194378 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189210 read_us=1073 max_read_us=1073 wall_us=190472 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189383 read_us=3178 max_read_us=2054 wall_us=193377 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189383 read_us=1115 max_read_us=1115 wall_us=190687 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=131 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189369 read_us=3218 max_read_us=2087 wall_us=193386 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189280 read_us=1131 max_read_us=1131 wall_us=190609 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189401 read_us=3179 max_read_us=2051 wall_us=193362 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189392 read_us=1115 max_read_us=1115 wall_us=190705 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=129 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189288 read_us=4241 max_read_us=3109 wall_us=194331 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189232 read_us=1082 max_read_us=1082 wall_us=190503 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189305 read_us=3188 max_read_us=2057 wall_us=193274 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189425 read_us=1119 max_read_us=1119 wall_us=190740 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=126 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=116 open_us=189345 read_us=3217 max_read_us=2083 wall_us=193363 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189381 read_us=1083 max_read_us=1083 wall_us=190658 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189390 read_us=3181 max_read_us=2053 wall_us=193369 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189395 read_us=1115 max_read_us=1115 wall_us=190714 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=132 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 26/130 glyphs, about 47330 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189333 read_us=3238 max_read_us=2105 wall_us=193877 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189478 read_us=1142 max_read_us=1142 wall_us=190846 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=110 open_us=189316 read_us=3233 max_read_us=2099 wall_us=193356 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189508 read_us=1121 max_read_us=1121 wall_us=190829 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=136 open_us=189359 read_us=4224 max_read_us=3090 wall_us=194389 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189193 read_us=1132 max_read_us=1132 wall_us=190523 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189310 read_us=3200 max_read_us=2085 wall_us=193294 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189460 read_us=1117 max_read_us=1117 wall_us=190779 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189356 read_us=3233 max_read_us=2100 wall_us=193393 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189324 read_us=1075 max_read_us=1075 wall_us=190589 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189381 read_us=3189 max_read_us=2064 wall_us=193359 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189430 read_us=1114 max_read_us=1114 wall_us=190748 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=116 open_us=189319 read_us=3231 max_read_us=2099 wall_us=193354 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189294 read_us=1083 max_read_us=1083 wall_us=190565 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=189338 read_us=4201 max_read_us=3070 wall_us=194324 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189447 read_us=1115 max_read_us=1115 wall_us=190763 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189363 read_us=4240 max_read_us=3108 wall_us=194405 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189238 read_us=1075 max_read_us=1075 wall_us=190500 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 35/130 glyphs, about 43276 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189255 read_us=4128 max_read_us=3000 wall_us=194502 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189519 read_us=1126 max_read_us=1126 wall_us=190852 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189318 read_us=4210 max_read_us=3074 wall_us=194331 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189257 read_us=1079 max_read_us=1079 wall_us=190523 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189370 read_us=4125 max_read_us=2997 wall_us=194285 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189650 read_us=1123 max_read_us=1123 wall_us=190987 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189353 read_us=3212 max_read_us=2078 wall_us=193384 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189253 read_us=1080 max_read_us=1080 wall_us=190524 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189376 read_us=3204 max_read_us=2065 wall_us=193367 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189245 read_us=1138 max_read_us=1138 wall_us=190580 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189383 read_us=3233 max_read_us=2099 wall_us=193413 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189235 read_us=1093 max_read_us=1093 wall_us=190518 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=189396 read_us=4169 max_read_us=3031 wall_us=194352 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189381 read_us=1117 max_read_us=1117 wall_us=190696 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189298 read_us=3241 max_read_us=2113 wall_us=193339 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189214 read_us=1101 max_read_us=1101 wall_us=190506 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189283 read_us=4176 max_read_us=3045 wall_us=194247 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189502 read_us=1127 max_read_us=1127 wall_us=190826 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 44/130 glyphs, about 39143 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189326 read_us=3235 max_read_us=2098 wall_us=193852 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189074 read_us=1100 max_read_us=1100 wall_us=190368 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189320 read_us=3205 max_read_us=2081 wall_us=193313 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189420 read_us=1126 max_read_us=1126 wall_us=190743 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189470 read_us=3266 max_read_us=2131 wall_us=193554 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189100 read_us=1081 max_read_us=1081 wall_us=190370 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=132 open_us=189331 read_us=3214 max_read_us=2077 wall_us=193356 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 96% 4.1V | up 0:03 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189646 read_us=1128 max_read_us=1128 wall_us=190993 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=110 open_us=189347 read_us=4245 max_read_us=3120 wall_us=194409 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189194 read_us=1083 max_read_us=1083 wall_us=190473 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189298 read_us=3240 max_read_us=2103 wall_us=193323 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189242 read_us=1140 max_read_us=1140 wall_us=190576 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=127 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189327 read_us=3240 max_read_us=2111 wall_us=193366 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189081 read_us=1069 max_read_us=1069 wall_us=190344 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189335 read_us=3199 max_read_us=2069 wall_us=193322 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189432 read_us=1124 max_read_us=1124 wall_us=190753 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189322 read_us=4235 max_read_us=3113 wall_us=194360 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189086 read_us=1073 max_read_us=1073 wall_us=190354 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 53/130 glyphs, about 35006 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189336 read_us=3201 max_read_us=2063 wall_us=193659 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189443 read_us=1120 max_read_us=1120 wall_us=190764 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=128 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189322 read_us=3232 max_read_us=2109 wall_us=193359 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189040 read_us=1075 max_read_us=1075 wall_us=190310 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=123 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=128 open_us=189327 read_us=3203 max_read_us=2065 wall_us=193329 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189445 read_us=1126 max_read_us=1126 wall_us=190764 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=128 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189337 read_us=3222 max_read_us=2096 wall_us=193363 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189088 read_us=1077 max_read_us=1077 wall_us=190360 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189521 read_us=4205 max_read_us=3057 wall_us=194534 scalars=130 lookups=0[0m
+[32mINFO - battery: cell 4116 mV, 94% (periodic)[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189393 read_us=1145 max_read_us=1145 wall_us=190739 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189351 read_us=4182 max_read_us=3051 wall_us=194356 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189530 read_us=1138 max_read_us=1138 wall_us=190888 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189327 read_us=3214 max_read_us=2078 wall_us=193340 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189458 read_us=1122 max_read_us=1122 wall_us=190780 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=122 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189350 read_us=3233 max_read_us=2100 wall_us=193387 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189193 read_us=1135 max_read_us=1135 wall_us=190525 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189307 read_us=3229 max_read_us=2108 wall_us=193318 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189547 read_us=1115 max_read_us=1115 wall_us=190863 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 62/130 glyphs, about 30949 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189323 read_us=3237 max_read_us=2108 wall_us=193839 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189187 read_us=1087 max_read_us=1087 wall_us=190462 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189376 read_us=3226 max_read_us=2099 wall_us=193394 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189479 read_us=1119 max_read_us=1119 wall_us=190799 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189309 read_us=3236 max_read_us=2107 wall_us=193351 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189162 read_us=1073 max_read_us=1073 wall_us=190424 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189326 read_us=3216 max_read_us=2082 wall_us=193329 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189506 read_us=1122 max_read_us=1122 wall_us=190828 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189331 read_us=3249 max_read_us=2117 wall_us=193386 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189171 read_us=1087 max_read_us=1087 wall_us=190446 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189372 read_us=3211 max_read_us=2070 wall_us=193375 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189512 read_us=1115 max_read_us=1115 wall_us=190840 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189482 read_us=3267 max_read_us=2135 wall_us=193575 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189242 read_us=1075 max_read_us=1075 wall_us=190509 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189317 read_us=4251 max_read_us=3114 wall_us=194395 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189626 read_us=1133 max_read_us=1133 wall_us=190973 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189343 read_us=3252 max_read_us=2125 wall_us=193419 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189261 read_us=1072 max_read_us=1072 wall_us=190528 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 71/130 glyphs, about 26888 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189333 read_us=4226 max_read_us=3085 wall_us=194875 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189327 read_us=1138 max_read_us=1138 wall_us=190663 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=128 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189356 read_us=3202 max_read_us=2073 wall_us=193378 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189181 read_us=1080 max_read_us=1080 wall_us=190456 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189324 read_us=3176 max_read_us=2034 wall_us=193301 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189478 read_us=1119 max_read_us=1119 wall_us=190788 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=128 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=189341 read_us=3191 max_read_us=2069 wall_us=193344 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189147 read_us=1074 max_read_us=1074 wall_us=190416 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189383 read_us=4152 max_read_us=3010 wall_us=194328 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189465 read_us=1124 max_read_us=1124 wall_us=190779 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=127 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189321 read_us=4164 max_read_us=3039 wall_us=194297 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189130 read_us=1069 max_read_us=1069 wall_us=190394 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189293 read_us=3220 max_read_us=2083 wall_us=193307 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189467 read_us=1126 max_read_us=1126 wall_us=190787 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=128 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189346 read_us=3248 max_read_us=2122 wall_us=193405 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189177 read_us=1082 max_read_us=1082 wall_us=190461 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189492 read_us=3239 max_read_us=2096 wall_us=193542 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189334 read_us=1118 max_read_us=1118 wall_us=190654 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=127 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 80/130 glyphs, about 22751 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189305 read_us=3240 max_read_us=2111 wall_us=193850 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189516 read_us=1136 max_read_us=1136 wall_us=190873 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189329 read_us=3268 max_read_us=2135 wall_us=193417 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189393 read_us=1126 max_read_us=1126 wall_us=190713 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189319 read_us=3253 max_read_us=2120 wall_us=193392 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189237 read_us=1130 max_read_us=1130 wall_us=190560 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189294 read_us=3249 max_read_us=2130 wall_us=193332 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189479 read_us=1114 max_read_us=1114 wall_us=190787 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189355 read_us=3259 max_read_us=2130 wall_us=193430 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189396 read_us=1089 max_read_us=1089 wall_us=190667 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=122 open_us=189382 read_us=3232 max_read_us=2095 wall_us=193419 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189512 read_us=1114 max_read_us=1114 wall_us=190820 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189253 read_us=3271 max_read_us=2141 wall_us=193339 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189327 read_us=1122 max_read_us=1122 wall_us=190647 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189322 read_us=3227 max_read_us=2100 wall_us=193349 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189482 read_us=1125 max_read_us=1125 wall_us=190801 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189314 read_us=3247 max_read_us=2114 wall_us=193378 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189218 read_us=1081 max_read_us=1081 wall_us=190492 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 89/130 glyphs, about 18687 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189322 read_us=4238 max_read_us=3101 wall_us=194681 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189501 read_us=1114 max_read_us=1114 wall_us=190818 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189585 read_us=3291 max_read_us=2158 wall_us=193707 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189289 read_us=1078 max_read_us=1078 wall_us=190550 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189308 read_us=3226 max_read_us=2095 wall_us=193342 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189648 read_us=1129 max_read_us=1129 wall_us=190987 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189337 read_us=3281 max_read_us=2154 wall_us=193448 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189186 read_us=1075 max_read_us=1075 wall_us=190452 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189320 read_us=3242 max_read_us=2101 wall_us=193358 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189350 read_us=1142 max_read_us=1142 wall_us=190688 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189331 read_us=4267 max_read_us=3138 wall_us=194411 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189227 read_us=1070 max_read_us=1070 wall_us=190488 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189329 read_us=3245 max_read_us=2112 wall_us=193379 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189482 read_us=1119 max_read_us=1119 wall_us=190793 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189368 read_us=3277 max_read_us=2151 wall_us=193471 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189105 read_us=1079 max_read_us=1079 wall_us=190375 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189336 read_us=3237 max_read_us=2097 wall_us=193375 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189428 read_us=1126 max_read_us=1126 wall_us=190747 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 98/130 glyphs, about 14595 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189323 read_us=4268 max_read_us=3138 wall_us=194930 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189139 read_us=1079 max_read_us=1079 wall_us=190414 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189297 read_us=3244 max_read_us=2113 wall_us=193339 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189385 read_us=1125 max_read_us=1125 wall_us=190702 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189321 read_us=4269 max_read_us=3146 wall_us=194417 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189200 read_us=1075 max_read_us=1075 wall_us=190467 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189496 read_us=3263 max_read_us=2127 wall_us=193576 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189484 read_us=1118 max_read_us=1118 wall_us=190795 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=116 open_us=189326 read_us=3266 max_read_us=2136 wall_us=193406 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189520 read_us=1138 max_read_us=1138 wall_us=190871 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189315 read_us=3282 max_read_us=2151 wall_us=193414 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189502 read_us=1122 max_read_us=1122 wall_us=190818 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189299 read_us=3263 max_read_us=2128 wall_us=193381 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189252 read_us=1127 max_read_us=1127 wall_us=190575 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189302 read_us=3255 max_read_us=2134 wall_us=193348 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189529 read_us=1118 max_read_us=1118 wall_us=190842 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=122 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189359 read_us=3246 max_read_us=2118 wall_us=193429 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189190 read_us=1080 max_read_us=1080 wall_us=190455 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 107/130 glyphs, about 10456 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189325 read_us=3186 max_read_us=2055 wall_us=193637 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189464 read_us=1114 max_read_us=1114 wall_us=190780 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189272 read_us=3240 max_read_us=2110 wall_us=193331 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189185 read_us=1080 max_read_us=1080 wall_us=190458 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189316 read_us=4160 max_read_us=3026 wall_us=194293 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189489 read_us=1116 max_read_us=1116 wall_us=190798 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189342 read_us=4220 max_read_us=3092 wall_us=194382 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189181 read_us=1083 max_read_us=1083 wall_us=190450 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189303 read_us=3211 max_read_us=2074 wall_us=193316 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189428 read_us=1119 max_read_us=1119 wall_us=190741 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189306 read_us=3219 max_read_us=2090 wall_us=193361 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189229 read_us=1071 max_read_us=1071 wall_us=190484 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189348 read_us=3201 max_read_us=2065 wall_us=193364 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 94% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189663 read_us=1131 max_read_us=1131 wall_us=191004 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189339 read_us=3285 max_read_us=2160 wall_us=193460 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189287 read_us=1077 max_read_us=1077 wall_us=190564 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189309 read_us=3255 max_read_us=2113 wall_us=193363 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189326 read_us=1138 max_read_us=1138 wall_us=190656 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 116/130 glyphs, about 6370 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189336 read_us=3259 max_read_us=2130 wall_us=193910 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189207 read_us=1085 max_read_us=1085 wall_us=190487 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=119 open_us=189318 read_us=3265 max_read_us=2132 wall_us=193382 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189468 read_us=1123 max_read_us=1123 wall_us=190784 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189328 read_us=3228 max_read_us=2107 wall_us=193386 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189172 read_us=1073 max_read_us=1073 wall_us=190436 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189321 read_us=3223 max_read_us=2081 wall_us=193348 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189382 read_us=1119 max_read_us=1119 wall_us=190698 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189304 read_us=4186 max_read_us=3062 wall_us=194316 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189313 read_us=1072 max_read_us=1072 wall_us=190577 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=116 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=144 open_us=189290 read_us=3225 max_read_us=2087 wall_us=193319 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189513 read_us=1130 max_read_us=1130 wall_us=190836 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=119 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=113 open_us=189312 read_us=3241 max_read_us=2116 wall_us=193379 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189147 read_us=1091 max_read_us=1091 wall_us=190430 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=140 open_us=189342 read_us=3171 max_read_us=2031 wall_us=193344 scalars=130 lookups=0[0m
+[32mINFO - battery: cell 4132 mV, 95% (periodic)[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189469 read_us=1133 max_read_us=1133 wall_us=190809 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189357 read_us=4201 max_read_us=3072 wall_us=194393 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 95% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189431 read_us=1140 max_read_us=1140 wall_us=190793 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 125/130 glyphs, about 2280 ms left[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189382 read_us=4228 max_read_us=3095 wall_us=194780 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189512 read_us=1121 max_read_us=1121 wall_us=190835 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=148 open_us=189368 read_us=3285 max_read_us=2157 wall_us=193477 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189204 read_us=1134 max_read_us=1134 wall_us=190538 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=152 open_us=189351 read_us=3274 max_read_us=2156 wall_us=193424 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189426 read_us=1129 max_read_us=1129 wall_us=190749 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=52 open_us=189333 read_us=3282 max_read_us=2150 wall_us=193443 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189258 read_us=1070 max_read_us=1070 wall_us=190514 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=117 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=49 open_us=189332 read_us=3258 max_read_us=2127 wall_us=193399 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank opens=1 reads=1 bytes=44 open_us=189558 read_us=1122 max_read_us=1122 wall_us=190873 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=121 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare opens=1 reads=2 bytes=58 open_us=189313 read_us=3284 max_read_us=2156 wall_us=193396 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 95% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 480x794 at (0, 6) in 832 ms (partial count 3)[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 95% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 95% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 95% 4.1V | up 0:04 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m

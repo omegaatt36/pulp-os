@@ -22,6 +22,9 @@ board-x4 = []
 # declared only so the production files' cfg(feature = "board-onepage-c61")
 # arms are known; never enabled
 board-onepage-c61 = []
+# declared only so the production files' cfg(feature = "sd-metrics") arms are known;
+# never enabled (the measurement build is firmware-only)
+sd-metrics = []
 
 [dependencies]
 pulp-fontpack = { path = "../fontpack" }

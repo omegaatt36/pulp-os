@@ -83,6 +83,11 @@ wifi = [
 # Build with `cargo build-c61-partial`.
 partial-refresh = ["pulp-kernel/partial-refresh"]
 
+# CJK pack read measurement (count, bytes, time, distinct scalars; one log line per
+# preparation). Off by default; the default image carries none of it.
+# Build with `cargo build-c61-sd-metrics`.
+sd-metrics = ["pulp-kernel/sd-metrics"]
+
 board-x4          = ["pulp-kernel/board-x4"]
 board-onepage-c61 = ["pulp-kernel/board-onepage-c61"]
 

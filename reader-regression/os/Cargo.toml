@@ -8,6 +8,7 @@ build = "build.rs"
 default = ["board-x4"]
 board-x4 = ["pulp-kernel/board-x4"]
 board-onepage-c61 = []
+sd-metrics = []
 
 [dependencies]
 pulp-fontpack = { path = "../../fontpack" }

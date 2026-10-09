@@ -45,7 +45,7 @@ pub use app::{
 pub use bigbuf::{BigBuf, BufClass, BufError, FONT_GLYPHS_PSRAM_BYTES};
 pub use bookmarks::BookmarkCache;
 pub use handle::KernelHandle;
-pub use wake::uptime_secs;
+pub use wake::{uptime_secs, uptime_us};
 
 use crate::drivers::sdcard::SdStorage;
 use dir_cache::DirCache;
@@ -79,6 +79,11 @@ impl Kernel {
 
     pub fn sd(&self) -> &SdStorage {
         &self.sd
+    }
+
+    // the card slot: false is a removed card (storage calls fail with NoCard)
+    pub fn set_card_present(&mut self, present: bool) {
+        self.sd.set_mounted(present);
     }
 
     // what the scheduler does at boot: load the bookmark cache from the card

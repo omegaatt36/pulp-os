@@ -12,6 +12,7 @@ default = ["board-x4"]
 board-x4 = []
 # declared only so the real files' cfg(feature = "board-onepage-c61") arms are known (never enabled)
 board-onepage-c61 = []
+sd-metrics = []
 
 [dependencies]
 esp-hal = { path = "../esp-hal-shim" }

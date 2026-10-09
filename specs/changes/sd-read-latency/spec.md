@@ -25,3 +25,16 @@ WHEN Files is entered or re-entered with CJK-titled books on the card THE SYSTEM
 WHEN an English-only TXT or EPUB is opened THE SYSTEM SHALL NOT incur CJK pack reads (baseline: ENG.TXT and a re-opened ENG.EPUB open almost instantly).
 
 Scenario (R3): Given `ZH2.TXT` (400 chars, 252 distinct) and the installed pack set, When it is opened from Files, Then the first page is shown within the R3 target and the log reports the R1 counters.
+
+## Measured (C61, SD 10 MHz, `sd-metrics` build; logs in `specs/hardware-records/sd-read-latency-*.log`)
+
+Per index probe: ~1.1 ms average (max ~2 ms, one SD block); ~14 probes per looked-up scalar (~15 ms). Elapsed time was not stopwatch-timed: figures below are derived from the log counters and are estimates.
+
+| Build | Cost per slice | Glyphs per slice | ZH2.TXT (247 distinct) |
+|---|---|---|---|
+| Original (T1 baseline, K2) | ~5 s per scalar, no slicing | n/a | >28 min unfinished |
+| Single open per phase (`sd-read-latency-1`) | open ~190 ms (fixed) + ~15 ms reads, 3 opens per glyph in bitmap phase | 1 | ~40 s |
+| Held pack handle (`-2`) | open ~0.1 ms | 1 (slice clock started before the page read) | ~20 s |
+| Slice clock starts at first glyph (`-3`) | gap between slices ~69 ms, slice ~60-75 ms | 4-5 | ~9 s |
+
+R3 target kept at 10 s for a 700-scalar page, which is not met yet: at ~30 ms per scalar a 698-scalar CJK EPUB chapter is ~20 s. Remaining cost per scalar is ~14 probes (~90% of in-slice time) plus the ~69 ms gap per slice.

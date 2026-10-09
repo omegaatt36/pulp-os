@@ -179,3 +179,9 @@ pub const CHARS_PER_LINE: usize = super::reader::CHARS_PER_LINE;
 pub fn drop_fonts(a: &mut ReaderApp) {
     a.fonts = None;
 }
+
+// Another clock and slice length for the reader's CJK preparation (see
+// fonts::cjk::CjkState::set_pace); the reader arms and ends slices itself.
+pub fn set_cjk_pace(a: &mut ReaderApp, now: fn() -> u64, slice_us: u32) {
+    a.cjk.set_pace(now, slice_us);
+}

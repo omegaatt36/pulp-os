@@ -39,7 +39,7 @@ pub use bigbuf::{BigBuf, BufClass, BufError, FONT_GLYPHS_PSRAM_BYTES};
 pub use bookmarks::BookmarkCache;
 pub use console::BootConsole;
 pub use handle::KernelHandle;
-pub use wake::uptime_secs;
+pub use wake::{uptime_secs, uptime_us};
 
 use esp_hal::delay::Delay;
 

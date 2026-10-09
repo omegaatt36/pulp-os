@@ -1,0 +1,502 @@
+warning: associated items `FLAG_BOLD`, `FLAG_ITALIC`, `FLAG_HEADING`, `style`, and `pack_flags` are never used
+   --> src/apps/reader/mod.rs:186:22
+    |
+178 | impl LineSpan {
+    | ------------- associated items in this implementation
+...
+186 |     pub(super) const FLAG_BOLD: u8 = 1 << 0;
+    |                      ^^^^^^^^^
+187 |     pub(super) const FLAG_ITALIC: u8 = 1 << 1;
+    |                      ^^^^^^^^^^^
+188 |     pub(super) const FLAG_HEADING: u8 = 1 << 2;
+    |                      ^^^^^^^^^^^^
+...
+201 |     pub(super) fn style(&self) -> fonts::Style {
+    |                   ^^^^^
+...
+213 |     pub(super) fn pack_flags(bold: bool, italic: bool, heading: bool) -> u8 {
+    |                   ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `pulp-os` (lib) generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.09s
+     Running `/home/raiven/dev/pulp-os/scripts/run-c61.sh target/riscv32imac-unknown-none-elf/release/pulp-os-c61`
+[2026-10-09T10:49:23Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T10:49:23Z INFO ] Connecting...
+[2026-10-09T10:49:23Z INFO ] Using flash stub
+[2026-10-09T10:49:23Z INFO ] Flash content successfully read and written to '/tmp/tmp.29qUHOzATK/head.bin'!
+Chip type:         esp32c61
+Merge:             false
+Skip padding:      false
+App/part. size:    881,712/16,384,000 bytes, 5.38%
+[2026-10-09T10:49:24Z INFO ] Image successfully saved!
+[2026-10-09T10:49:24Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T10:49:24Z INFO ] Connecting...
+[2026-10-09T10:49:25Z INFO ] Using flash stub
+Chip type:         esp32c61 (revision v1.1)
+Crystal frequency: 40 MHz
+Flash size:        16MB
+Features:          WiFi 6, BT 5
+MAC address:       88:56:a6:cf:da:90
+[2026-10-09T10:49:35Z INFO ] Binary successfully written to flash!
+[2026-10-09T10:49:35Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T10:49:35Z INFO ] Connecting...
+[2026-10-09T10:49:35Z INFO ] Using flash stub
+Commands:
+    CTRL+R    Reset chip
+    CTRL+C    Exit
+
+ESP-ROM:esp32c61-eco4-20250829
+Build:Aug 29 2025
+rst:0x15 (USB_UART_HPSYS),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPI mode:DIO, clock div:1
+load:0x40845b90,len:0x11e0
+load:0x4083bd70,len:0xad4
+load:0x4083ea70,len:0x3008
+entry 0x4083bd70
+[32mINFO - Detected PSRAM chip id = e3b4135a5d0d[0m
+[32mINFO - Detected PSRAM chip density = 2[0m
+[32mINFO - PSRAM size is 8388608[0m
+[32mINFO - PSRAM size: 8 MB[0m
+[32mINFO - psram: 2097152 B at 0x420d0000, heap registered[0m
+[32mINFO - psram: ready[0m
+[32mINFO - memory Internal: pool 0 / 162304 B[0m
+[32mINFO - memory Psram: pool 0 / 1900544 B[0m
+[32mINFO - memory class chapter-text Psram: reserved 0 / 262144 B, peak 0 B[0m
+[32mINFO - memory class image-data   Psram: reserved 0 / 524288 B, peak 0 B[0m
+[32mINFO - memory class page-table   Psram: reserved 0 / 65536 B, peak 0 B[0m
+[32mINFO - memory class zip-toc      Psram: reserved 0 / 262144 B, peak 0 B[0m
+[32mINFO - memory class font-glyphs  Psram: reserved 0 / 262144 B, peak 0 B[0m
+[32mINFO - memory class net-scratch  Psram: reserved 0 / 32768 B, peak 0 B[0m
+[32mINFO - heap internal: used 0 B, free 162304 B; psram heap: used 0 B, free 2097152 B[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B[0m
+[32mINFO - gpio27 power-cycled, state=PowerCycled[0m
+[32mINFO - pulp-os c61: esp32c61 rv32imac, rtos + embassy up, wake PowerOn[0m
+[32mINFO - spi2: sck=GPIO22 mosi=GPIO23 miso=GPIO24, epd_cs=GPIO25 sd_cs=GPIO26, dma ch0 4096B tx+rx, 400 kHz[0m
+[32mINFO - sd: 63864569856 bytes (60906 MB), attempt 1[0m
+[32mINFO - SD card: filesystem mounted[0m
+[32mINFO - SD: ok[0m
+[32mINFO - spi2: 400 kHz -> 10000 kHz[0m
+[32mINFO - sd: fat32 mounted[0m
+[32mINFO - battery: cell 4600 mV, 100%[0m
+[32mINFO - bookmarks: loaded 5 slots from SD[0m
+[32mINFO - settings: loaded from SETTINGS.TXT[0m
+[32mINFO - font: size_idx=3 line_h=37 (native 37 x 100%) ascent=30 max_lines=20 margin=8[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 8K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B[0m
+[32mINFO - boot: session restore (cause PowerOn, slot B seq 6)[0m
+[32mINFO - session: restored nav stack depth=1 active=Home[0m
+[32mINFO - home: restore_state state=Menu selected=0[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - cjk-sd op=stage gap_us=1215449 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=58 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=723 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=58 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=683 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=4 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=418 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=4 scalars=0 lookups=0[0m
+[32mINFO - ui ready.[0m
+[32mINFO - kernel ready.[0m
+[32mINFO - [work] worker ready[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 8K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B[0m
+[32mINFO - display: partial refresh 280x118 at (100, 87) in 656 ms (partial count 1)[0m
+[32mINFO - app: Home -> Files[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 13K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B[0m
+[32mINFO - cjk-sd op=stage gap_us=5487907 opens=1 reads=36 bytes=814 open_us=189403 read_us=40317 max_read_us=1990 wall_us=230196 scalars=3 lookups=3[0m
+[32mINFO - cjk-sd op=prepare gap_us=833 opens=1 reads=4 bytes=360 open_us=126 read_us=8142 max_read_us=2843 wall_us=8996 scalars=3 lookups=0[0m
+[32mINFO - titles: scan complete[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x167 at (16, 8) in 672 ms (partial count 1)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x223 at (16, 8) in 683 ms (partial count 2)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x279 at (16, 8) in 692 ms (partial count 3)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x335 at (16, 8) in 703 ms (partial count 4)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x391 at (16, 8) in 714 ms (partial count 5)[0m
+[32mINFO - app: Files -> Reader[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - [work] reset -> gen 1[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - reader: opening ZH1.TXT[0m
+[32mINFO - bookmark: restoring off=0 ch=0 for ZH1.TXT[0m
+[32mINFO - reader: opened ZH1.TXT (43 bytes)[0m
+[32mINFO - cjk: lookup 5/14 glyphs, about 119 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=8665243 opens=1 reads=61 bytes=1364 open_us=123 read_us=65903 max_read_us=2044 wall_us=67020 scalars=14 lookups=5[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 316 B; reserved 0 / 1900544 B, peak 320 B[0m
+[32mINFO - cjk-sd op=stage gap_us=3529 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=20 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=661 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=58 scalars=0 lookups=0[0m
+[32mINFO - cjk: lookup 10/14 glyphs, about 57 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=3950452 opens=1 reads=65 bytes=1452 open_us=142 read_us=71129 max_read_us=2022 wall_us=72485 scalars=14 lookups=5[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 316 B; reserved 0 / 1900544 B, peak 320 B[0m
+[32mINFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 1)[0m
+[32mINFO - cjk-sd op=stage gap_us=719603 opens=1 reads=53 bytes=1188 open_us=147 read_us=57094 max_read_us=2016 wall_us=57745 scalars=14 lookups=4[0m
+[32mINFO - cjk-sd op=bank gap_us=878 opens=1 reads=1 bytes=44 open_us=70 read_us=1182 max_read_us=1182 wall_us=1346 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=1501 opens=1 reads=2 bytes=53 open_us=127 read_us=2525 max_read_us=2492 wall_us=3643 scalars=14 lookups=0[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 1020 B, free 2096132 B, peak 1020 B; reserved 1024 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=bank gap_us=2958 opens=1 reads=1 bytes=44 open_us=91 read_us=1448 max_read_us=1448 wall_us=1633 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=64923 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=86 scalars=14 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=1403 opens=1 reads=14 bytes=1052 open_us=108 read_us=27775 max_read_us=2943 wall_us=28607 scalars=14 lookups=0[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 1020 B, free 2096132 B, peak 1020 B; reserved 1024 / 1900544 B, peak 1024 B[0m
+[32mINFO - display: partial refresh 480x794 at (0, 6) in 774 ms (partial count 2)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 1020 B, free 2096132 B, peak 1020 B; reserved 1024 / 1900544 B, peak 1024 B[0m
+[32mINFO - app: Reader -> Files[0m
+[32mINFO - bookmark: cached off=0 ch=0 gen=12 for "ZH1.TXT"[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage gap_us=1148554 opens=1 reads=36 bytes=814 open_us=126 read_us=41303 max_read_us=2203 wall_us=41880 scalars=3 lookups=3[0m
+[32mINFO - cjk-sd op=prepare gap_us=802 opens=1 reads=4 bytes=360 open_us=122 read_us=7988 max_read_us=2842 wall_us=8824 scalars=3 lookups=0[0m
+[32mINFO - display: partial refresh 480x800 at (0, 0) in 794 ms (partial count 3)[0m
+[32mINFO - stats: heap 0/158K peak 0K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 316 B, free 2096836 B, peak 1020 B; reserved 320 / 1900544 B, peak 1024 B[0m
+[32mINFO - display: partial refresh 448x447 at (16, 8) in 724 ms (partial count 4)[0m
+[32mINFO - app: Files -> Reader[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - [work] reset -> gen 2[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - reader: opening ZH2.TXT[0m
+[32mINFO - bookmark: restoring off=0 ch=0 for ZH2.TXT[0m
+[32mINFO - reader: opened ZH2.TXT (1189 bytes)[0m
+[32mINFO - cjk: lookup 5/247 glyphs, about 3429 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=3707601 opens=1 reads=64 bytes=1430 open_us=118 read_us=70196 max_read_us=2064 wall_us=71337 scalars=247 lookups=5[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage gap_us=2931 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=19 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=482 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=58 scalars=0 lookups=0[0m
+[32mINFO - cjk: lookup 10/247 glyphs, about 3149 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=3964014 opens=1 reads=68 bytes=1518 open_us=135 read_us=65772 max_read_us=2019 wall_us=67198 scalars=247 lookups=5[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage gap_us=70434 opens=1 reads=64 bytes=1430 open_us=90 read_us=64423 max_read_us=2023 wall_us=65046 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69574 opens=1 reads=64 bytes=1430 open_us=83 read_us=62535 max_read_us=2011 wall_us=63093 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68865 opens=1 reads=67 bytes=1496 open_us=70 read_us=64515 max_read_us=2021 wall_us=65095 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69005 opens=1 reads=62 bytes=1386 open_us=85 read_us=65488 max_read_us=2030 wall_us=66068 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68416 opens=1 reads=61 bytes=1364 open_us=62 read_us=61672 max_read_us=2019 wall_us=62221 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68971 opens=1 reads=68 bytes=1518 open_us=81 read_us=64632 max_read_us=2029 wall_us=65228 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68261 opens=1 reads=66 bytes=1474 open_us=62 read_us=67473 max_read_us=2015 wall_us=68037 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69174 opens=1 reads=62 bytes=1386 open_us=81 read_us=70258 max_read_us=2033 wall_us=70847 scalars=247 lookups=5[0m
+[32mINFO - battery: cell 4170 mV, 97% (periodic)[0m
+[32mINFO - cjk-sd op=stage gap_us=99631 opens=1 reads=65 bytes=1452 open_us=82 read_us=65719 max_read_us=2025 wall_us=66369 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69342 opens=1 reads=62 bytes=1386 open_us=77 read_us=66802 max_read_us=2027 wall_us=67374 scalars=247 lookups=5[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage gap_us=70493 opens=1 reads=70 bytes=1562 open_us=79 read_us=68680 max_read_us=2017 wall_us=69335 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69294 opens=1 reads=61 bytes=1364 open_us=87 read_us=67773 max_read_us=2034 wall_us=68360 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68812 opens=1 reads=53 bytes=1188 open_us=67 read_us=60213 max_read_us=2023 wall_us=60737 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=69038 opens=1 reads=69 bytes=1540 open_us=84 read_us=73892 max_read_us=2026 wall_us=74495 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68445 opens=1 reads=63 bytes=1408 open_us=59 read_us=70816 max_read_us=2010 wall_us=71365 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69233 opens=1 reads=51 bytes=1144 open_us=82 read_us=64028 max_read_us=2032 wall_us=64552 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=68382 opens=1 reads=54 bytes=1210 open_us=66 read_us=78345 max_read_us=3844 wall_us=78874 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=69242 opens=1 reads=48 bytes=1078 open_us=81 read_us=66040 max_read_us=2029 wall_us=66561 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=68470 opens=1 reads=64 bytes=1430 open_us=66 read_us=68510 max_read_us=2011 wall_us=69077 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69029 opens=1 reads=62 bytes=1386 open_us=81 read_us=62805 max_read_us=2034 wall_us=63378 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68440 opens=1 reads=70 bytes=1562 open_us=62 read_us=73522 max_read_us=2021 wall_us=74113 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69111 opens=1 reads=56 bytes=1254 open_us=81 read_us=61405 max_read_us=2026 wall_us=61967 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68260 opens=1 reads=59 bytes=1320 open_us=67 read_us=62558 max_read_us=2015 wall_us=63111 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69219 opens=1 reads=68 bytes=1518 open_us=81 read_us=64634 max_read_us=2028 wall_us=65227 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68411 opens=1 reads=66 bytes=1474 open_us=62 read_us=63903 max_read_us=2009 wall_us=64473 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69193 opens=1 reads=63 bytes=1408 open_us=84 read_us=63905 max_read_us=2031 wall_us=64490 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68438 opens=1 reads=63 bytes=1408 open_us=63 read_us=66845 max_read_us=2012 wall_us=67400 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69051 opens=1 reads=65 bytes=1452 open_us=85 read_us=68837 max_read_us=2038 wall_us=69423 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68423 opens=1 reads=65 bytes=1452 open_us=62 read_us=65866 max_read_us=2016 wall_us=66433 scalars=247 lookups=5[0m
+[32mINFO - cjk: lookup 155/247 glyphs, about 1398 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=69248 opens=1 reads=52 bytes=1166 open_us=81 read_us=60343 max_read_us=2031 wall_us=61414 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=68210 opens=1 reads=50 bytes=1122 open_us=71 read_us=59871 max_read_us=2018 wall_us=60403 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=69214 opens=1 reads=54 bytes=1210 open_us=81 read_us=64409 max_read_us=2032 wall_us=64960 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68270 opens=1 reads=65 bytes=1452 open_us=63 read_us=62419 max_read_us=2007 wall_us=62990 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69042 opens=1 reads=59 bytes=1320 open_us=82 read_us=61680 max_read_us=2030 wall_us=62249 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68447 opens=1 reads=68 bytes=1518 open_us=66 read_us=65598 max_read_us=2011 wall_us=66184 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69070 opens=1 reads=55 bytes=1232 open_us=81 read_us=64760 max_read_us=2034 wall_us=65312 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=68430 opens=1 reads=66 bytes=1474 open_us=62 read_us=71175 max_read_us=2012 wall_us=71746 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69202 opens=1 reads=64 bytes=1430 open_us=85 read_us=67113 max_read_us=2029 wall_us=67700 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68441 opens=1 reads=61 bytes=1364 open_us=62 read_us=68691 max_read_us=2006 wall_us=69259 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69026 opens=1 reads=56 bytes=1254 open_us=81 read_us=60898 max_read_us=2028 wall_us=61459 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=68416 opens=1 reads=66 bytes=1474 open_us=63 read_us=72819 max_read_us=2013 wall_us=73399 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69236 opens=1 reads=68 bytes=1518 open_us=82 read_us=72719 max_read_us=2030 wall_us=73326 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68276 opens=1 reads=46 bytes=1034 open_us=66 read_us=69862 max_read_us=2010 wall_us=70379 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=69213 opens=1 reads=47 bytes=1056 open_us=81 read_us=61297 max_read_us=2040 wall_us=61829 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=68364 opens=1 reads=53 bytes=1188 open_us=66 read_us=70713 max_read_us=2012 wall_us=71250 scalars=247 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=69226 opens=1 reads=66 bytes=1474 open_us=81 read_us=74494 max_read_us=2034 wall_us=75098 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68438 opens=1 reads=64 bytes=1430 open_us=62 read_us=66847 max_read_us=2011 wall_us=67433 scalars=247 lookups=5[0m
+[32mINFO - stats: heap 5/158K peak 7K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 0 B, free 2097152 B, peak 1020 B; reserved 0 / 1900544 B, peak 1024 B[0m
+[32mINFO - cjk-sd op=stage gap_us=71156 opens=1 reads=70 bytes=1562 open_us=95 read_us=68049 max_read_us=2023 wall_us=68722 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=68560 opens=1 reads=63 bytes=1408 open_us=63 read_us=67689 max_read_us=2016 wall_us=68266 scalars=247 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=69507 opens=1 reads=37 bytes=836 open_us=85 read_us=42280 max_read_us=2017 wall_us=42739 scalars=247 lookups=3[0m
+[32mINFO - cjk-sd op=bank gap_us=760 opens=1 reads=1 bytes=44 open_us=70 read_us=1179 max_read_us=1179 wall_us=1338 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=3783 opens=1 reads=11 bytes=491 open_us=178 read_us=9993 max_read_us=2877 wall_us=12220 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank gap_us=1626 opens=1 reads=1 bytes=44 open_us=76 read_us=1312 max_read_us=1312 wall_us=1495 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=68450 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=132 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=3811 opens=1 reads=46 bytes=4394 open_us=139 read_us=55867 max_read_us=3105 wall_us=57305 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank gap_us=1991 opens=1 reads=1 bytes=44 open_us=87 read_us=1626 max_read_us=1626 wall_us=1820 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=68330 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=131 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=3688 opens=1 reads=42 bytes=4153 open_us=151 read_us=56704 max_read_us=2927 wall_us=58296 scalars=133 lookups=0[0m
+[32mINFO - cjk-sd op=bank gap_us=1329 opens=1 reads=1 bytes=44 open_us=78 read_us=1509 max_read_us=1509 wall_us=1669 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=68411 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=133 scalars=247 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=3516 opens=1 reads=38 bytes=3561 open_us=127 read_us=48332 max_read_us=2878 wall_us=49964 scalars=133 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 480x794 at (0, 6) in 835 ms (partial count 1)[0m
+[32mINFO - cjk-sd op=bank gap_us=1225082 opens=1 reads=1 bytes=44 open_us=122 read_us=2011 max_read_us=2011 wall_us=2338 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=2091 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=125 scalars=170 lookups=0[0m
+[32mINFO - cjk: bitmap 44/130 glyphs, about 118 ms left[0m
+[32mINFO - cjk-sd op=prepare gap_us=3556 opens=1 reads=45 bytes=3722 open_us=129 read_us=55700 max_read_us=2926 wall_us=57538 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 480x794 at (0, 6) in 769 ms (partial count 2)[0m
+[32mINFO - cjk-sd op=bank gap_us=773371 opens=1 reads=1 bytes=44 open_us=96 read_us=1784 max_read_us=1784 wall_us=2054 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=67883 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=124 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=3644 opens=1 reads=40 bytes=3923 open_us=128 read_us=55786 max_read_us=2891 wall_us=57284 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank gap_us=1865 opens=1 reads=1 bytes=44 open_us=103 read_us=1576 max_read_us=1576 wall_us=1782 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=67788 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=131 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=3685 opens=1 reads=38 bytes=3789 open_us=136 read_us=55298 max_read_us=2927 wall_us=56867 scalars=130 lookups=0[0m
+[32mINFO - cjk-sd op=bank gap_us=1191 opens=1 reads=1 bytes=44 open_us=90 read_us=1445 max_read_us=1445 wall_us=1624 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=67652 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=134 scalars=170 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=3737 opens=1 reads=11 bytes=756 open_us=145 read_us=16295 max_read_us=2849 wall_us=17384 scalars=130 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 480x794 at (0, 6) in 831 ms (partial count 3)[0m
+[32mINFO - cjk-sd op=bank gap_us=1500687 opens=1 reads=1 bytes=44 open_us=118 read_us=2035 max_read_us=2035 wall_us=2360 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=1583 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=126 scalars=49 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=1992 opens=1 reads=38 bytes=3552 open_us=139 read_us=57023 max_read_us=2886 wall_us=58262 scalars=49 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 480x794 at (0, 6) in 769 ms (partial count 4)[0m
+[32mINFO - cjk-sd op=bank gap_us=773691 opens=1 reads=1 bytes=44 open_us=96 read_us=1793 max_read_us=1793 wall_us=2055 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=stage gap_us=66275 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=120 scalars=49 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=2240 opens=1 reads=13 bytes=1151 open_us=120 read_us=20119 max_read_us=2882 wall_us=21095 scalars=49 lookups=0[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 480x794 at (0, 6) in 790 ms (partial count 5)[0m
+[32mINFO - stats: heap 8/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 20616 B, free 2076536 B, peak 20616 B; reserved 20624 / 1900544 B, peak 20624 B[0m
+[32mINFO - app: Reader -> Files[0m
+[32mINFO - bookmark: cached off=999 ch=0 gen=13 for "ZH2.TXT"[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - stats: heap 0/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8192 B, free 2088960 B, peak 20616 B; reserved 8192 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=stage gap_us=1287116 opens=1 reads=36 bytes=814 open_us=126 read_us=41365 max_read_us=2181 wall_us=41960 scalars=3 lookups=3[0m
+[32mINFO - cjk-sd op=prepare gap_us=797 opens=1 reads=4 bytes=360 open_us=118 read_us=8002 max_read_us=2847 wall_us=8827 scalars=3 lookups=0[0m
+[32mINFO - display: partial refresh 480x800 at (0, 0) in 794 ms (partial count 6)[0m
+[32mINFO - bookmarks: flushed 5 slots to SD[0m
+[32mINFO - stats: heap 0/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8508 B, free 2088644 B, peak 20616 B; reserved 8512 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 448x447 at (16, 8) in 725 ms (partial count 7)[0m
+[32mINFO - stats: heap 0/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8508 B, free 2088644 B, peak 20616 B; reserved 8512 / 1900544 B, peak 20624 B[0m
+[32mINFO - stats: heap 0/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8508 B, free 2088644 B, peak 20616 B; reserved 8512 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 448x391 at (16, 8) in 714 ms (partial count 8)[0m
+[32mINFO - stats: heap 0/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8508 B, free 2088644 B, peak 20616 B; reserved 8512 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 448x335 at (16, 8) in 704 ms (partial count 9)[0m
+[32mINFO - stats: heap 0/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8508 B, free 2088644 B, peak 20616 B; reserved 8512 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 448x279 at (16, 8) in 693 ms (partial count 10)[0m
+[32mINFO - stats: heap 0/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8508 B, free 2088644 B, peak 20616 B; reserved 8512 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 448x223 at (16, 8) in 683 ms (partial count 11)[0m
+[32mINFO - stats: heap 0/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8508 B, free 2088644 B, peak 20616 B; reserved 8512 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 448x167 at (16, 8) in 672 ms (partial count 12)[0m
+[32mINFO - stats: heap 0/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8508 B, free 2088644 B, peak 20616 B; reserved 8512 / 1900544 B, peak 20624 B[0m
+[32mINFO - app: Files -> Reader[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - [work] reset -> gen 3[0m
+[32mINFO - font: size_idx=3 line_h=59 (native 37 x 160%) ascent=30 max_lines=12 margin=40[0m
+[32mINFO - reader: opening ASSEMB~1.EPU[0m
+[32mINFO - epub: CD at offset 281729 size 1868 (283619 file bytes)[0m
+[32mINFO - epub: 28 entries in ZIP[0m
+[32mINFO - stats: heap 1/158K peak 8K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8192 B, free 2088960 B, peak 20616 B; reserved 8192 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=stage gap_us=8889094 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=58 scalars=0 lookups=0[0m
+[32mINFO - cjk-sd op=prepare gap_us=585 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=59 scalars=0 lookups=0[0m
+[32mINFO - zip: deflate stream 174 -> 257 bytes[0m
+[32mINFO - epub: OPF at OEBPS/content.opf[0m
+[32mINFO - zip: deflate stream 1047 -> 4106 bytes[0m
+[32mINFO - epub: TOC source = EPUB3 nav (zip #22)[0m
+[32mINFO - epub: "集合體" by 娜塔夏‧ 布朗（Natasha Brown） -- 17 chapters[0m
+[32mINFO - stats: heap 1/158K peak 9K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8192 B, free 2088960 B, peak 20616 B; reserved 8192 / 1900544 B, peak 20624 B[0m
+[32mINFO - cjk-sd op=stage gap_us=4296154 opens=1 reads=36 bytes=814 open_us=189561 read_us=39401 max_read_us=1952 wall_us=229456 scalars=3 lookups=3[0m
+[32mINFO - cjk-sd op=prepare gap_us=805 opens=1 reads=4 bytes=138 open_us=139 read_us=6102 max_read_us=1988 wall_us=7010 scalars=3 lookups=0[0m
+[32mINFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 1)[0m
+[32mINFO - zip: deflate stream 703 -> 1533 bytes[0m
+[32mINFO - epub: TOC has 9 entries[0m
+[32mINFO - stats: heap 15/158K peak 16K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 20616 B; reserved 8288 / 1900544 B, peak 20624 B[0m
+[32mINFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 2)[0m
+[32mINFO - epub: building v3 cache for 17 chapters[0m
+[32mINFO - cache-async: streaming deflate 418 -> 666 bytes[0m
+[32mINFO - epub: cached ch0/17 = 0 bytes at offset 264[0m
+[32mINFO - epub: priority cache ch1 (adjacent to ch0)[0m
+[32mINFO - cache-async: streaming deflate 703 -> 1533 bytes[0m
+[32mINFO - epub: cached ch1/17 = 240 bytes at offset 264[0m
+[32mINFO - stats: heap 15/158K peak 19K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 51556 B; reserved 8288 / 1900544 B, peak 51568 B[0m
+[32mINFO - stats: heap 15/158K peak 19K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:00 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 51556 B; reserved 8288 / 1900544 B, peak 51568 B[0m
+[32mINFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 3)[0m
+[32mINFO - epub: index chapter 1/17 (0 bytes cached text)[0m
+[32mINFO - cache-async: streaming deflate 4306 -> 8582 bytes[0m
+[32mINFO - epub: cached ch2/17 = 6745 bytes at offset 504[0m
+[32mINFO - battery: cell 4164 mV, 97% (periodic)[0m
+[32mINFO - stats: heap 15/158K peak 19K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 51556 B; reserved 8288 / 1900544 B, peak 51568 B[0m
+[32mINFO - display: partial refresh 448x24 at (8, 24) in 651 ms (partial count 4)[0m
+[32mINFO - cjk: lookup 5/698 glyphs, about 9676 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=5461929 opens=1 reads=64 bytes=1430 open_us=143 read_us=69090 max_read_us=2022 wall_us=70501 scalars=698 lookups=5[0m
+[32mINFO - stats: heap 31/158K peak 41K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 51556 B; reserved 8288 / 1900544 B, peak 51568 B[0m
+[32mINFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 5)[0m
+[32mINFO - cjk-sd op=stage gap_us=805237 opens=1 reads=68 bytes=1518 open_us=131 read_us=69046 max_read_us=1996 wall_us=69932 scalars=698 lookups=5[0m
+[32mINFO - stats: heap 31/158K peak 41K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 51556 B; reserved 8288 / 1900544 B, peak 51568 B[0m
+[32mINFO - cjk-sd op=stage gap_us=153541 opens=1 reads=60 bytes=1342 open_us=103 read_us=63431 max_read_us=1987 wall_us=64171 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150790 opens=1 reads=64 bytes=1430 open_us=77 read_us=62504 max_read_us=1994 wall_us=63162 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151460 opens=1 reads=67 bytes=1496 open_us=90 read_us=68205 max_read_us=1994 wall_us=68909 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150765 opens=1 reads=67 bytes=1496 open_us=80 read_us=60698 max_read_us=1992 wall_us=61377 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151475 opens=1 reads=62 bytes=1386 open_us=89 read_us=62599 max_read_us=1999 wall_us=63278 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150860 opens=1 reads=61 bytes=1364 open_us=77 read_us=63466 max_read_us=1988 wall_us=64122 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151825 opens=1 reads=69 bytes=1540 open_us=90 read_us=62489 max_read_us=1990 wall_us=63194 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150875 opens=1 reads=67 bytes=1496 open_us=77 read_us=67381 max_read_us=2007 wall_us=68078 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151803 opens=1 reads=67 bytes=1496 open_us=90 read_us=66667 max_read_us=1986 wall_us=67366 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150830 opens=1 reads=65 bytes=1452 open_us=77 read_us=66685 max_read_us=1998 wall_us=67359 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151720 opens=1 reads=61 bytes=1364 open_us=90 read_us=63777 max_read_us=1990 wall_us=64458 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150661 opens=1 reads=60 bytes=1342 open_us=76 read_us=61066 max_read_us=2002 wall_us=61716 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151790 opens=1 reads=58 bytes=1298 open_us=93 read_us=61719 max_read_us=1994 wall_us=62400 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150868 opens=1 reads=66 bytes=1474 open_us=77 read_us=63892 max_read_us=1998 wall_us=64585 scalars=698 lookups=5[0m
+[32mINFO - cjk: lookup 85/698 glyphs, about 7663 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=151452 opens=1 reads=67 bytes=1496 open_us=90 read_us=61969 max_read_us=1997 wall_us=63051 scalars=698 lookups=5[0m
+[32mINFO - stats: heap 31/158K peak 41K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 51556 B; reserved 8288 / 1900544 B, peak 51568 B[0m
+[32mINFO - cjk-sd op=stage gap_us=152928 opens=1 reads=69 bytes=1540 open_us=103 read_us=64835 max_read_us=1997 wall_us=65614 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151589 opens=1 reads=66 bytes=1474 open_us=89 read_us=64843 max_read_us=1995 wall_us=65539 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150687 opens=1 reads=63 bytes=1408 open_us=81 read_us=62762 max_read_us=1997 wall_us=63437 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151621 opens=1 reads=64 bytes=1430 open_us=93 read_us=64694 max_read_us=2005 wall_us=65406 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150806 opens=1 reads=70 bytes=1562 open_us=77 read_us=70389 max_read_us=1995 wall_us=71095 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151407 opens=1 reads=64 bytes=1430 open_us=89 read_us=70465 max_read_us=2004 wall_us=71166 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150760 opens=1 reads=62 bytes=1386 open_us=81 read_us=67596 max_read_us=1996 wall_us=68269 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151804 opens=1 reads=67 bytes=1496 open_us=89 read_us=70285 max_read_us=3804 wall_us=70993 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150847 opens=1 reads=64 bytes=1430 open_us=77 read_us=67531 max_read_us=1997 wall_us=68207 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151818 opens=1 reads=68 bytes=1518 open_us=89 read_us=69754 max_read_us=1991 wall_us=70467 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150636 opens=1 reads=67 bytes=1496 open_us=77 read_us=70911 max_read_us=1996 wall_us=71607 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151660 opens=1 reads=61 bytes=1364 open_us=89 read_us=66901 max_read_us=2005 wall_us=67596 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150806 opens=1 reads=65 bytes=1452 open_us=77 read_us=70702 max_read_us=1997 wall_us=71393 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151826 opens=1 reads=57 bytes=1276 open_us=93 read_us=66832 max_read_us=2000 wall_us=67510 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150627 opens=1 reads=53 bytes=1188 open_us=77 read_us=62933 max_read_us=1998 wall_us=63580 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=151695 opens=1 reads=66 bytes=1474 open_us=93 read_us=65923 max_read_us=2000 wall_us=66644 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150799 opens=1 reads=63 bytes=1408 open_us=77 read_us=72601 max_read_us=1999 wall_us=73283 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151829 opens=1 reads=70 bytes=1562 open_us=89 read_us=71605 max_read_us=1993 wall_us=72334 scalars=698 lookups=5[0m
+[32mINFO - cjk: lookup 179/698 glyphs, about 7004 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=150721 opens=1 reads=68 bytes=1518 open_us=77 read_us=66940 max_read_us=1997 wall_us=68033 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151293 opens=1 reads=65 bytes=1452 open_us=89 read_us=72683 max_read_us=1999 wall_us=73400 scalars=698 lookups=6[0m
+[32mINFO - cjk-sd op=stage gap_us=150668 opens=1 reads=68 bytes=1518 open_us=80 read_us=70958 max_read_us=1998 wall_us=71658 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151898 opens=1 reads=51 bytes=1144 open_us=90 read_us=62134 max_read_us=1997 wall_us=62792 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=150659 opens=1 reads=68 bytes=1518 open_us=81 read_us=70962 max_read_us=1994 wall_us=71681 scalars=698 lookups=5[0m
+[32mINFO - stats: heap 31/158K peak 41K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 51556 B; reserved 8288 / 1900544 B, peak 51568 B[0m
+[32mINFO - cjk-sd op=stage gap_us=153280 opens=1 reads=54 bytes=1210 open_us=107 read_us=60510 max_read_us=1997 wall_us=61250 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=150529 opens=1 reads=69 bytes=1540 open_us=81 read_us=73918 max_read_us=2002 wall_us=74637 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151158 opens=1 reads=64 bytes=1430 open_us=94 read_us=69012 max_read_us=2002 wall_us=69719 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150625 opens=1 reads=68 bytes=1518 open_us=81 read_us=74048 max_read_us=1990 wall_us=74746 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151297 opens=1 reads=63 bytes=1408 open_us=89 read_us=69129 max_read_us=2002 wall_us=69838 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150693 opens=1 reads=54 bytes=1210 open_us=81 read_us=63279 max_read_us=1993 wall_us=63932 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=151397 opens=1 reads=55 bytes=1232 open_us=89 read_us=70689 max_read_us=2001 wall_us=71363 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=150561 opens=1 reads=56 bytes=1254 open_us=80 read_us=80325 max_read_us=3843 wall_us=80996 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=151573 opens=1 reads=41 bytes=924 open_us=89 read_us=61106 max_read_us=3840 wall_us=61734 scalars=698 lookups=3[0m
+[32mINFO - cjk-sd op=stage gap_us=150788 opens=1 reads=52 bytes=1166 open_us=77 read_us=70941 max_read_us=3846 wall_us=71592 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=151223 opens=1 reads=49 bytes=1100 open_us=93 read_us=68095 max_read_us=2008 wall_us=68769 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=150617 opens=1 reads=47 bytes=1056 open_us=81 read_us=65972 max_read_us=2013 wall_us=66598 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=151066 opens=1 reads=51 bytes=1144 open_us=93 read_us=62406 max_read_us=2004 wall_us=63078 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=150769 opens=1 reads=63 bytes=1408 open_us=81 read_us=72292 max_read_us=2004 wall_us=72982 scalars=698 lookups=5[0m
+[32mINFO - cjk: lookup 264/698 glyphs, about 5842 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=151348 opens=1 reads=66 bytes=1474 open_us=89 read_us=66755 max_read_us=1990 wall_us=67874 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150490 opens=1 reads=63 bytes=1408 open_us=81 read_us=60889 max_read_us=2005 wall_us=61586 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151577 opens=1 reads=64 bytes=1430 open_us=89 read_us=67855 max_read_us=1997 wall_us=68568 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150800 opens=1 reads=69 bytes=1540 open_us=77 read_us=70907 max_read_us=2005 wall_us=71609 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151468 opens=1 reads=69 bytes=1540 open_us=89 read_us=62848 max_read_us=1988 wall_us=63587 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150585 opens=1 reads=69 bytes=1540 open_us=77 read_us=71887 max_read_us=2016 wall_us=72595 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151394 opens=1 reads=64 bytes=1430 open_us=93 read_us=68800 max_read_us=2005 wall_us=69523 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150707 opens=1 reads=56 bytes=1254 open_us=81 read_us=68020 max_read_us=1999 wall_us=68710 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151231 opens=1 reads=67 bytes=1496 open_us=94 read_us=71564 max_read_us=2008 wall_us=72294 scalars=698 lookups=5[0m
+[32mINFO - stats: heap 31/158K peak 41K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 51556 B; reserved 8288 / 1900544 B, peak 51568 B[0m
+[32mINFO - cjk-sd op=stage gap_us=152813 opens=1 reads=65 bytes=1452 open_us=103 read_us=62707 max_read_us=1993 wall_us=63493 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151521 opens=1 reads=53 bytes=1188 open_us=89 read_us=61613 max_read_us=2002 wall_us=62287 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150701 opens=1 reads=67 bytes=1496 open_us=81 read_us=65731 max_read_us=2005 wall_us=66449 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151363 opens=1 reads=66 bytes=1474 open_us=92 read_us=67687 max_read_us=2010 wall_us=68425 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150548 opens=1 reads=69 bytes=1540 open_us=81 read_us=63759 max_read_us=2008 wall_us=64474 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151457 opens=1 reads=63 bytes=1408 open_us=89 read_us=59676 max_read_us=1993 wall_us=60394 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150605 opens=1 reads=64 bytes=1430 open_us=77 read_us=66101 max_read_us=2000 wall_us=66808 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151607 opens=1 reads=68 bytes=1518 open_us=93 read_us=65090 max_read_us=2004 wall_us=65832 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150718 opens=1 reads=65 bytes=1452 open_us=76 read_us=72080 max_read_us=2002 wall_us=72788 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151616 opens=1 reads=63 bytes=1408 open_us=93 read_us=62001 max_read_us=1997 wall_us=62724 scalars=698 lookups=5[0m
+[32mINFO - cjk: lookup 359/698 glyphs, about 4444 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=150765 opens=1 reads=63 bytes=1408 open_us=77 read_us=65006 max_read_us=1994 wall_us=66097 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151286 opens=1 reads=62 bytes=1386 open_us=90 read_us=64974 max_read_us=2007 wall_us=65700 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150791 opens=1 reads=66 bytes=1474 open_us=77 read_us=65031 max_read_us=1997 wall_us=65745 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151475 opens=1 reads=71 bytes=1584 open_us=93 read_us=65026 max_read_us=2001 wall_us=65781 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150644 opens=1 reads=63 bytes=1408 open_us=77 read_us=66011 max_read_us=1998 wall_us=66722 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151629 opens=1 reads=68 bytes=1518 open_us=93 read_us=62960 max_read_us=2009 wall_us=63707 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150598 opens=1 reads=66 bytes=1474 open_us=77 read_us=69837 max_read_us=2009 wall_us=70564 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151240 opens=1 reads=65 bytes=1452 open_us=93 read_us=66887 max_read_us=1997 wall_us=67622 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150619 opens=1 reads=64 bytes=1430 open_us=77 read_us=64929 max_read_us=1995 wall_us=65639 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151404 opens=1 reads=70 bytes=1562 open_us=93 read_us=68930 max_read_us=2007 wall_us=69686 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150768 opens=1 reads=66 bytes=1474 open_us=77 read_us=67889 max_read_us=2009 wall_us=68612 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151582 opens=1 reads=64 bytes=1430 open_us=89 read_us=62907 max_read_us=2001 wall_us=63637 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150647 opens=1 reads=65 bytes=1452 open_us=77 read_us=71897 max_read_us=1990 wall_us=72620 scalars=698 lookups=5[0m
+[32mINFO - stats: heap 31/158K peak 41K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 51556 B; reserved 8288 / 1900544 B, peak 51568 B[0m
+[32mINFO - cjk-sd op=stage gap_us=153169 opens=1 reads=52 bytes=1166 open_us=107 read_us=64411 max_read_us=2000 wall_us=65172 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=150845 opens=1 reads=51 bytes=1144 open_us=81 read_us=62409 max_read_us=2006 wall_us=63091 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=151552 opens=1 reads=51 bytes=1144 open_us=93 read_us=61349 max_read_us=2001 wall_us=62040 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=150644 opens=1 reads=50 bytes=1122 open_us=80 read_us=61884 max_read_us=1989 wall_us=62551 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=151365 opens=1 reads=50 bytes=1122 open_us=89 read_us=60792 max_read_us=1997 wall_us=61478 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=150591 opens=1 reads=65 bytes=1452 open_us=81 read_us=72372 max_read_us=1987 wall_us=73086 scalars=698 lookups=5[0m
+[32mINFO - cjk: lookup 448/698 glyphs, about 3833 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=151448 opens=1 reads=55 bytes=1232 open_us=89 read_us=60797 max_read_us=1994 wall_us=62011 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=150513 opens=1 reads=50 bytes=1122 open_us=77 read_us=63643 max_read_us=2009 wall_us=64322 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=151469 opens=1 reads=53 bytes=1188 open_us=94 read_us=60641 max_read_us=1997 wall_us=61345 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150748 opens=1 reads=63 bytes=1408 open_us=77 read_us=62476 max_read_us=2001 wall_us=63192 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151671 opens=1 reads=59 bytes=1320 open_us=89 read_us=62496 max_read_us=1997 wall_us=63217 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150802 opens=1 reads=66 bytes=1474 open_us=77 read_us=63226 max_read_us=1999 wall_us=63947 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151547 opens=1 reads=68 bytes=1518 open_us=89 read_us=66310 max_read_us=2000 wall_us=67062 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150633 opens=1 reads=67 bytes=1496 open_us=77 read_us=70337 max_read_us=1993 wall_us=71064 scalars=698 lookups=6[0m
+[32mINFO - cjk-sd op=stage gap_us=151663 opens=1 reads=59 bytes=1320 open_us=89 read_us=63581 max_read_us=2002 wall_us=64304 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150827 opens=1 reads=67 bytes=1496 open_us=81 read_us=62795 max_read_us=2005 wall_us=63523 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151396 opens=1 reads=64 bytes=1430 open_us=93 read_us=64705 max_read_us=1992 wall_us=65446 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150789 opens=1 reads=65 bytes=1452 open_us=77 read_us=66536 max_read_us=1995 wall_us=67263 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151493 opens=1 reads=64 bytes=1430 open_us=89 read_us=68461 max_read_us=1994 wall_us=69205 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=150837 opens=1 reads=65 bytes=1452 open_us=81 read_us=70285 max_read_us=1996 wall_us=71016 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151532 opens=1 reads=55 bytes=1232 open_us=89 read_us=65439 max_read_us=2004 wall_us=66154 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=150752 opens=1 reads=53 bytes=1188 open_us=77 read_us=64058 max_read_us=2006 wall_us=64747 scalars=698 lookups=4[0m
+[32mINFO - cjk-sd op=stage gap_us=151295 opens=1 reads=68 bytes=1518 open_us=90 read_us=70940 max_read_us=1997 wall_us=71701 scalars=698 lookups=5[0m
+[32mINFO - stats: heap 31/158K peak 41K | stack free 68K hwm 17K | bat 97% 4.1V | up 0:01 | SD:ok[0m
+[32mINFO - heap psram: used 8288 B, free 2088864 B, peak 51556 B; reserved 8288 / 1900544 B, peak 51568 B[0m
+[32mINFO - cjk-sd op=stage gap_us=153020 opens=1 reads=65 bytes=1452 open_us=99 read_us=72401 max_read_us=2011 wall_us=73215 scalars=698 lookups=5[0m
+[32mINFO - cjk-sd op=stage gap_us=151558 opens=1 reads=59 bytes=1320 open_us=93 read_us=67098 max_read_us=1997 wall_us=67829 scalars=698 lookups=5[0m
+[32mINFO - cjk: lookup 541/698 glyphs, about 2159 ms left[0m
+[32mINFO - cjk-sd op=stage gap_us=150649 opens=1 reads=67 bytes=1496 open_us=77 read_us=68182 max_read_us=2000 wall_us=69460 scalars=698 lookups=5[0m

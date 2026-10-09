@@ -87,6 +87,49 @@ pub fn optional_file_size_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) 
     borrow(sd)?.optional_file_size_in_pulp_subdir(dir, name)
 }
 
+// stand-in for the firmware's open handle: a positioned read is one logged
+// read of the virtual card, an open is counted once per with_pulp_subdir_file
+pub struct SubdirFile<'a> {
+    card: &'a crate::storage::VirtualStorage,
+    dir: &'a str,
+    name: &'a str,
+    len: u32,
+}
+
+impl SubdirFile<'_> {
+    pub fn len(&self) -> R<u32> {
+        Ok(self.len)
+    }
+
+    pub fn read_at(&mut self, offset: u32, buf: &mut [u8]) -> R<usize> {
+        self.card
+            .read_chunk_in_pulp_subdir(self.dir, self.name, offset, buf)
+    }
+}
+
+pub fn with_pulp_subdir_file<T>(
+    sd: &SdStorage,
+    dir: &str,
+    name: &str,
+    f: impl FnOnce(Option<&mut SubdirFile<'_>>) -> R<T>,
+) -> R<T> {
+    let card = borrow(sd)?;
+    match card.optional_file_size_in_pulp_subdir(dir, name)? {
+        Some(len) => {
+            card.note_open();
+            let result = f(Some(&mut SubdirFile {
+                card,
+                dir,
+                name,
+                len,
+            }));
+            card.note_close();
+            result
+        }
+        None => f(None),
+    }
+}
+
 pub fn file_size_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> R<u32> {
     borrow(sd)?.file_size_in_pulp_subdir(dir, name)
 }

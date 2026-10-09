@@ -9,11 +9,11 @@
 
 use core::ops::ControlFlow;
 
-use embedded_sdmmc::Mode;
+use embedded_sdmmc::{Mode, RawFile};
 
 use crate::drivers::dir_entry::{DirEntry, TITLE_CAP, is_listed_name, title_line};
 pub use crate::drivers::dir_entry::{DirPage, PULP_DIR, TITLES_FILE};
-use crate::drivers::sdcard::{SdStorage, SdStorageInner, poll_once};
+use crate::drivers::sdcard::{HELD_KEY_LEN, HeldFile, SdStorage, SdStorageInner, poll_once};
 use crate::error::{Error, ErrorKind};
 
 // backward-compatible alias
@@ -461,6 +461,7 @@ pub fn write_in_pulp_subdir(
     poll_once(async {
         let mut guard = borrow(sd)?;
         let inner = &mut *guard;
+        release_held_in(inner, dir).await;
         in_subdir!(inner, PULP_DIR, dir, |sub_h| op_write!(
             inner, sub_h, name, data
         ))
@@ -476,6 +477,7 @@ pub fn append_in_pulp_subdir(
     poll_once(async {
         let mut guard = borrow(sd)?;
         let inner = &mut *guard;
+        release_held_in(inner, dir).await;
         in_subdir!(inner, PULP_DIR, dir, |sub_h| op_append!(
             inner, sub_h, name, data
         ))
@@ -495,6 +497,159 @@ pub fn read_chunk_in_pulp_subdir(
         in_subdir!(inner, PULP_DIR, dir, |sub_h| op_read_chunk!(
             inner, sub_h, name, offset, buf
         ))
+    })
+}
+
+// one read-only file held open for a whole caller closure; repeated
+// positioned reads skip the per-read dir walk, open and FAT chain re-walk.
+// borrows the SdStorage RefCell for the closure's duration, so the closure
+// must not call other storage functions
+pub struct SubdirFile<'a> {
+    inner: &'a mut SdStorageInner,
+    file: RawFile,
+}
+
+impl SubdirFile<'_> {
+    pub fn len(&self) -> crate::error::Result<u32> {
+        self.inner
+            .mgr
+            .file_length(self.file)
+            .map_err(|_| Error::new(ErrorKind::OpenFile, "subdir_file_len"))
+    }
+
+    // seek + one read; may return fewer bytes than asked, like read_chunk
+    pub fn read_at(&mut self, offset: u32, buf: &mut [u8]) -> crate::error::Result<usize> {
+        let (mgr, file) = (&mut self.inner.mgr, self.file);
+        poll_once(async {
+            match mgr.file_seek_from_start(file, offset) {
+                Ok(()) => mgr
+                    .read(file, buf)
+                    .await
+                    .map_err(|_| Error::new(ErrorKind::ReadFailed, "read_chunk")),
+                Err(_) => Err(Error::new(ErrorKind::SeekFailed, "read_chunk")),
+            }
+        })
+    }
+}
+
+// "<dir>/<name>" of a held file; None when it does not fit the slot key
+fn held_key(dir: &str, name: &str) -> Option<([u8; HELD_KEY_LEN], u8)> {
+    let len = dir.len() + 1 + name.len();
+    if len > HELD_KEY_LEN {
+        return None;
+    }
+    let mut key = [0u8; HELD_KEY_LEN];
+    key[..dir.len()].copy_from_slice(dir.as_bytes());
+    key[dir.len()] = b'/';
+    key[dir.len() + 1..len].copy_from_slice(name.as_bytes());
+    Some((key, len as u8))
+}
+
+// close the held file in `slot` (if any); a failed close still frees the handle
+async fn release_held(inner: &mut SdStorageInner, slot: usize) {
+    if let Some(held) = inner.held.slots[slot].take() {
+        let _ = inner.mgr.close_file(held.file).await;
+    }
+}
+
+// a held file points at the cluster chain it was opened with: drop every one
+// under `dir` before that directory is written or deleted
+async fn release_held_in(inner: &mut SdStorageInner, dir: &str) {
+    for slot in 0..inner.held.slots.len() {
+        let under = inner.held.slots[slot].is_some_and(|h| {
+            let key = &h.key[..usize::from(h.key_len)];
+            key.len() > dir.len() && key.starts_with(dir.as_bytes()) && key[dir.len()] == b'/'
+        });
+        if under {
+            release_held(inner, slot).await;
+        }
+    }
+}
+
+// run `f` on _PULP/<dir>/<name>; `f` gets None when FAT reports NotFound for
+// any of the three, other open errors are Err. the file stays open in a held
+// slot afterwards (reuse skips the ~190 ms dir walk and open on the C61); an Err
+// from `f` or a failed read releases it so the next call starts from a fresh
+// open. a card that fails mid-closure surfaces as Err from read_at, never a
+// panic
+pub fn with_pulp_subdir_file<T>(
+    sd: &SdStorage,
+    dir: &str,
+    name: &str,
+    f: impl FnOnce(Option<&mut SubdirFile<'_>>) -> crate::error::Result<T>,
+) -> crate::error::Result<T> {
+    poll_once(async {
+        let mut guard = borrow(sd)?;
+        let inner = &mut *guard;
+        let key = held_key(dir, name);
+        let held = key.and_then(|(k, len)| {
+            inner.held.slots.iter().position(|h| {
+                h.is_some_and(|h| {
+                    h.key_len == len && h.key[..usize::from(len)] == k[..usize::from(len)]
+                })
+            })
+        });
+        let (slot, file) = match held {
+            Some(slot) => (slot, inner.held.slots[slot].map(|h| h.file)),
+            None => {
+                let pulp = match inner.mgr.open_dir(inner.root, PULP_DIR).await {
+                    Ok(handle) => handle,
+                    Err(embedded_sdmmc::Error::NotFound) => return f(None),
+                    Err(_) => return Err(Error::new(ErrorKind::OpenDir, "subdir_file")),
+                };
+                let sub = match inner.mgr.open_dir(pulp, dir).await {
+                    Ok(handle) => handle,
+                    Err(e) => {
+                        let _ = inner.mgr.close_dir(pulp);
+                        return match e {
+                            embedded_sdmmc::Error::NotFound => f(None),
+                            _ => Err(Error::new(ErrorKind::OpenDir, "subdir_file")),
+                        };
+                    }
+                };
+                let opened = inner.mgr.open_file_in_dir(sub, name, Mode::ReadOnly).await;
+                let _ = inner.mgr.close_dir(sub);
+                let _ = inner.mgr.close_dir(pulp);
+                match opened {
+                    Ok(file) => match key {
+                        Some((k, len)) => {
+                            let free = inner.held.slots.iter().position(Option::is_none);
+                            let slot = free.unwrap_or(inner.held.next_evict);
+                            release_held(inner, slot).await;
+                            inner.held.next_evict = (slot + 1) % inner.held.slots.len();
+                            inner.held.slots[slot] = Some(HeldFile {
+                                key: k,
+                                key_len: len,
+                                file,
+                            });
+                            (slot, Some(file))
+                        }
+                        None => {
+                            // no slot key: one-shot, closed below
+                            let r = f(Some(&mut SubdirFile {
+                                inner: &mut *inner,
+                                file,
+                            }));
+                            let _ = inner.mgr.close_file(file).await;
+                            return r;
+                        }
+                    },
+                    Err(embedded_sdmmc::Error::NotFound) => return f(None),
+                    Err(_) => return Err(Error::new(ErrorKind::OpenFile, "subdir_file")),
+                }
+            }
+        };
+        let Some(file) = file else {
+            return Err(Error::new(ErrorKind::OpenFile, "subdir_file"));
+        };
+        let result = f(Some(&mut SubdirFile {
+            inner: &mut *inner,
+            file,
+        }));
+        if result.is_err() {
+            release_held(inner, slot).await;
+        }
+        result
     })
 }
 
@@ -552,6 +707,7 @@ pub fn delete_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> crate::er
     poll_once(async {
         let mut guard = borrow(sd)?;
         let inner = &mut *guard;
+        release_held_in(inner, dir).await;
         in_subdir!(inner, PULP_DIR, dir, |sub_h| op_delete!(inner, sub_h, name))
     })
 }

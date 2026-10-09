@@ -65,6 +65,8 @@ struct Injection {
 struct State {
     fs: Box<dyn Fs>,
     log: Vec<ReadRecord>,
+    opens: usize,
+    held: usize,
     injections: Vec<Injection>,
 }
 
@@ -242,6 +244,8 @@ impl VirtualStorage {
             state: RefCell::new(State {
                 fs: Box::new(fs),
                 log: Vec::new(),
+                opens: 0,
+                held: 0,
                 injections: Vec::new(),
             }),
         }
@@ -272,9 +276,33 @@ impl VirtualStorage {
         self.state.borrow().log.clone()
     }
 
-    // clears count and log only; pending injections are kept
+    // scoped opens of a _PULP/<dir>/<name> file (with_pulp_subdir_file)
+    pub fn open_count(&self) -> usize {
+        self.state.borrow().opens
+    }
+
+    // pack files held open right now (with_pulp_subdir_file closures running);
+    // 0 whenever control is outside a storage call
+    pub fn held_handles(&self) -> usize {
+        self.state.borrow().held
+    }
+
+    pub(crate) fn note_open(&self) {
+        let mut st = self.state.borrow_mut();
+        st.opens += 1;
+        st.held += 1;
+    }
+
+    pub(crate) fn note_close(&self) {
+        let mut st = self.state.borrow_mut();
+        st.held = st.held.saturating_sub(1);
+    }
+
+    // clears counts and log only; pending injections are kept
     pub fn reset_reads(&self) {
-        self.state.borrow_mut().log.clear();
+        let mut st = self.state.borrow_mut();
+        st.log.clear();
+        st.opens = 0;
     }
 
     // -- injection -----------------------------------------------------------

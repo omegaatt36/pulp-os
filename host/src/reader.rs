@@ -189,6 +189,19 @@ impl Rig {
         self.ctx.loading_active()
     }
 
+    pub fn loading_message(&self) -> String {
+        self.ctx.loading_msg().to_string()
+    }
+
+    pub fn loading_pct(&self) -> u8 {
+        self.ctx.loading_pct()
+    }
+
+    // CjkState::set_pace of the reader's body/heading preparation
+    pub fn set_cjk_pace(&mut self, now: fn() -> u64, slice_us: u32) {
+        probe::set_cjk_pace(&mut self.app, now, slice_us);
+    }
+
     pub fn has_redraw(&self) -> bool {
         self.ctx.has_redraw()
     }

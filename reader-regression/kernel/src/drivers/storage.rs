@@ -67,6 +67,31 @@ pub fn read_chunk_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str, offset: 
 pub fn optional_file_size_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> R<Option<u32>> {
     sd.run_read(|fs| Ok(fs.get(&sub(dir), name).map(|data| data.len() as u32)))
 }
+pub struct SubdirFile<'a> {
+    sd: &'a SdStorage,
+    dir: &'a str,
+    name: &'a str,
+    len: u32,
+}
+impl SubdirFile<'_> {
+    pub fn len(&self) -> R<u32> {
+        Ok(self.len)
+    }
+    pub fn read_at(&mut self, offset: u32, buf: &mut [u8]) -> R<usize> {
+        read_chunk_in_pulp_subdir(self.sd, self.dir, self.name, offset, buf)
+    }
+}
+pub fn with_pulp_subdir_file<T>(
+    sd: &SdStorage,
+    dir: &str,
+    name: &str,
+    f: impl FnOnce(Option<&mut SubdirFile<'_>>) -> R<T>,
+) -> R<T> {
+    match optional_file_size_in_pulp_subdir(sd, dir, name)? {
+        Some(len) => f(Some(&mut SubdirFile { sd, dir, name, len })),
+        None => f(None),
+    }
+}
 pub fn file_size_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> R<u32> {
     sd.run_read(|fs| fs.size(&sub(dir), name))
 }

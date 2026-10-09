@@ -24,7 +24,7 @@ pub use format::{Layout, Record, bitmap_size};
 pub use missing::{missing_glyph_metrics, render_missing_glyph};
 pub use names::{PACK_DIR, PackFileName, pack_file_name};
 pub use page_cache::{CacheStorageError, PageCache, PageGlyphSlot, PreparationError};
-pub use reader::{FontError, GlyphRef, OutOfRange, PackReader, ReadAt};
+pub use reader::{FontError, GlyphRef, IndexCache, OutOfRange, PackReader, ReadAt, SPAN_RECORDS};
 
 use core::fmt;
 

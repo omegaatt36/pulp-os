@@ -18,7 +18,7 @@ use embedded_hal::delay::DelayNs;
 
 use embedded_sdmmc::{
     AsyncBlockDevice, AsyncVolumeManager, Block, BlockCount, BlockDevice, BlockIdx, RawDirectory,
-    RawVolume, SdCard, TimeSource, Timestamp, VolumeIdx,
+    RawFile, RawVolume, SdCard, TimeSource, Timestamp, VolumeIdx,
 };
 use log::info;
 
@@ -92,6 +92,34 @@ pub(crate) struct SdStorageInner {
     #[allow(dead_code)]
     pub(crate) vol: RawVolume,
     pub(crate) root: RawDirectory,
+    pub(crate) held: HeldFiles,
+}
+
+// read-only files kept open across calls (see storage::with_pulp_subdir_file):
+// a dir walk plus open costs ~190 ms on the C61 card, far more than the reads
+// themselves. lives in the inner state so a removed or replaced card drops it
+// with the volume; two slots because a page reads a body and a heading pack
+pub(crate) const HELD_KEY_LEN: usize = 24;
+
+#[derive(Clone, Copy)]
+pub(crate) struct HeldFile {
+    pub(crate) key: [u8; HELD_KEY_LEN],
+    pub(crate) key_len: u8,
+    pub(crate) file: RawFile,
+}
+
+pub(crate) struct HeldFiles {
+    pub(crate) slots: [Option<HeldFile>; 2],
+    pub(crate) next_evict: usize,
+}
+
+impl HeldFiles {
+    pub(crate) const fn new() -> Self {
+        Self {
+            slots: [None, None],
+            next_evict: 0,
+        }
+    }
 }
 
 // holds a persistently-mounted AsyncVolumeManager with volume 0 and
@@ -167,7 +195,12 @@ impl SdStorage {
 
         info!("SD card: filesystem mounted");
         Self {
-            inner: Some(RefCell::new(SdStorageInner { mgr, vol, root })),
+            inner: Some(RefCell::new(SdStorageInner {
+                mgr,
+                vol,
+                root,
+                held: HeldFiles::new(),
+            })),
         }
     }
 
@@ -189,6 +222,11 @@ impl SdStorage {
             let inner = &mut *guard;
             let _ = inner.mgr.close_dir(inner.root);
             poll_once(async {
+                for slot in &mut inner.held.slots {
+                    if let Some(held) = slot.take() {
+                        let _ = inner.mgr.close_file(held.file).await;
+                    }
+                }
                 let _ = inner.mgr.close_volume(inner.vol).await;
             });
         }

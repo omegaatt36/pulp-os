@@ -25,7 +25,12 @@ pub mod wake {
     pub fn uptime_secs() -> u32 {
         0
     }
+    // a clock that never moves: no CJK preparation slice ever ends
+    pub fn uptime_us() -> u64 {
+        0
+    }
 }
+pub use wake::uptime_us;
 
 pub use crate::drivers::storage::StorageError;
 pub use crate::error::{Error, ErrorKind, Result, ResultExt};

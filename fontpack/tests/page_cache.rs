@@ -285,3 +285,193 @@ fn replacement_page_records_new_font_identity_and_empty_page_needs_no_io() {
     assert_eq!(cache.info().unwrap().font_id, 99);
     assert_eq!(control.reads.borrow().len(), before);
 }
+
+#[test]
+fn located_preparation_equals_searching_one_and_skips_the_index_probes() {
+    let page = ['A', 'B', '\u{20BB7}', char::MAX];
+    let mut slots_a = [PageGlyphSlot::default(); 4];
+    let mut bitmap_a = [0u8; 40];
+    let needed = budget(&slots_a, &bitmap_a);
+    let mut searched = PageCache::new(&mut slots_a[..], &mut bitmap_a[..], needed).unwrap();
+    let (mut reader, control) = open(&GOLDEN);
+    searched.prepare(&mut reader, &page).unwrap();
+    let searching_reads = control.reads.borrow().len();
+
+    // lookups made earlier, as a caller that kept them would hand them back
+    let (mut reader, control) = open(&GOLDEN);
+    let kept: Vec<_> = page.iter().map(|&c| (c, reader.find(c).unwrap())).collect();
+    control.reads.borrow_mut().clear();
+    let mut slots_b = [PageGlyphSlot::default(); 4];
+    let mut bitmap_b = [0u8; 40];
+    let mut located = PageCache::new(&mut slots_b[..], &mut bitmap_b[..], needed).unwrap();
+    // rebuild each ref from its kept position, as the firmware does
+    let rebuilt = |c: char| {
+        kept.iter().find(|(k, _)| *k == c).map(|(_, found)| {
+            found.map(|g| pulp_fontpack::GlyphRef::from_located(g.metrics, g.bitmap_offset()))
+        })
+    };
+    located
+        .prepare_located(&mut reader, &page, rebuilt)
+        .unwrap();
+
+    assert_eq!(located.len(), searched.len());
+    assert_eq!(located.info(), searched.info());
+    for c in page.iter().copied().chain(['C']) {
+        assert_eq!(
+            located.get(c),
+            searched.get(c),
+            "{c:?} differs between located and searching preparation"
+        );
+    }
+    let located_reads = control.reads.borrow().clone();
+    assert!(
+        located_reads.len() < searching_reads,
+        "{} reads located, {} searching",
+        located_reads.len(),
+        searching_reads
+    );
+    assert!(
+        located_reads.iter().all(|&(offset, _)| offset >= 132),
+        "a located preparation only reads bitmaps, got {located_reads:?}"
+    );
+}
+
+#[test]
+fn a_located_ref_outside_this_pack_is_rejected_not_read() {
+    let mut slots = [PageGlyphSlot::default(); 1];
+    let mut bitmap = [0u8; 8];
+    let needed = budget(&slots, &bitmap);
+    let mut cache = PageCache::new(&mut slots[..], &mut bitmap[..], needed).unwrap();
+    let (mut reader, control) = open(&GOLDEN);
+    let metrics = Metrics {
+        advance: 1,
+        offset_x: 0,
+        offset_y: 0,
+        width: 8,
+        height: 1,
+    };
+    let foreign = pulp_fontpack::GlyphRef::from_located(metrics, 1_000_000);
+    control.reads.borrow_mut().clear();
+    let error = cache
+        .prepare_located(&mut reader, &['A'], |_| Some(Some(foreign)))
+        .unwrap_err();
+    assert_eq!(
+        error,
+        PreparationError::Font(FontError::Corrupt(PackError::BadLayout))
+    );
+    assert!(
+        control.reads.borrow().is_empty(),
+        "no read outside the file"
+    );
+    assert_eq!(cache.len(), 0);
+}
+
+#[test]
+fn a_preparation_in_pieces_equals_the_whole_one_and_stays_invisible_until_done() {
+    let page = ['A', 'B', '\u{20BB7}', 'A', char::MAX];
+    let mut slots_a = [PageGlyphSlot::default(); 4];
+    let mut bitmap_a = [0u8; 40];
+    let needed = budget(&slots_a, &bitmap_a);
+    let mut whole = PageCache::new(&mut slots_a[..], &mut bitmap_a[..], needed).unwrap();
+    let (mut reader, control) = open(&GOLDEN);
+    whole.prepare(&mut reader, &page).unwrap();
+    let whole_reads = control.reads.borrow().clone();
+
+    let mut slots_b = [PageGlyphSlot::default(); 4];
+    let mut bitmap_b = [0u8; 40];
+    let mut pieces = PageCache::new(&mut slots_b[..], &mut bitmap_b[..], needed).unwrap();
+    let (mut reader, control) = open(&GOLDEN);
+    pieces.begin();
+    let mut calls = 0;
+    loop {
+        calls += 1;
+        // one glyph per call: `more` says stop every time it is asked
+        let done = pieces
+            .resume_located(&mut reader, &page, |_| None, || false)
+            .unwrap();
+        if done {
+            break;
+        }
+        assert_empty(&pieces);
+        assert_eq!(pieces.filled(), calls, "one more glyph per call");
+        // the firmware's lists are distinct; after a duplicate `resumes` is false
+        assert_eq!(pieces.resumes(&page), calls <= 3);
+    }
+    assert_eq!(
+        calls,
+        page.len(),
+        "every list entry, duplicates included, is a step"
+    );
+    assert_eq!(
+        *control.reads.borrow(),
+        whole_reads,
+        "no glyph is read twice"
+    );
+    assert_eq!(pieces.len(), whole.len());
+    assert_eq!(pieces.info(), whole.info());
+    for c in page.iter().copied().chain(['C']) {
+        assert_eq!(pieces.get(c), whole.get(c), "{c:?}");
+    }
+}
+
+#[test]
+fn only_the_unfinished_preparation_of_the_same_list_resumes() {
+    let page = ['A', 'B', '\u{20BB7}'];
+    let mut slots = [PageGlyphSlot::default(); 3];
+    let mut bitmap = [0u8; 30];
+    let needed = budget(&slots, &bitmap);
+    let mut cache = PageCache::new(&mut slots[..], &mut bitmap[..], needed).unwrap();
+    let (mut reader, _) = open(&GOLDEN);
+    assert!(!cache.resumes(&page), "nothing started");
+    cache.begin();
+    assert!(!cache.resumes(&page), "nothing taken yet");
+    assert!(
+        !cache
+            .resume_located(&mut reader, &page, |_| None, || false)
+            .unwrap()
+    );
+    assert!(cache.resumes(&page));
+    assert!(
+        cache.resumes(&['A', 'B', 'A', 'B']),
+        "the taken prefix matches"
+    );
+    assert!(!cache.resumes(&['B', 'A', '\u{20BB7}']), "another order");
+    assert!(!cache.resumes(&['A']), "nothing left to take");
+    assert!(
+        cache
+            .resume_located(&mut reader, &page, |_| None, || true)
+            .unwrap()
+    );
+    assert!(!cache.resumes(&page), "a published page is not resumable");
+    assert_eq!(cache.len(), 3);
+}
+
+#[test]
+fn a_failure_between_pieces_hides_the_partial_page_and_a_new_begin_recovers() {
+    let page = ['A', 'B', '\u{20BB7}'];
+    let mut slots = [PageGlyphSlot::default(); 3];
+    let mut bitmap = [0u8; 30];
+    let needed = budget(&slots, &bitmap);
+    let mut cache = PageCache::new(&mut slots[..], &mut bitmap[..], needed).unwrap();
+    let (mut reader, control) = open(&GOLDEN);
+    cache.begin();
+    assert!(
+        !cache
+            .resume_located(&mut reader, &page, |_| None, || false)
+            .unwrap()
+    );
+    control.disabled.set(true);
+    let error = cache
+        .resume_located(&mut reader, &page, |_| None, || true)
+        .unwrap_err();
+    assert!(matches!(error, PreparationError::Font(FontError::Io(_))));
+    assert_empty(&cache);
+    control.disabled.set(false);
+    cache.begin();
+    assert!(
+        cache
+            .resume_located(&mut reader, &page, |_| None, || true)
+            .unwrap()
+    );
+    assert_eq!(cache.len(), 3);
+}
