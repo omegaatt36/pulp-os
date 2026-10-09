@@ -65,7 +65,7 @@
 | B2d | `UNVERIFIED` | | |
 | B2e | `UNVERIFIED` | | |
 | B2f | `UNVERIFIED` | | |
-| B2g | `UNVERIFIED` | | |
+| B2g | `UNVERIFIED` | | C61 前緣實體鍵由左到右為 Back／Left／Right／Enter；預設導覽列應為 `Back`、`<<`、`>>`、`Ok`。記錄目視與操作確認、照片或使用者回報，並註明按鍵交換設定是否另驗 |
 | B2h | `UNVERIFIED` | | |
 | B3 | `UNVERIFIED` | | |
 | B4a | `UNVERIFIED` | | |

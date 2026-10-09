@@ -106,16 +106,14 @@ pub mod action {
 }
 
 pub mod layout {
-    // Bezel slots of the front keys (center-x on the bottom edge) and of the
-    // side keys (center-y on the right edge) for the button label overlay. The
-    // physical key order and the side-key positions on the OnePage bezel are
-    // UNVERIFIED (the BSP only lists Back / Left / Right / Enter): the X4 slot
-    // centres are reused, the spacing is equal anyway. Only the bottom row is
-    // drawn.
+    // Front key label centres, left to right: Back / Left / Right / Enter.
+    // Order verified on the product (2026-10-08-product.md, B2g); the existing
+    // label spacing is retained. Side-key positions remain unverified and
+    // only the bottom row is drawn.
     pub const CX_BACK: u16 = 84;
-    pub const CX_CONFIRM: u16 = 194;
-    pub const CX_LEFT: u16 = 286;
-    pub const CX_RIGHT: u16 = 396;
+    pub const CX_LEFT: u16 = 194;
+    pub const CX_RIGHT: u16 = 286;
+    pub const CX_CONFIRM: u16 = 396;
     pub const CY_VOL_UP: u16 = 364;
     pub const CY_VOL_DOWN: u16 = 484;
 }

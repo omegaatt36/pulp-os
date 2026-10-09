@@ -1,6 +1,6 @@
 # OnePage C61 實機驗收總表
 
-**狀態：沒有任何一項在實機上執行過；第 5 節所有項目都是 `UNVERIFIED`。** 本文件把四個已封存 change（`onepage-c61-port`、`onepage-host-validation`、`onepage-cjk-iansui`、`onepage-wifi-upload`）所有「硬體未驗」的項目整合成單一入口，目的是拿到實機後，agent 可以照這份文件從刷機一路驗到 Wi-Fi，不必再回頭翻四個 archive。
+**本文件是驗收基準，第 5 節狀態欄保持 `UNVERIFIED`；實測結果記在 hardware-records。** 2026-10-09 成品機導覽列修正後，使用者確認左到右為 `Back`、`<<`、`>>`、`Ok`，且與實體按鍵對應正確；B2g 重驗為 `PASS`，見[成品機紀錄](../hardware-records/2026-10-08-product.md#2026-10-09-b2g-導覽列修正重驗)。本文件把四個已封存 change（`onepage-c61-port`、`onepage-host-validation`、`onepage-cjk-iansui`、`onepage-wifi-upload`）所有「硬體未驗」的項目整合成單一入口，目的是拿到實機後，agent 可以照這份文件從刷機一路驗到 Wi-Fi，不必再回頭翻四個 archive。
 
 - 逐步程序、log 字串行號、curl 腳本等細節仍在原 archive 文件（第 9 節列出對照），本文件只放：關卡順序、每項的指令／判定／失敗時改哪裡、需要人手的步驟、需要先加 instrumentation 的項目。
 - 本文件撰寫時沒有重跑任何 build 或測試；引用的數字取自 archive 的 `baseline.md`／`progress.md`／`budget-report.md`，**不是**實測。
@@ -248,7 +248,7 @@ agent 不得自行定案；在記錄檔「結論」處留空或寫「待使用�
 | B2d | 設定（字型、主題、`swap_buttons`）生效（R21） | 人手 | 生效（`swap_buttons` host 未涵蓋） | `UNVERIFIED` |
 | B2e | 換頁／開書／換章耗時（PSRAM 熱路徑；D4） | 碼表／log | 只記錄；明顯變慢才考慮新增 `alloc_external_uninit` | `UNVERIFIED` |
 | B2f | full refresh 阻塞期間（最壞約 5 s）短按遺失的實際影響（已知限制；D5） | 人手 | 記錄 | `UNVERIFIED` |
-| B2g | 按鍵標籤（button feedback）bezel 位置對得上實體鍵（沿用 X4，**未驗證**） | 人手＋拍照 | 位置對得上 | `UNVERIFIED` |
+| B2g | C61 前緣按鍵由左到右為 Back／Left／Right／Enter，導覽列標籤位置對得上實體鍵 | 人手目視與操作確認；拍照留存。2026-10-09 修正後使用者確認通過，見[成品機紀錄](../hardware-records/2026-10-08-product.md#2026-10-09-b2g-導覽列修正重驗) | 預設標籤左到右為 `Back`、`<<`、`>>`、`Ok`，且對應實體鍵；交換按鍵設定時標籤須隨動作更新 | `UNVERIFIED` |
 | B2h | Reader 長按 ENTER 開 quick menu（D2） | 人手 | 開啟；記錄是否合用 | `UNVERIFIED` |
 | B3 | 無卡開機顯示儲存錯誤、不 panic；插卡後行為（R9） | 不插卡開機再插卡 | 顯示錯誤、不 panic。已知限制：插卡後 Files 的 error 欄位**不會自動清除**，記錄操作上的影響 | `UNVERIFIED` |
 | B4a | idle timeout 後睡眠，GPIO2 喚醒回原位置（R18／R19；D1） | 等 `sleep_timeout` | 先畫 `(sleep)` 畫面 → 儲存位置 → 睡眠；喚醒回原位置。序列中止時要多一次 full refresh | `UNVERIFIED` |

@@ -18,7 +18,7 @@ use crate::ui::{Alignment, Region};
 
 // the physical keys the overlay labels, by position: X4 Back / Confirm / Left /
 // Right on the bottom edge and Vol Up / Vol Down on the right edge; on the
-// OnePage C61 the front ladder Back / Enter / Left / Right and the side keys
+// OnePage C61 the front ladder Back / Left / Right / Enter and the side keys
 // Prev / Next
 mod keys {
     use crate::board::button::Button;
@@ -131,6 +131,7 @@ fn action_label(action: Action) -> &'static str {
         Action::Prev => "Prev",
         Action::NextJump => ">>",
         Action::PrevJump => "<<",
+        Action::Select if cfg!(feature = "board-onepage-c61") => "Ok",
         Action::Select => "OK",
         Action::Back => "Back",
         Action::Menu => "",

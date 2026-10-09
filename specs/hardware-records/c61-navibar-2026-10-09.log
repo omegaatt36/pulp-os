@@ -1,0 +1,121 @@
+[2026-10-09T11:14:25Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T11:14:25Z INFO ] Connecting...
+[2026-10-09T11:14:25Z INFO ] Using flash stub
+[2026-10-09T11:14:25Z INFO ] Flash content successfully read and written to '/tmp/tmp.PIhToo8W0m/head.bin'!
+Chip type:         esp32c61
+Merge:             false
+Skip padding:      false
+App/part. size:    882,672/16,384,000 bytes, 5.39%
+[2026-10-09T11:14:27Z INFO ] Image successfully saved!
+[2026-10-09T11:14:27Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T11:14:27Z INFO ] Connecting...
+[2026-10-09T11:14:27Z INFO ] Using flash stub
+Chip type:         esp32c61 (revision v1.1)
+Crystal frequency: 40 MHz
+Flash size:        16MB
+Features:          WiFi 6, BT 5
+MAC address:       88:56:a6:cf:da:90
+[2026-10-09T11:14:38Z INFO ] Binary successfully written to flash!
+[2026-10-09T11:14:38Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T11:14:38Z INFO ] Connecting...
+[2026-10-09T11:14:38Z INFO ] Using flash stub
+ESP-ROM:esp32c61-eco4-20250829
+Build:Aug 29 2025
+rst:0x15 (USB_UART_HPSYS),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPI mode:DIO, clock div:1
+load:0x40845b90,len:0x11e0
+load:0x4083bd70,len:0xad4
+load:0x4083ea70,len:0x3008
+entry 0x4083bd70
+INFO - Detected PSRAM chip id = e3b4135a5d0d
+INFO - Detected PSRAM chip density = 2
+INFO - PSRAM size is 8388608
+INFO - PSRAM size: 8 MB
+INFO - psram: 2097152 B at 0x420d0000, heap registered
+INFO - psram: ready
+INFO - memory Internal: pool 0 / 162304 B
+INFO - memory Psram: pool 0 / 1900544 B
+INFO - memory class chapter-text Psram: reserved 0 / 262144 B, peak 0 B
+INFO - memory class image-data   Psram: reserved 0 / 524288 B, peak 0 B
+INFO - memory class page-table   Psram: reserved 0 / 65536 B, peak 0 B
+INFO - memory class zip-toc      Psram: reserved 0 / 262144 B, peak 0 B
+INFO - memory class font-glyphs  Psram: reserved 0 / 262144 B, peak 0 B
+INFO - memory class net-scratch  Psram: reserved 0 / 32768 B, peak 0 B
+INFO - heap internal: used 0 B, free 162304 B; psram heap: used 0 B, free 2097152 B
+INFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B
+INFO - gpio27 power-cycled, state=PowerCycled
+INFO - pulp-os c61: esp32c61 rv32imac, rtos + embassy up, wake PowerOn
+INFO - spi2: sck=GPIO22 mosi=GPIO23 miso=GPIO24, epd_cs=GPIO25 sd_cs=GPIO26, dma ch0 4096B tx+rx, 400 kHz
+INFO - sd: 63864569856 bytes (60906 MB), attempt 1
+INFO - SD card: filesystem mounted
+INFO - SD: ok
+INFO - spi2: 400 kHz -> 10000 kHz
+INFO - sd: fat32 mounted
+INFO - battery: cell 4706 mV, 100%
+INFO - bookmarks: loaded 6 slots from SD
+INFO - settings: loaded from SETTINGS.TXT
+INFO - font: size_idx=2 line_h=31 (native 31 x 100%) ascent=25 max_lines=24 margin=8
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 8K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B
+INFO - boot: session restore (cause PowerOn, slot A seq 7)
+INFO - session: restored nav stack depth=1 active=Home
+INFO - home: restore_state state=Menu selected=0
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - ui ready.
+INFO - kernel ready.
+INFO - [work] worker ready
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 8K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B
+INFO - display: partial refresh 280x118 at (100, 87) in 656 ms (partial count 1)
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 8K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B
+INFO - display: partial refresh 280x118 at (100, 153) in 655 ms (partial count 2)
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 8K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B
+INFO - display: partial refresh 280x118 at (100, 153) in 655 ms (partial count 3)
+INFO - app: Home -> Files
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 13K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B
+INFO - titles: scan complete
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B
+INFO - display: partial refresh 448x167 at (16, 8) in 673 ms (partial count 1)
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B
+INFO - display: partial refresh 448x223 at (16, 8) in 684 ms (partial count 2)
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B
+INFO - display: partial refresh 448x279 at (16, 8) in 693 ms (partial count 3)
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B
+INFO - display: partial refresh 448x335 at (16, 8) in 704 ms (partial count 4)
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 316 B; reserved 320 / 1900544 B, peak 320 B
+INFO - display: partial refresh 448x391 at (16, 8) in 715 ms (partial count 5)
+INFO - app: Files -> Reader
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - [work] reset -> gen 1
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - reader: opening ZH1.TXT
+INFO - bookmark: restoring off=0 ch=0 for ZH1.TXT
+INFO - reader: opened ZH1.TXT (43 bytes)
+INFO - cjk: lookup 1/14 glyphs, about 2662 ms left
+INFO - stats: heap 4/158K peak 4K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 316 B; reserved 0 / 1900544 B, peak 320 B
+INFO - stats: heap 4/158K peak 4K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 316 B; reserved 0 / 1900544 B, peak 320 B
+INFO - stats: heap 4/158K peak 4K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 704 B, free 2096448 B, peak 704 B; reserved 704 / 1900544 B, peak 704 B
+INFO - display: partial refresh 480x794 at (0, 6) in 777 ms (partial count 1)
+INFO - stats: heap 4/158K peak 4K | stack free 67K hwm 17K | bat 100% 4.7V | up 0:00 | SD:ok
+INFO - heap psram: used 704 B, free 2096448 B, peak 704 B; reserved 704 / 1900544 B, peak 704 B
+INFO - battery: cell 4090 mV, 92% (periodic)
