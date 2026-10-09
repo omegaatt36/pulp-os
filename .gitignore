@@ -1,13 +1,2 @@
 debug/
 target/
-
-.vscode/
-.zed/
-.helix/
-.nvim.lua
-
-**/*.rs.bk
-*.pdb
-**/.DS_Store
-
-*.md

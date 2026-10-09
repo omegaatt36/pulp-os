@@ -5,8 +5,11 @@ use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;
 use embassy_time::{Duration, Ticker, Timer};
 
+#[cfg(feature = "board-x4")]
 use crate::drivers::battery;
-use crate::drivers::input::{Event, InputDriver};
+use crate::drivers::input::Event;
+#[cfg(feature = "board-x4")]
+use crate::drivers::input::InputDriver;
 
 use super::timing;
 
@@ -24,6 +27,7 @@ pub fn request_hold_reset() {
 
 pub static BATTERY_MV: Signal<CriticalSectionRawMutex, u16> = Signal::new();
 
+#[cfg(feature = "board-x4")]
 #[embassy_executor::task]
 pub async fn input_task(mut input: InputDriver) -> ! {
     let mut battery_counter: u32 = 0;
@@ -58,6 +62,74 @@ pub async fn input_task(mut input: InputDriver) -> ! {
             battery_counter = 0;
             let raw = input.read_battery_mv();
             BATTERY_MV.signal(battery::adc_to_battery_mv(raw));
+        }
+    }
+}
+
+// OnePage C61 input task: same adaptive polling (10 ms while active, 50 ms after
+// INPUT_IDLE_TICKS quiet ticks) and the same channel / idle-reset / hold-reset
+// signalling as the X4 task. Differences, all on purpose:
+//   * the key driver is pulp_board_logic::keys::KeyInput (2.5 s startup grace,
+//     BSP ladder windows) instead of the two X4 ladders + Power button;
+//   * the battery is NOT read here: it is owned by the kernel
+//     (`board_c61::hw::C61Hw::battery`) and measured from the housekeeping poll,
+//     because the sleep sequence needs it too (see hw.rs);
+//   * USB detect (GPIO11) is sampled every iteration (3-sample debounce)
+//     and published through `USB_PLUGGED`; there is no USB UI in this version.
+// the WAKE key (GPIO2) was held for `SLEEP_HOLD_US` and has been let go: sleep now.
+// A signal, not an INPUT_EVENTS item: a blocking refresh can fill the channel and
+// drop events, while a signal keeps its value until the main loop takes it
+#[cfg(feature = "board-onepage-c61")]
+pub static SLEEP_REQUESTED: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+
+#[cfg(feature = "board-onepage-c61")]
+pub static USB_PLUGGED: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+#[cfg(feature = "board-onepage-c61")]
+#[embassy_executor::task]
+pub async fn input_task(
+    mut input: crate::board_c61::keys::C61Input,
+    mut usb: crate::board_c61::usb::UsbPort,
+) -> ! {
+    use core::sync::atomic::Ordering;
+
+    use crate::board_c61::usb::UsbEvent;
+
+    let mut idle_ticks: u32 = 0;
+    let mut sleep_hold = pulp_board_logic::keys::SleepHold::new();
+    USB_PLUGGED.store(usb.plugged(), Ordering::Relaxed);
+
+    loop {
+        // adaptive polling: fast rate during active input, slow when idle
+        let tick_ms = if idle_ticks >= timing::INPUT_IDLE_TICKS {
+            timing::INPUT_TICK_SLOW_MS
+        } else {
+            timing::INPUT_TICK_FAST_MS
+        };
+        Timer::after(Duration::from_millis(tick_ms)).await;
+
+        if RESET_HOLD.try_take().is_some() {
+            input.reset_hold_state();
+        }
+
+        if let Some(ev) = input.poll() {
+            let _ = INPUT_EVENTS.try_send(ev);
+            IDLE_RESET.signal(());
+            idle_ticks = 0; // reset to fast polling on any event
+        } else {
+            idle_ticks = idle_ticks.saturating_add(1);
+        }
+
+        // hold WAKE past `SLEEP_HOLD_US`, then let go: sleep (the 1 s long press
+        // has already gone Home by then)
+        if sleep_hold.update(input.wake_held_us()) {
+            log::info!("input: WAKE held and released, sleep requested");
+            SLEEP_REQUESTED.signal(());
+        }
+
+        if let Some(ev) = usb.poll() {
+            USB_PLUGGED.store(ev == UsbEvent::Plugged, Ordering::Relaxed);
+            log::info!("usb: {:?}", ev);
         }
     }
 }
@@ -98,52 +170,11 @@ pub fn set_idle_timeout(minutes: u16) {
 
 #[embassy_executor::task]
 pub async fn idle_timeout_task() -> ! {
-    let mut timeout_mins = IDLE_TIMEOUT_MINS.wait().await;
-
-    loop {
-        if timeout_mins == 0 {
-            timeout_mins = IDLE_TIMEOUT_MINS.wait().await;
-            continue;
-        }
-
-        let duration = Duration::from_secs(timeout_mins as u64 * 60);
-
-        let _ = IDLE_RESET.try_take();
-        if let Some(new) = IDLE_TIMEOUT_MINS.try_take() {
-            timeout_mins = new;
-            continue;
-        }
-
-        loop {
-            use embassy_futures::select::{Either3, select3};
-
-            match select3(
-                IDLE_RESET.wait(),
-                IDLE_TIMEOUT_MINS.wait(),
-                Timer::after(duration),
-            )
-            .await
-            {
-                Either3::First(()) => {
-                    continue;
-                }
-                Either3::Second(new_mins) => {
-                    timeout_mins = new_mins;
-                    break;
-                }
-                Either3::Third(()) => {
-                    IDLE_SLEEP_DUE.signal(());
-
-                    use embassy_futures::select::{Either, select};
-                    match select(IDLE_RESET.wait(), IDLE_TIMEOUT_MINS.wait()).await {
-                        Either::First(()) => {}
-                        Either::Second(new_mins) => {
-                            timeout_mins = new_mins;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    super::idle::run(
+        &super::idle::EmbassyClock,
+        &IDLE_TIMEOUT_MINS,
+        &IDLE_RESET,
+        &IDLE_SLEEP_DUE,
+    )
+    .await
 }

@@ -21,6 +21,9 @@ const ITEM_STRIDE: u16 = ITEM_H + ITEM_GAP;
 const ITEM_X: u16 = (SCREEN_W - ITEM_W) / 2;
 const TITLE_ITEM_GAP: u16 = 24;
 const MAX_ITEMS: usize = 5;
+// the Upload entry exists only when the Wi-Fi boundary is compiled in; the
+// offline firmware has no menu path into upload mode
+const UPLOAD_ITEMS: usize = cfg!(feature = "wifi") as usize;
 
 // bookmark list layout (matches Files app)
 const BM_ROW_H: u16 = 52;
@@ -60,6 +63,7 @@ pub struct HomeApp {
     state: HomeState,
     selected: usize,
     ui_fonts: fonts::UiFonts,
+    label_fonts: fonts::cjk::SurfaceFonts,
     item_regions: [Region; MAX_ITEMS],
     item_count: usize,
 
@@ -87,8 +91,9 @@ impl HomeApp {
             state: HomeState::Menu,
             selected: 0,
             ui_fonts: uf,
+            label_fonts: fonts::cjk::SurfaceFonts::new(),
             item_regions: compute_item_regions(uf.heading.line_height),
-            item_count: 4, // updated after load; may include Continue
+            item_count: 3 + UPLOAD_ITEMS, // updated after load; may include Continue
             recent_book: [0u8; 32],
             recent_book_len: 0,
             needs_load_recent: false,
@@ -102,7 +107,21 @@ impl HomeApp {
 
     pub fn set_ui_font_size(&mut self, idx: u8) {
         self.ui_fonts = fonts::UiFonts::for_size(idx);
+        self.label_fonts.set_size(idx);
         self.item_regions = compute_item_regions(self.ui_fonts.heading.line_height);
+    }
+
+    pub fn reset_storage(&mut self) {
+        self.on_exit();
+        self.state = HomeState::Menu;
+        self.selected = 0;
+        self.recent_book_len = 0;
+        self.needs_load_recent = false;
+        self.bm_count = 0;
+        self.bm_selected = 0;
+        self.bm_scroll = 0;
+        self.needs_load_bookmarks = false;
+        self.rebuild_item_count();
     }
 
     // Session state accessors for RTC persistence
@@ -129,7 +148,6 @@ impl HomeApp {
         self.bm_scroll
     }
 
-    // restore home state from RTC session data
     pub fn restore_state(
         &mut self,
         state_id: u8,
@@ -171,7 +189,7 @@ impl HomeApp {
     }
 
     fn rebuild_item_count(&mut self) {
-        self.item_count = if self.recent_book_len > 0 { 5 } else { 4 };
+        self.item_count = if self.recent_book_len > 0 { 4 } else { 3 } + UPLOAD_ITEMS;
         if self.selected >= self.item_count {
             self.selected = 0;
         }
@@ -182,40 +200,42 @@ impl HomeApp {
     }
 
     fn item_label(&self, idx: usize) -> &str {
-        if self.has_recent() {
+        let idx = if self.has_recent() {
             match idx {
-                0 => "Continue",
-                1 => "Files",
-                2 => "Bookmarks",
-                3 => "Settings",
-                _ => "Upload",
+                0 => return "Continue",
+                _ => idx - 1,
             }
         } else {
-            match idx {
-                0 => "Files",
-                1 => "Bookmarks",
-                2 => "Settings",
-                _ => "Upload",
-            }
+            idx
+        };
+        match idx {
+            0 => "Files",
+            1 => "Bookmarks",
+            2 => "Settings",
+            #[cfg(feature = "wifi")]
+            _ => "Upload",
+            #[cfg(not(feature = "wifi"))]
+            _ => "Settings",
         }
     }
 
     fn item_action(&self, idx: usize) -> MenuAction {
-        if self.has_recent() {
+        let idx = if self.has_recent() {
             match idx {
-                0 => MenuAction::Continue,
-                1 => MenuAction::Push(AppId::Files),
-                2 => MenuAction::OpenBookmarks,
-                3 => MenuAction::Push(AppId::Settings),
-                _ => MenuAction::Push(AppId::Upload),
+                0 => return MenuAction::Continue,
+                _ => idx - 1,
             }
         } else {
-            match idx {
-                0 => MenuAction::Push(AppId::Files),
-                1 => MenuAction::OpenBookmarks,
-                2 => MenuAction::Push(AppId::Settings),
-                _ => MenuAction::Push(AppId::Upload),
-            }
+            idx
+        };
+        match idx {
+            0 => MenuAction::Push(AppId::Files),
+            1 => MenuAction::OpenBookmarks,
+            2 => MenuAction::Push(AppId::Settings),
+            #[cfg(feature = "wifi")]
+            _ => MenuAction::Push(AppId::Upload),
+            #[cfg(not(feature = "wifi"))]
+            _ => MenuAction::Push(AppId::Settings),
         }
     }
 
@@ -272,6 +292,12 @@ impl HomeApp {
 }
 
 impl App<AppId> for HomeApp {
+    fn on_exit(&mut self) {
+        self.label_fonts.clear();
+    }
+    fn on_suspend(&mut self) {
+        self.label_fonts.clear();
+    }
     fn on_enter(&mut self, ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {
         ctx.clear_message();
         self.state = HomeState::Menu;
@@ -338,7 +364,44 @@ impl App<AppId> for HomeApp {
         }
     }
 
+    fn prepare_render(&mut self, _ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
+        let mut labels = fonts::cjk::VisibleText::new();
+        match self.state {
+            HomeState::Menu => {
+                labels.add("onepage-pulp", self.ui_fonts.heading, true);
+                for i in 0..self.item_count {
+                    labels.add(self.item_label(i), self.ui_fonts.body, false);
+                }
+            }
+            HomeState::ShowBookmarks => {
+                labels.add("Bookmarks", self.ui_fonts.heading, true);
+                for entry in self.bm_entries.iter().skip(self.bm_scroll).take(
+                    self.bm_visible_lines()
+                        .min(self.bm_count.saturating_sub(self.bm_scroll)),
+                ) {
+                    labels.add(entry.display_name(), self.ui_fonts.body, false);
+                }
+            }
+        }
+        self.label_fonts.prepare(k, &labels);
+    }
+
     fn draw(&self, strip: &mut StripBuffer) {
+        if let Some(error) = self.label_fonts.error {
+            crate::apps::widgets::bitmap_label::draw_surface_error(
+                strip,
+                Region::new(
+                    8,
+                    crate::ui::CONTENT_TOP,
+                    crate::board::SCREEN_W - 16,
+                    self.ui_fonts.body.line_height,
+                ),
+                self.ui_fonts.body,
+                error,
+            );
+            return;
+        }
+
         match self.state {
             HomeState::Menu => self.draw_menu(strip),
             HomeState::ShowBookmarks => self.draw_bookmarks(strip),
@@ -482,9 +545,9 @@ impl HomeApp {
             ITEM_W,
             self.ui_fonts.heading.line_height,
         );
-        BitmapLabel::new(title_region, "pulp-os", self.ui_fonts.heading)
+        BitmapLabel::new(title_region, "onepage-pulp", self.ui_fonts.heading)
             .alignment(Alignment::Center)
-            .draw(strip)
+            .draw_prepared(strip, &self.label_fonts.view())
             .unwrap();
 
         for i in 0..self.item_count {
@@ -492,7 +555,7 @@ impl HomeApp {
             BitmapLabel::new(self.item_regions[i], label, self.ui_fonts.body)
                 .alignment(Alignment::Center)
                 .inverted(i == self.selected)
-                .draw(strip)
+                .draw_prepared(strip, &self.label_fonts.view())
                 .unwrap();
         }
     }
@@ -506,20 +569,22 @@ impl HomeApp {
         );
         BitmapLabel::new(header_region, "Bookmarks", self.ui_fonts.heading)
             .alignment(Alignment::CenterLeft)
-            .draw(strip)
+            .draw_prepared(strip, &self.label_fonts.view())
             .unwrap();
 
         if self.bm_count > 0 {
             let mut status = BitmapDynLabel::<20>::new(self.bm_status_region(), self.ui_fonts.body)
                 .alignment(Alignment::CenterRight);
             let _ = write!(status, "{}/{}", self.bm_selected + 1, self.bm_count);
-            status.draw(strip).unwrap();
+            status
+                .draw_prepared(strip, &self.label_fonts.view())
+                .unwrap();
         }
 
         if self.bm_count == 0 {
             BitmapLabel::new(self.bm_row_region(0), "No bookmarks", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
-                .draw(strip)
+                .draw_prepared(strip, &self.label_fonts.view())
                 .unwrap();
             return;
         }
@@ -537,7 +602,7 @@ impl HomeApp {
                 BitmapLabel::new(region, name, self.ui_fonts.body)
                     .alignment(Alignment::CenterLeft)
                     .inverted(idx == self.bm_selected)
-                    .draw(strip)
+                    .draw_prepared(strip, &self.label_fonts.view())
                     .unwrap();
             }
         }

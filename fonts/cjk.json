@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "name": "GuanKiapTsingKhai",
+  "version": "V1.20",
+  "upstream_url": "https://github.com/tonyhuan/GuanKiapTsingKhai",
+  "license_name": "SIL OFL 1.1",
+  "font": {
+    "path": "../target/GuanKiapTsingKhai.ttf",
+    "sha256": "758632243c499e431fd0c847f5e8c431acf59a9b41a26237a819466139994d38"
+  },
+  "license": {
+    "path": "GuanKiapTsingKhai-OFL.txt",
+    "sha256": "0dfec4ef445da583dda157fca82f34a6398c084bd92cf16ae9f31e9806af5399"
+  },
+  "sizes": [
+    16,
+    19,
+    23,
+    27,
+    28,
+    32,
+    35,
+    38,
+    46
+  ]
+}

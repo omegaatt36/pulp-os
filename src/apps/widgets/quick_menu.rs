@@ -290,7 +290,42 @@ impl QuickMenu {
         }
     }
 
+    pub fn collect_text(&self, text: &mut crate::fonts::cjk::VisibleText) {
+        if !self.open {
+            return;
+        }
+        let font = self.font.unwrap_or(&font_data::REGULAR_BODY_SMALL);
+        let mut value = StackFmt::<20>::new();
+        for i in 0..self.count {
+            text.add(self.items[i].label, font, false);
+            self.format_value(i, &mut value);
+            text.add(value.as_str(), font, false);
+        }
+        text.add(self.help_text(), font, false);
+    }
+
+    fn help_text(&self) -> &'static str {
+        match &self.items[self.selected].kind {
+            MenuItemKind::AppCycle { .. } => "Up/Down: move  Jump: adjust  Sel: cycle  Menu: close",
+            _ => "Up/Down: move  Sel: activate  Menu: close",
+        }
+    }
+
     pub fn draw(&self, strip: &mut StripBuffer) {
+        self.draw_with_fonts(strip, None);
+    }
+    pub fn draw_prepared(
+        &self,
+        strip: &mut StripBuffer,
+        fonts: &crate::fonts::cjk::PreparedFonts<'_>,
+    ) {
+        self.draw_with_fonts(strip, Some(fonts));
+    }
+    fn draw_with_fonts(
+        &self,
+        strip: &mut StripBuffer,
+        fonts: Option<&crate::fonts::cjk::PreparedFonts<'_>>,
+    ) {
         if !self.open {
             return;
         }
@@ -317,7 +352,9 @@ impl QuickMenu {
             let value_region = self.item_value_region(i);
 
             if label_region.intersects(strip.logical_window()) {
-                font.draw_aligned(
+                draw_menu_label(
+                    font,
+                    fonts,
                     strip,
                     label_region,
                     self.items[i].label,
@@ -328,18 +365,47 @@ impl QuickMenu {
 
             if value_region.intersects(strip.logical_window()) {
                 self.format_value(i, &mut val_buf);
-                font.draw_aligned(strip, value_region, val_buf.as_str(), Alignment::Center, fg);
+                draw_menu_label(
+                    font,
+                    fonts,
+                    strip,
+                    value_region,
+                    val_buf.as_str(),
+                    Alignment::Center,
+                    fg,
+                );
             }
         }
 
-        let help = match &self.items[self.selected].kind {
-            MenuItemKind::AppCycle { .. } => "Up/Down: move  Jump: adjust  Sel: cycle  Menu: close",
-            _ => "Up/Down: move  Sel: activate  Menu: close",
-        };
+        let help = self.help_text();
 
         let help_region = self.help_region();
         if help_region.intersects(strip.logical_window()) {
-            font.draw_aligned(strip, help_region, help, Alignment::Center, BinaryColor::On);
+            draw_menu_label(
+                font,
+                fonts,
+                strip,
+                help_region,
+                help,
+                Alignment::Center,
+                BinaryColor::On,
+            );
         }
+    }
+}
+
+fn draw_menu_label(
+    font: &'static BitmapFont,
+    fonts: Option<&crate::fonts::cjk::PreparedFonts<'_>>,
+    strip: &mut StripBuffer,
+    region: Region,
+    text: &str,
+    alignment: Alignment,
+    fg: BinaryColor,
+) {
+    if let Some(fonts) = fonts {
+        super::bitmap_label::draw_prepared_aligned(strip, region, text, font, alignment, fg, fonts);
+    } else {
+        font.draw_aligned(strip, region, text, alignment, fg);
     }
 }

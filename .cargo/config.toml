@@ -1,5 +1,39 @@
+# Boards (exactly one board feature per build; see README.md):
+#   X4  : cargo build-x4   -> riscv32imc,  esp32c3 (defaults to wifi upload)
+#   C61 : cargo build-c61  -> riscv32imac, esp32c61 (defaults to partial-refresh + wifi)
+#
+# Custom features (e.g. offline, sd-metrics) can be specified via `cargo build --features ...`.
+[alias]
+# OnePage C61 (Default: partial-refresh + wifi enabled)
+build-c61    = "build --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi"
+run-c61      = "run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi --bin pulp-os-c61"
+check-c61    = "check --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi"
+run-c61-boot = "run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61 --bin pulp-os-c61-boot"
+
+# XTEink X4 (Default: wifi enabled)
+build-x4     = "build --release --target riscv32imc-unknown-none-elf --features board-x4,wifi"
+run-x4       = "run --release --target riscv32imc-unknown-none-elf --features board-x4,wifi"
+check-x4     = "check --release --target riscv32imc-unknown-none-elf --features board-x4,wifi"
+
+# Host-side workspace testing
+test-all     = ["test", "--workspace", "--exclude", "pulp-os", "--exclude", "pulp-kernel", "--features", "pulp-fontpack/builder", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+test-host    = ["test", "-p", "pulp-host", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+test-board   = ["test", "-p", "pulp-board-logic", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+test-tools   = ["test", "-p", "pulp-fontpack", "-p", "pulp-fontconv", "--features", "pulp-fontpack/builder", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+test-harness = ["test", "-p", "board-harness", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+host-preview = ["run", "--locked", "-p", "pulp-host", "--bin", "host-preview", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+
 [target.riscv32imc-unknown-none-elf]
 runner = "espflash flash --monitor --chip esp32c3"
+
+# OnePage C61: scripts/run-c61.sh writes only the app into ota_0 (0x10000) and keeps
+# the board's factory bootloader + partition table (`espflash flash` would replace
+# them with its bundled ESP-IDF v6.1 bootloader, with which the app panics on boot).
+# It builds the image for flash 40 MHz DIO / 16 MB (80 MHz causes image-hash boot
+# loops on this board, see bsp_onepage_c61/README.md). Needs an espflash that knows
+# esp32c61 (>= 4.4.0; 4.3.0 rejects the chip). The path is relative to the repo root.
+[target.riscv32imac-unknown-none-elf]
+runner = "scripts/run-c61.sh"
 
 [env]
 ESP_LOG="info"

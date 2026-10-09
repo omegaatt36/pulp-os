@@ -8,7 +8,6 @@ extern crate alloc;
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::delay::Delay;
-use esp_hal::interrupt::software::SoftwareInterruptControl;
 use esp_hal::ram;
 use esp_hal::timer::timg::TimerGroup;
 use log::info;
@@ -72,15 +71,15 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     info!("booting...");
 
-    // Safety: TIMG0 and SW_INTERRUPT are cloned here and consumed by
+    // Safety: TIMG0 and FROM_CPU_INTR0 are cloned here and consumed by
     // esp_rtos::start. They are never used again after this point.
     // Board::init (which takes ownership of `peripherals`) does not
-    // touch TIMG0 or SW_INTERRUPT, see the pin ownership table in
+    // touch TIMG0 or FROM_CPU_INTR0, see the pin ownership table in
     // board/mod.rs for the full split.
     let timg0 = TimerGroup::new(unsafe { peripherals.TIMG0.clone_unchecked() });
-    let sw_ints =
-        SoftwareInterruptControl::new(unsafe { peripherals.SW_INTERRUPT.clone_unchecked() });
-    esp_rtos::start(timg0.timer0, sw_ints.software_interrupt0);
+    esp_rtos::start(timg0.timer0, unsafe {
+        peripherals.FROM_CPU_INTR0.clone_unchecked()
+    });
 
     // Peripherals move into Board::init, which splits them across
     // init_input (ADC pins, GPIO3, IO_MUX) and init_spi_peripherals
@@ -150,32 +149,12 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     // register the image decoder so the kernel's worker task can
     // decode JPEG/PNG without depending on smol-epub directly
-    work_queue::register_image_decoder(|data, is_jpeg, max_w, max_h| {
-        let raw = if is_jpeg {
-            smol_epub::jpeg::decode_jpeg_fit(data, max_w, max_h)
-        } else {
-            smol_epub::png::decode_png_fit(data, max_w, max_h)
-        };
-        raw.map(|img| work_queue::DecodedImage {
-            width: img.width,
-            height: img.height,
-            data: img.data,
-            stride: img.stride,
-        })
-    });
+    work_queue::register_image_decoder(pulp_os::apps::reader::decode_work_image);
 
-    spawner
-        .spawn(tasks::input_task(input))
-        .expect("spawn input_task");
-    spawner
-        .spawn(tasks::housekeeping_task())
-        .expect("spawn housekeeping_task");
-    spawner
-        .spawn(tasks::idle_timeout_task())
-        .expect("spawn idle_timeout_task");
-    spawner
-        .spawn(work_queue::worker_task())
-        .expect("spawn worker_task");
+    spawner.spawn(tasks::input_task(input).expect("spawn input_task"));
+    spawner.spawn(tasks::housekeeping_task().expect("spawn housekeeping_task"));
+    spawner.spawn(tasks::idle_timeout_task().expect("spawn idle_timeout_task"));
+    spawner.spawn(work_queue::worker_task().expect("spawn worker_task"));
     info!("kernel ready.");
 
     kernel.run(&mut app_mgr).await

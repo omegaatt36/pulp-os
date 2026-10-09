@@ -1,0 +1,33 @@
+[package]
+name         = "board-harness"
+edition      = "2024"
+rust-version = "1.95"
+version      = "0.1.0"
+description  = "host-only board harness: the real C61 adapter and X4 driver/input sources against an esp-hal seam"
+license      = "MIT"
+publish      = false
+
+# Host-only test crate (built for the host triple only, see
+# the `test-harness` alias): the esp-hal dependency is renamed `board-hal-shim`
+# (unique, non-esp-* name so the host boundary check reads it as a plain host
+# build), mapped back to `esp-hal`, so the workspace lock can keep the real
+# `esp-hal` 1.2.0 for the firmware crates; the sources included by #[path]
+# resolve `use esp_hal::...` against the renamed dependency either way.
+[dependencies]
+esp-hal       = { package = "board-hal-shim", path = "shims/board" }
+pulp-board-logic.workspace = true
+critical-section = { workspace = true, features = ["std"] }
+static_cell.workspace      = true
+nb.workspace               = true
+embedded-hal.workspace     = true
+embedded-hal-async.workspace = true
+embedded-graphics-core.workspace = true
+log.workspace              = true
+object = { version = "0.37", default-features = false, features = ["read_core", "elf"] }
+
+[[bin]]
+name = "stack-analyzer"
+path = "src/bin/stack_analyzer.rs"
+
+[dev-dependencies]
+serde_json = "1"

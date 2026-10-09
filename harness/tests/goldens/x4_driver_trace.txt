@@ -1,0 +1,2122 @@
+== init
+RST high
+DELAY 20
+RST low
+DELAY 2
+RST high
+DELAY 20
+CMD 12 (len 1)
+DELAY 10
+CMD 18 (len 1)
+DATA len=1 fnv=af643d4c8602915f [80]
+CMD 0C (len 1)
+DATA len=5 fnv=8236fa35111631ab [AE, C7, C3, C0, 80]
+CMD 01 (len 1)
+DATA len=3 fnv=0e53d11c8118fa8d [DF, 01, 02]
+CMD 3C (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7160146f5d6bf745 [DF, 01, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+== full frame
+DELAY 1
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7160146f5d6bf745 [DF, 01, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 26 (len 1)
+DELAY 1
+LW (440, 0, 40, 800)
+DATA len=4000 fnv=d25e6b1c4dbb5071
+LW (400, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (360, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (320, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (280, 0, 40, 800)
+DATA len=4000 fnv=b8ac67762dda3175
+LW (240, 0, 40, 800)
+DATA len=4000 fnv=db8ed3b0aa51fb45
+LW (200, 0, 40, 800)
+DATA len=4000 fnv=8f5b80568dfbe5d1
+LW (160, 0, 40, 800)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (120, 0, 40, 800)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (80, 0, 40, 800)
+DATA len=4000 fnv=6a32a03c32c769dd
+LW (40, 0, 40, 800)
+DATA len=4000 fnv=adb692d07403abbd
+LW (0, 0, 40, 800)
+DATA len=4000 fnv=31aee72fdfd90370
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7160146f5d6bf745 [DF, 01, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+DELAY 1
+LW (440, 0, 40, 800)
+DATA len=4000 fnv=d25e6b1c4dbb5071
+LW (400, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (360, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (320, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (280, 0, 40, 800)
+DATA len=4000 fnv=b8ac67762dda3175
+LW (240, 0, 40, 800)
+DATA len=4000 fnv=db8ed3b0aa51fb45
+LW (200, 0, 40, 800)
+DATA len=4000 fnv=8f5b80568dfbe5d1
+LW (160, 0, 40, 800)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (120, 0, 40, 800)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (80, 0, 40, 800)
+DATA len=4000 fnv=6a32a03c32c769dd
+LW (40, 0, 40, 800)
+DATA len=4000 fnv=adb692d07403abbd
+LW (0, 0, 40, 800)
+DATA len=4000 fnv=31aee72fdfd90370
+CMD 21 (len 1)
+DATA len=2 fnv=090c0807b5a43a2d [40, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af646a4c8602ddd6 [F7]
+CMD 20 (len 1)
+initial_refresh_needed=false
+== partial region (0, 0, 480, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7160146f5d6bf745 [DF, 01, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+LW (440, 0, 40, 800)
+DATA len=4000 fnv=d25e6b1c4dbb5071
+LW (400, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (360, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (320, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (280, 0, 40, 800)
+DATA len=4000 fnv=b8ac67762dda3175
+LW (240, 0, 40, 800)
+DATA len=4000 fnv=db8ed3b0aa51fb45
+LW (200, 0, 40, 800)
+DATA len=4000 fnv=8f5b80568dfbe5d1
+LW (160, 0, 40, 800)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (120, 0, 40, 800)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (80, 0, 40, 800)
+DATA len=4000 fnv=6a32a03c32c769dd
+LW (40, 0, 40, 800)
+DATA len=4000 fnv=adb692d07403abbd
+LW (0, 0, 40, 800)
+DATA len=4000 fnv=31aee72fdfd90370
+RS RenderState { px: 0, py: 0, pw: 800, ph: 480, left_mask: 0, right_mask: 0 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7160146f5d6bf745 [DF, 01, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+LW (440, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6eeec36f5b58b01a [DF, 01, B8, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 26 (len 1)
+DATA len=4000 fnv=d25e6b1c4dbb5071
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6eeec36f5b58b01a [DF, 01, B8, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=d25e6b1c4dbb5071
+LW (400, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7506d00c58dabc9a [B7, 01, 90, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=09a4f707b6262a15 [B7, 01]
+CMD 26 (len 1)
+DATA len=4000 fnv=479f16004be82b65
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7506d00c58dabc9a [B7, 01, 90, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=09a4f707b6262a15 [B7, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=479f16004be82b65
+LW (360, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=71a8e0d46b74bf9a [8F, 01, 68, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=09f68707b66b75ed [8F, 01]
+CMD 26 (len 1)
+DATA len=4000 fnv=479f16004be82b65
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=71a8e0d46b74bf9a [8F, 01, 68, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=09f68707b66b75ed [8F, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=479f16004be82b65
+LW (320, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=745aed716613a31a [67, 01, 40, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08951707b53f2d45 [67, 01]
+CMD 26 (len 1)
+DATA len=4000 fnv=479f16004be82b65
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=745aed716613a31a [67, 01, 40, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08951707b53f2d45 [67, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=479f16004be82b65
+LW (280, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=75b7fc23ee21aada [3F, 01, 18, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=080d2707b4cbaedd [3F, 01]
+CMD 26 (len 1)
+DATA len=4000 fnv=b8ac67762dda3175
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=75b7fc23ee21aada [3F, 01, 18, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=080d2707b4cbaedd [3F, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=b8ac67762dda3175
+LW (240, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=740d0dec022d440d [17, 01, F0, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=085eb707b510fab5 [17, 01]
+CMD 26 (len 1)
+DATA len=4000 fnv=db8ed3b0aa51fb45
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=740d0dec022d440d [17, 01, F0, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=085eb707b510fab5 [17, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=db8ed3b0aa51fb45
+LW (200, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6a74a7df2f124e62 [EF, 00, C8, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a634607b6c7d95a [EF, 00]
+CMD 26 (len 1)
+DATA len=4000 fnv=8f5b80568dfbe5d1
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6a74a7df2f124e62 [EF, 00, C8, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a634607b6c7d95a [EF, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=8f5b80568dfbe5d1
+LW (160, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6a7cb8a7448f7a62 [C7, 00, A0, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0ab4d607b70d2532 [C7, 00]
+CMD 26 (len 1)
+DATA len=4000 fnv=3aa218dfd9886d85
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6a7cb8a7448f7a62 [C7, 00, A0, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0ab4d607b70d2532 [C7, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (120, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=69ba0759cacf8882 [9F, 00, 78, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a2ce607b699a6ca [9F, 00]
+CMD 26 (len 1)
+DATA len=4000 fnv=3aa218dfd9886d85
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=69ba0759cacf8882 [9F, 00, 78, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a2ce607b699a6ca [9F, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (80, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6d4593f6c6273642 [77, 00, 50, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08cb7607b56d5e22 [77, 00]
+CMD 26 (len 1)
+DATA len=4000 fnv=6a32a03c32c769dd
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6d4593f6c6273642 [77, 00, 50, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08cb7607b56d5e22 [77, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=6a32a03c32c769dd
+LW (40, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6b2de4bed9d668a2 [4F, 00, 28, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=091d0607b5b2a9fa [4F, 00]
+CMD 26 (len 1)
+DATA len=4000 fnv=adb692d07403abbd
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6b2de4bed9d668a2 [4F, 00, 28, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=091d0607b5b2a9fa [4F, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=adb692d07403abbd
+LW (0, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6ddff15bd4754c22 [27, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=07bb9607b4866152 [27, 00]
+CMD 26 (len 1)
+DATA len=4000 fnv=31aee72fdfd90370
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6ddff15bd4754c22 [27, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=07bb9607b4866152 [27, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=31aee72fdfd90370
+LW (440, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6eeec36f5b58b01a [DF, 01, B8, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=d25e6b1c4dbb5071
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6eeec36f5b58b01a [DF, 01, B8, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=01ea6ad18b18c2c8
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b23114017b8a295c
+DATA len=64 fnv=99facfdf6f36f2b0
+DATA len=64 fnv=b83492d065cf9c21
+DATA len=64 fnv=863306b2b5bf1d3c
+DATA len=64 fnv=b9b2403a46fd09d8
+DATA len=64 fnv=c6faa0cf1b7ca8d9
+DATA len=64 fnv=bd917dc83e35f31c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=558dec5dbbcb1fec
+DATA len=64 fnv=d12d01c3f04ebcfc
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=72d7848b51cca1cc
+DATA len=64 fnv=be59c8845de0123c
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b23114017b8a295c
+DATA len=64 fnv=99facfdf6f36f2b0
+DATA len=64 fnv=b83492d065cf9c21
+DATA len=64 fnv=863306b2b5bf1d3c
+DATA len=64 fnv=b9b2403a46fd09d8
+DATA len=64 fnv=c6faa0cf1b7ca8d9
+DATA len=64 fnv=bd917dc83e35f31c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=558dec5dbbcb1fec
+DATA len=64 fnv=d12d01c3f04ebcfc
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=72d7848b51cca1cc
+DATA len=64 fnv=be59c8845de0123c
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=32 fnv=2abebca7938d7bbc
+LW (400, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7506d00c58dabc9a [B7, 01, 90, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=09a4f707b6262a15 [B7, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=479f16004be82b65
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7506d00c58dabc9a [B7, 01, 90, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=09a4f707b6262a15 [B7, 01]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b23114017b8a295c
+DATA len=64 fnv=99facfdf6f36f2b0
+DATA len=64 fnv=b83492d065cf9c21
+DATA len=64 fnv=863306b2b5bf1d3c
+DATA len=64 fnv=b9b2403a46fd09d8
+DATA len=64 fnv=c6faa0cf1b7ca8d9
+DATA len=64 fnv=bd917dc83e35f31c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=558dec5dbbcb1fec
+DATA len=64 fnv=d12d01c3f04ebcfc
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=72d7848b51cca1cc
+DATA len=64 fnv=be59c8845de0123c
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b23114017b8a295c
+DATA len=64 fnv=99facfdf6f36f2b0
+DATA len=64 fnv=b83492d065cf9c21
+DATA len=64 fnv=863306b2b5bf1d3c
+DATA len=64 fnv=b9b2403a46fd09d8
+DATA len=64 fnv=c6faa0cf1b7ca8d9
+DATA len=64 fnv=bd917dc83e35f31c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=558dec5dbbcb1fec
+DATA len=64 fnv=d12d01c3f04ebcfc
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=72d7848b51cca1cc
+DATA len=64 fnv=be59c8845de0123c
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=32 fnv=2abebca7938d7bbc
+LW (360, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=71a8e0d46b74bf9a [8F, 01, 68, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=09f68707b66b75ed [8F, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=479f16004be82b65
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=71a8e0d46b74bf9a [8F, 01, 68, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=09f68707b66b75ed [8F, 01]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b23114017b8a295c
+DATA len=64 fnv=99facfdf6f36f2b0
+DATA len=64 fnv=b83492d065cf9c21
+DATA len=64 fnv=863306b2b5bf1d3c
+DATA len=64 fnv=b9b2403a46fd09d8
+DATA len=64 fnv=c6faa0cf1b7ca8d9
+DATA len=64 fnv=bd917dc83e35f31c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=558dec5dbbcb1fec
+DATA len=64 fnv=d12d01c3f04ebcfc
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=72d7848b51cca1cc
+DATA len=64 fnv=be59c8845de0123c
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b23114017b8a295c
+DATA len=64 fnv=99facfdf6f36f2b0
+DATA len=64 fnv=b83492d065cf9c21
+DATA len=64 fnv=863306b2b5bf1d3c
+DATA len=64 fnv=b9b2403a46fd09d8
+DATA len=64 fnv=c6faa0cf1b7ca8d9
+DATA len=64 fnv=bd917dc83e35f31c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=558dec5dbbcb1fec
+DATA len=64 fnv=d12d01c3f04ebcfc
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=72d7848b51cca1cc
+DATA len=64 fnv=be59c8845de0123c
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=32 fnv=2abebca7938d7bbc
+LW (320, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=745aed716613a31a [67, 01, 40, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08951707b53f2d45 [67, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=479f16004be82b65
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=745aed716613a31a [67, 01, 40, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08951707b53f2d45 [67, 01]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b23114017b8a295c
+DATA len=64 fnv=99facfdf6f36f2b0
+DATA len=64 fnv=b83492d065cf9c21
+DATA len=64 fnv=863306b2b5bf1d3c
+DATA len=64 fnv=b9b2403a46fd09d8
+DATA len=64 fnv=c6faa0cf1b7ca8d9
+DATA len=64 fnv=bd917dc83e35f31c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=558dec5dbbcb1fec
+DATA len=64 fnv=d12d01c3f04ebcfc
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=72d7848b51cca1cc
+DATA len=64 fnv=be59c8845de0123c
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b23114017b8a295c
+DATA len=64 fnv=99facfdf6f36f2b0
+DATA len=64 fnv=b83492d065cf9c21
+DATA len=64 fnv=863306b2b5bf1d3c
+DATA len=64 fnv=b9b2403a46fd09d8
+DATA len=64 fnv=c6faa0cf1b7ca8d9
+DATA len=64 fnv=bd917dc83e35f31c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=558dec5dbbcb1fec
+DATA len=64 fnv=d12d01c3f04ebcfc
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=72d7848b51cca1cc
+DATA len=64 fnv=be59c8845de0123c
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=32 fnv=2abebca7938d7bbc
+LW (280, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=75b7fc23ee21aada [3F, 01, 18, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=080d2707b4cbaedd [3F, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=b8ac67762dda3175
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=75b7fc23ee21aada [3F, 01, 18, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=080d2707b4cbaedd [3F, 01]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=198fb21a726b3d6c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b5741d309131b57c
+DATA len=64 fnv=12b4c4cfcfb4734c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b23114017b8a295c
+DATA len=64 fnv=99facfdf6f36f2b0
+DATA len=64 fnv=b83492d065cf9c21
+DATA len=64 fnv=863306b2b5bf1d3c
+DATA len=64 fnv=b9b2403a46fd09d8
+DATA len=64 fnv=c6faa0cf1b7ca8d9
+DATA len=64 fnv=bd917dc83e35f31c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=558dec5dbbcb1fec
+DATA len=64 fnv=d12d01c3f04ebcfc
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=72d7848b51cca1cc
+DATA len=64 fnv=be59c8845de0123c
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=05e110d86e7adfac
+DATA len=64 fnv=80e8a02b32174be4
+DATA len=64 fnv=f93818d600b1fc3d
+DATA len=64 fnv=f3ea4a118f3c238c
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b851f0593767f79c
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=32 fnv=0c8210784d8af5a5
+LW (240, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=740d0dec022d440d [17, 01, F0, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=085eb707b510fab5 [17, 01]
+CMD 24 (len 1)
+DATA len=4000 fnv=db8ed3b0aa51fb45
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=740d0dec022d440d [17, 01, F0, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=085eb707b510fab5 [17, 01]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=553a50829832f5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=32 fnv=0c8210784d8af5a5
+LW (200, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6a74a7df2f124e62 [EF, 00, C8, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a634607b6c7d95a [EF, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=8f5b80568dfbe5d1
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6a74a7df2f124e62 [EF, 00, C8, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a634607b6c7d95a [EF, 00]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d47873844d4234bc
+DATA len=64 fnv=79c2b1334451d2fe
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=eaab23d0dbe4073a
+DATA len=64 fnv=f75460713a228cbc
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=aad4c482b14dd614
+DATA len=64 fnv=a2a4ee75777c2172
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=e8bb076b8fb03856
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=486676bc1dc05294
+DATA len=32 fnv=0c8210784d8af5a5
+LW (160, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6a7cb8a7448f7a62 [C7, 00, A0, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0ab4d607b70d2532 [C7, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=3aa218dfd9886d85
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6a7cb8a7448f7a62 [C7, 00, A0, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0ab4d607b70d2532 [C7, 00]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=32 fnv=0c8210784d8af5a5
+LW (120, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=69ba0759cacf8882 [9F, 00, 78, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a2ce607b699a6ca [9F, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=3aa218dfd9886d85
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=69ba0759cacf8882 [9F, 00, 78, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a2ce607b699a6ca [9F, 00]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=32 fnv=0c8210784d8af5a5
+LW (80, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6d4593f6c6273642 [77, 00, 50, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08cb7607b56d5e22 [77, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=6a32a03c32c769dd
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6d4593f6c6273642 [77, 00, 50, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08cb7607b56d5e22 [77, 00]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=7668c7d63eaef37a
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=0eaa039d0e654dec
+DATA len=64 fnv=feebb0a6f94f84a8
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=f8d316380f9a175e
+DATA len=64 fnv=3bcbad6c22a51b91
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=262d448a88b16737
+DATA len=64 fnv=0ea1b0ddbf6657a3
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=14a40c3a9ae39635
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=32 fnv=0c8210784d8af5a5
+LW (40, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6b2de4bed9d668a2 [4F, 00, 28, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=091d0607b5b2a9fa [4F, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=adb692d07403abbd
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6b2de4bed9d668a2 [4F, 00, 28, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=091d0607b5b2a9fa [4F, 00]
+CMD 26 (len 1)
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=8239f05ebf445505
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=b86f28bd2aa4d7c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=6ba70efe249e4545
+DATA len=64 fnv=3891b5a14eb4ec85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9a97adaaa738de05
+DATA len=64 fnv=9b5f30299487cf45
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=bceeba59e2ffc6c5
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=45c96094ce11dd85
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=db1fb0c9e2f5a8c5
+DATA len=64 fnv=91d2d37fed3ca645
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=2486af052aa43b85
+DATA len=64 fnv=a0d6a51d7786bf05
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=d8e792a4cbec2045
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=4f523c09d1c6ed22
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=eb0150dac0c98492
+DATA len=32 fnv=0c8210784d8af5a5
+LW (0, 0, 40, 800)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6ddff15bd4754c22 [27, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=07bb9607b4866152 [27, 00]
+CMD 24 (len 1)
+DATA len=4000 fnv=31aee72fdfd90370
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=6ddff15bd4754c22 [27, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=07bb9607b4866152 [27, 00]
+CMD 26 (len 1)
+DATA len=64 fnv=8f1e7cd34ee60602
+DATA len=64 fnv=67ccacf84e09db25
+DATA len=64 fnv=34c567997c27ae12
+DATA len=64 fnv=65fb0ed1b7b54662
+DATA len=64 fnv=cc6236d94eb7afad
+DATA len=64 fnv=243836a2d158679a
+DATA len=64 fnv=f9549ace00a0eec2
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=a92a0d1327940b72
+DATA len=64 fnv=4f523c09d1c6ed22
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=eb0150dac0c98492
+DATA len=64 fnv=eeade18f34c182a1
+DATA len=64 fnv=bafcd96b496bc45e
+DATA len=64 fnv=a2cdf0097e058a92
+DATA len=64 fnv=89df148e6ed107a9
+DATA len=64 fnv=b10ea032642ba606
+DATA len=64 fnv=e8427a39238aeaf2
+DATA len=64 fnv=13036a5527c4a3b1
+DATA len=64 fnv=b09db0db1e89540e
+DATA len=64 fnv=01220dffbb6aa752
+DATA len=64 fnv=da595e18e913c405
+DATA len=64 fnv=34cf376e7e828782
+DATA len=64 fnv=0b0ee92f72d1679d
+DATA len=64 fnv=3dd553c158f094ea
+DATA len=64 fnv=8f1e7cd34ee60602
+DATA len=64 fnv=67ccacf84e09db25
+DATA len=64 fnv=34c567997c27ae12
+DATA len=64 fnv=65fb0ed1b7b54662
+DATA len=64 fnv=cc6236d94eb7afad
+DATA len=64 fnv=243836a2d158679a
+DATA len=64 fnv=f9549ace00a0eec2
+DATA len=64 fnv=c060e31839a7c5c5
+DATA len=64 fnv=a92a0d1327940b72
+DATA len=64 fnv=4f523c09d1c6ed22
+DATA len=64 fnv=b7b2c25a9b23be85
+DATA len=64 fnv=eb0150dac0c98492
+DATA len=64 fnv=eeade18f34c182a1
+DATA len=64 fnv=bafcd96b496bc45e
+DATA len=64 fnv=e99f3fe1d6b35842
+DATA len=64 fnv=203185b352518b60
+DATA len=64 fnv=b10ea032642ba606
+DATA len=64 fnv=b944b9a3355e6432
+DATA len=64 fnv=eaeb2ef82305e501
+DATA len=64 fnv=b09db0db1e89540e
+DATA len=64 fnv=cd9b5ac6c783c6d2
+DATA len=64 fnv=128a141503364b7a
+DATA len=64 fnv=34cf376e7e828782
+DATA len=64 fnv=b3be5329627aaa22
+DATA len=64 fnv=3dd553c158f094ea
+DATA len=64 fnv=cd4746b5b08d81a1
+DATA len=64 fnv=d1223af631a40e78
+DATA len=64 fnv=34c567997c27ae12
+DATA len=64 fnv=6301da5302e09896
+DATA len=64 fnv=721f0ed5e0fe50d9
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=5af43123ed340433
+DATA len=64 fnv=2493a516fdc063c4
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=64 fnv=9e27e5367c137bb4
+DATA len=64 fnv=a6c670fb64fd980d
+DATA len=64 fnv=b9b23f3a46fd0825
+DATA len=32 fnv=0c820f784d8af3f2
+RS-inv RenderState { px: 0, py: 0, pw: 800, ph: 480, left_mask: 0, right_mask: 0 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7160146f5d6bf745 [DF, 01, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+== partial region (3, 5, 10, 10)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d00147f9dae5132 [00, 00, 0F, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=cd138ca0f6a7e962 [0C, 00, 03, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08402007b4f6fc91 [0C, 00]
+CMD 24 (len 1)
+LW (3, 0, 10, 16)
+DATA len=20 fnv=573b0fadb6a9135e
+RS RenderState { px: 0, py: 467, pw: 16, ph: 10, left_mask: 248, right_mask: 1 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d00147f9dae5132 [00, 00, 0F, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=cd138ca0f6a7e962 [0C, 00, 03, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08402007b4f6fc91 [0C, 00]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+LW (3, 0, 10, 16)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d00147f9dae5132 [00, 00, 0F, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=cd138ca0f6a7e962 [0C, 00, 03, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08402007b4f6fc91 [0C, 00]
+CMD 26 (len 1)
+DATA len=20 fnv=573b0fadb6a9135e
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d00147f9dae5132 [00, 00, 0F, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=cd138ca0f6a7e962 [0C, 00, 03, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08402007b4f6fc91 [0C, 00]
+CMD 24 (len 1)
+DATA len=20 fnv=573b0fadb6a9135e
+LW (3, 0, 10, 16)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d00147f9dae5132 [00, 00, 0F, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=cd138ca0f6a7e962 [0C, 00, 03, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08402007b4f6fc91 [0C, 00]
+CMD 24 (len 1)
+DATA len=20 fnv=573b0fadb6a9135e
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d00147f9dae5132 [00, 00, 0F, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=cd138ca0f6a7e962 [0C, 00, 03, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08402007b4f6fc91 [0C, 00]
+CMD 26 (len 1)
+DATA len=20 fnv=2c74c666341c9482
+RS-inv RenderState { px: 0, py: 467, pw: 16, ph: 10, left_mask: 248, right_mask: 1 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d00147f9dae5132 [00, 00, 0F, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=cd138ca0f6a7e962 [0C, 00, 03, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08402007b4f6fc91 [0C, 00]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+== partial region (17, 100, 123, 77)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4ec6e58a667928ca [60, 00, B7, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=ea188cf5c064ae27 [8B, 00, 11, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=089f4807b547d50d [60, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a041e07b67700de [8B, 00]
+CMD 24 (len 1)
+LW (17, 96, 123, 88)
+DATA len=1353 fnv=68f8986d368916b0
+RS RenderState { px: 96, py: 340, pw: 88, ph: 123, left_mask: 240, right_mask: 127 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4ec6e58a667928ca [60, 00, B7, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=ea188cf5c064ae27 [8B, 00, 11, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=089f4807b547d50d [60, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a041e07b67700de [8B, 00]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+LW (17, 96, 123, 88)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4ec6e58a667928ca [60, 00, B7, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=ea188cf5c064ae27 [8B, 00, 11, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=089f4807b547d50d [60, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a041e07b67700de [8B, 00]
+CMD 26 (len 1)
+DATA len=1353 fnv=68f8986d368916b0
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4ec6e58a667928ca [60, 00, B7, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=ea188cf5c064ae27 [8B, 00, 11, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=089f4807b547d50d [60, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a041e07b67700de [8B, 00]
+CMD 24 (len 1)
+DATA len=1353 fnv=68f8986d368916b0
+LW (17, 96, 123, 88)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4ec6e58a667928ca [60, 00, B7, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=ea188cf5c064ae27 [8B, 00, 11, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=089f4807b547d50d [60, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a041e07b67700de [8B, 00]
+CMD 24 (len 1)
+DATA len=1353 fnv=68f8986d368916b0
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4ec6e58a667928ca [60, 00, B7, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=ea188cf5c064ae27 [8B, 00, 11, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=089f4807b547d50d [60, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a041e07b67700de [8B, 00]
+CMD 26 (len 1)
+DATA len=64 fnv=2f12653d50a62cc6
+DATA len=64 fnv=c21a8f91a64174b3
+DATA len=64 fnv=5ae7c410e209f1c3
+DATA len=64 fnv=6c434e181fc196d3
+DATA len=64 fnv=0ae9b325d6dd40e3
+DATA len=64 fnv=77977f04705c1f7c
+DATA len=64 fnv=140f749febddb94f
+DATA len=64 fnv=e9a0b6a1c9a8ee1f
+DATA len=64 fnv=32cbf4e93e7c8faf
+DATA len=64 fnv=f2809867c57ce17f
+DATA len=64 fnv=e5b03e9a240beeff
+DATA len=64 fnv=2f12653d50a62cc6
+DATA len=64 fnv=c21a8f91a64174b3
+DATA len=64 fnv=5ae7c410e209f1c3
+DATA len=64 fnv=6c434e181fc196d3
+DATA len=64 fnv=0ae9b325d6dd40e3
+DATA len=64 fnv=bfdd8c5f61d2b27a
+DATA len=64 fnv=84cc4da0e20ecde5
+DATA len=64 fnv=84cc4da0e20ecde5
+DATA len=64 fnv=84cc4da0e20ecde5
+DATA len=64 fnv=84cc4da0e20ecde5
+DATA len=9 fnv=2804ddde49e161a6
+RS-inv RenderState { px: 96, py: 340, pw: 88, ph: 123, left_mask: 240, right_mask: 127 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4ec6e58a667928ca [60, 00, B7, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=ea188cf5c064ae27 [8B, 00, 11, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=089f4807b547d50d [60, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0a041e07b67700de [8B, 00]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+== partial region (470, 790, 10, 10)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=3321f104f2b44b66 [10, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7049676f5c7f3270 [DF, 01, D6, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=0868e507b5199d64 [10, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+LW (470, 784, 10, 16)
+DATA len=20 fnv=838fb37cbe1447c1
+RS RenderState { px: 784, py: 0, pw: 16, ph: 10, left_mask: 252, right_mask: 0 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=3321f104f2b44b66 [10, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7049676f5c7f3270 [DF, 01, D6, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=0868e507b5199d64 [10, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+LW (470, 784, 10, 16)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=3321f104f2b44b66 [10, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7049676f5c7f3270 [DF, 01, D6, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=0868e507b5199d64 [10, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 26 (len 1)
+DATA len=20 fnv=838fb37cbe1447c1
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=3321f104f2b44b66 [10, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7049676f5c7f3270 [DF, 01, D6, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=0868e507b5199d64 [10, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+DATA len=20 fnv=838fb37cbe1447c1
+LW (470, 784, 10, 16)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=3321f104f2b44b66 [10, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7049676f5c7f3270 [DF, 01, D6, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=0868e507b5199d64 [10, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+DATA len=20 fnv=838fb37cbe1447c1
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=3321f104f2b44b66 [10, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7049676f5c7f3270 [DF, 01, D6, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=0868e507b5199d64 [10, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 26 (len 1)
+DATA len=20 fnv=571722b36deb0275
+RS-inv RenderState { px: 784, py: 0, pw: 16, ph: 10, left_mask: 252, right_mask: 0 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=3321f104f2b44b66 [10, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7049676f5c7f3270 [DF, 01, D6, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=0868e507b5199d64 [10, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+== partial region (0, 0, 1, 1)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d1b447f9dc56a7a [00, 00, 07, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=4d25767f9dce13f5 [00, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 24 (len 1)
+LW (0, 0, 1, 8)
+DATA len=1 fnv=af63f24c860211ee [7F]
+RS RenderState { px: 0, py: 479, pw: 8, ph: 1, left_mask: 0, right_mask: 127 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d1b447f9dc56a7a [00, 00, 07, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=4d25767f9dce13f5 [00, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+LW (0, 0, 1, 8)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d1b447f9dc56a7a [00, 00, 07, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=4d25767f9dce13f5 [00, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 26 (len 1)
+DATA len=1 fnv=af63f24c860211ee [7F]
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d1b447f9dc56a7a [00, 00, 07, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=4d25767f9dce13f5 [00, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 24 (len 1)
+DATA len=1 fnv=af63f24c860211ee [7F]
+LW (0, 0, 1, 8)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d1b447f9dc56a7a [00, 00, 07, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=4d25767f9dce13f5 [00, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 24 (len 1)
+DATA len=1 fnv=af63f24c860211ee [7F]
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d1b447f9dc56a7a [00, 00, 07, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=4d25767f9dce13f5 [00, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 26 (len 1)
+DATA len=1 fnv=af64724c8602eb6e [FF]
+RS-inv RenderState { px: 0, py: 479, pw: 8, ph: 1, left_mask: 0, right_mask: 127 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d1b447f9dc56a7a [00, 00, 07, 00]
+CMD 45 (len 1)
+DATA len=4 fnv=4d25767f9dce13f5 [00, 00, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+== partial region (479, 799, 1, 1)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=32c0f147a433fd5e [18, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=702ad36f5c653965 [DF, 01, DF, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08841507b530b6ac [18, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+LW (479, 792, 1, 8)
+DATA len=1 fnv=af64734c8602ed21 [FE]
+RS RenderState { px: 792, py: 0, pw: 8, ph: 1, left_mask: 254, right_mask: 0 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=32c0f147a433fd5e [18, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=702ad36f5c653965 [DF, 01, DF, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08841507b530b6ac [18, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+LW (479, 792, 1, 8)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=32c0f147a433fd5e [18, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=702ad36f5c653965 [DF, 01, DF, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08841507b530b6ac [18, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 26 (len 1)
+DATA len=1 fnv=af64734c8602ed21 [FE]
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=32c0f147a433fd5e [18, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=702ad36f5c653965 [DF, 01, DF, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08841507b530b6ac [18, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+DATA len=1 fnv=af64734c8602ed21 [FE]
+LW (479, 792, 1, 8)
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=32c0f147a433fd5e [18, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=702ad36f5c653965 [DF, 01, DF, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08841507b530b6ac [18, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+DATA len=1 fnv=af64734c8602ed21 [FE]
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=32c0f147a433fd5e [18, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=702ad36f5c653965 [DF, 01, DF, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08841507b530b6ac [18, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 26 (len 1)
+DATA len=1 fnv=af64724c8602eb6e [FF]
+RS-inv RenderState { px: 792, py: 0, pw: 8, ph: 1, left_mask: 254, right_mask: 0 }
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=32c0f147a433fd5e [18, 03, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=702ad36f5c653965 [DF, 01, DF, 01]
+CMD 4E (len 1)
+DATA len=2 fnv=08841507b530b6ac [18, 03]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 21 (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 22 (len 1)
+DATA len=1 fnv=af64714c8602e9bb [FC]
+CMD 20 (len 1)
+== partial region (100, 200, 0, 5)
+== deep sleep
+CMD 22 (len 1)
+DATA len=1 fnv=af643e4c86029312 [83]
+CMD 20 (len 1)
+CMD 10 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 10 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 12 (len 1)
+DELAY 10
+CMD 18 (len 1)
+DATA len=1 fnv=af643d4c8602915f [80]
+CMD 0C (len 1)
+DATA len=5 fnv=8236fa35111631ab [AE, C7, C3, C0, 80]
+CMD 01 (len 1)
+DATA len=3 fnv=0e53d11c8118fa8d [DF, 01, 02]
+CMD 3C (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7160146f5d6bf745 [DF, 01, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+DELAY 1
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7160146f5d6bf745 [DF, 01, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 26 (len 1)
+DELAY 1
+LW (440, 0, 40, 800)
+DATA len=4000 fnv=d25e6b1c4dbb5071
+LW (400, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (360, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (320, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (280, 0, 40, 800)
+DATA len=4000 fnv=b8ac67762dda3175
+LW (240, 0, 40, 800)
+DATA len=4000 fnv=db8ed3b0aa51fb45
+LW (200, 0, 40, 800)
+DATA len=4000 fnv=8f5b80568dfbe5d1
+LW (160, 0, 40, 800)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (120, 0, 40, 800)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (80, 0, 40, 800)
+DATA len=4000 fnv=6a32a03c32c769dd
+LW (40, 0, 40, 800)
+DATA len=4000 fnv=adb692d07403abbd
+LW (0, 0, 40, 800)
+DATA len=4000 fnv=31aee72fdfd90370
+CMD 11 (len 1)
+DATA len=1 fnv=af63bc4c8601b62c [01]
+CMD 44 (len 1)
+DATA len=4 fnv=4d36737f9ddc820f [00, 00, 1F, 03]
+CMD 45 (len 1)
+DATA len=4 fnv=7160146f5d6bf745 [DF, 01, 00, 00]
+CMD 4E (len 1)
+DATA len=2 fnv=08328807b4eb6fed [00, 00]
+CMD 4F (len 1)
+DATA len=2 fnv=0b066707b75272bd [DF, 01]
+CMD 24 (len 1)
+DELAY 1
+LW (440, 0, 40, 800)
+DATA len=4000 fnv=d25e6b1c4dbb5071
+LW (400, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (360, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (320, 0, 40, 800)
+DATA len=4000 fnv=479f16004be82b65
+LW (280, 0, 40, 800)
+DATA len=4000 fnv=b8ac67762dda3175
+LW (240, 0, 40, 800)
+DATA len=4000 fnv=db8ed3b0aa51fb45
+LW (200, 0, 40, 800)
+DATA len=4000 fnv=8f5b80568dfbe5d1
+LW (160, 0, 40, 800)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (120, 0, 40, 800)
+DATA len=4000 fnv=3aa218dfd9886d85
+LW (80, 0, 40, 800)
+DATA len=4000 fnv=6a32a03c32c769dd
+LW (40, 0, 40, 800)
+DATA len=4000 fnv=adb692d07403abbd
+LW (0, 0, 40, 800)
+DATA len=4000 fnv=31aee72fdfd90370

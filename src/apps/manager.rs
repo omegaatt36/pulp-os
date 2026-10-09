@@ -20,7 +20,7 @@ use crate::drivers::sdcard::SdStorage;
 use crate::drivers::strip::StripBuffer;
 use crate::fonts;
 use crate::kernel::KernelHandle;
-use crate::kernel::app::AppLayer;
+use crate::kernel::app::{AppLayer, SessionData};
 use crate::kernel::bookmarks::BookmarkCache;
 use crate::kernel::config::{SystemSettings, WifiConfig};
 use crate::ui::Region;
@@ -45,6 +45,7 @@ macro_rules! with_app {
                 let $app = &mut *$mgr.settings;
                 $body
             }
+            #[cfg(feature = "wifi")]
             AppId::Upload => {
                 unreachable!("Upload mode is handled outside the app dispatch loop");
             }
@@ -72,11 +73,49 @@ macro_rules! with_app_ref {
                 let $app = &*$mgr.settings;
                 $body
             }
+            #[cfg(feature = "wifi")]
             AppId::Upload => {
                 unreachable!("Upload mode is handled outside the app dispatch loop");
             }
         }
     };
+}
+
+// upload mode exists only with the `wifi` feature
+#[inline]
+#[allow(unused_variables)]
+fn is_upload(id: AppId) -> bool {
+    #[cfg(feature = "wifi")]
+    {
+        id == AppId::Upload
+    }
+    #[cfg(not(feature = "wifi"))]
+    {
+        false
+    }
+}
+
+// the board's session record: X4 RtcSession (RTC FAST memory) or the C61
+// SessionState (SD card); the two differ only in how the epub flag is stored
+mod session_fields {
+    use crate::kernel::app::SessionData;
+
+    #[cfg(feature = "board-x4")]
+    pub fn set_epub(s: &mut SessionData, v: bool) {
+        s.reader_is_epub = v as u8;
+    }
+    #[cfg(feature = "board-x4")]
+    pub fn is_epub(s: &SessionData) -> bool {
+        s.reader_is_epub != 0
+    }
+    #[cfg(feature = "board-onepage-c61")]
+    pub fn set_epub(s: &mut SessionData, v: bool) {
+        s.reader_is_epub = v;
+    }
+    #[cfg(feature = "board-onepage-c61")]
+    pub fn is_epub(s: &SessionData) -> bool {
+        s.reader_is_epub
+    }
 }
 
 #[allow(unused_imports)]
@@ -96,6 +135,7 @@ pub struct AppManager {
     pub bumps: &'static mut ButtonFeedback,
 
     pub mapper: ButtonMapper,
+    overlay_fonts: fonts::cjk::SurfaceFonts,
 }
 
 impl AppManager {
@@ -119,6 +159,7 @@ impl AppManager {
             quick_menu,
             bumps,
             mapper,
+            overlay_fonts: fonts::cjk::SurfaceFonts::new(),
         }
     }
 
@@ -163,6 +204,22 @@ impl AppManager {
         self.sync_button_config();
     }
 
+    pub fn storage_changed(&mut self, k: &mut KernelHandle<'_>) {
+        self.reader.reset_storage();
+        self.files.reset_storage();
+        self.home.reset_storage();
+        self.settings.on_exit();
+        self.quick_menu.hide();
+        self.overlay_fonts.clear();
+        // A normal transition saves the outgoing app onto the current card.
+        // Its state belongs to the removed card, so discard the stack directly.
+        *self.launcher = Launcher::new();
+        self.load_eager_settings(k);
+        self.load_home_recent(k);
+        self.enter_initial(k);
+        self.request_full_redraw();
+    }
+
     // sync button mapper and label widget from settings
     pub fn sync_button_config(&mut self) {
         let swap = self.settings.system_settings().swap_buttons;
@@ -187,12 +244,10 @@ impl AppManager {
     }
 
     // collect session state to RTC memory struct before sleep
-    pub fn collect_session(&self, session: &mut crate::kernel::rtc_session::RtcSession) {
-        use crate::kernel::rtc_session::MAX_NAV_STACK;
-
+    pub fn collect_session(&self, session: &mut SessionData) {
         // save navigation stack
         session.nav_depth = self.launcher.depth() as u8;
-        for i in 0..MAX_NAV_STACK {
+        for i in 0..session.nav_stack.len() {
             session.nav_stack[i] = if i < self.launcher.depth() {
                 self.launcher.stack_at(i) as u8
             } else {
@@ -204,30 +259,32 @@ impl AppManager {
         session.reader_filename_len = self.reader.filename_len() as u8;
         let len = session.reader_filename_len as usize;
         session.reader_filename[..len].copy_from_slice(self.reader.filename_bytes());
-        session.reader_is_epub = self.reader.is_epub() as u8;
+        session_fields::set_epub(session, self.reader.is_epub());
         session.reader_chapter = self.reader.chapter();
         session.reader_page = self.reader.page() as u16;
         session.reader_byte_offset = self.reader.byte_offset();
         session.reader_font_size = self.reader.font_size_idx();
 
-        // save files state
         session.files_scroll = self.files.scroll() as u16;
         session.files_selected = self.files.selected() as u8;
         session.files_total = self.files.total() as u16;
 
-        // save home state
         session.home_state = self.home.state_id();
         session.home_selected = self.home.selected() as u8;
         session.home_bm_selected = self.home.bm_selected() as u8;
         session.home_bm_scroll = self.home.bm_scroll() as u8;
 
-        // save settings cache
-        let ss = self.settings.system_settings();
-        session.settings_sleep_timeout = ss.sleep_timeout;
-        session.settings_ghost_clear = ss.ghost_clear_every;
-        session.settings_book_font = ss.book_font_size_idx;
-        session.settings_ui_font = ss.ui_font_size_idx;
-        session.settings_valid = 1;
+        // save settings cache (X4 RTC record only; the C61 record has no such
+        // fields, settings are always read from the SD card)
+        #[cfg(feature = "board-x4")]
+        {
+            let ss = self.settings.system_settings();
+            session.settings_sleep_timeout = ss.sleep_timeout;
+            session.settings_ghost_clear = ss.ghost_clear_every;
+            session.settings_book_font = ss.book_font_size_idx;
+            session.settings_ui_font = ss.ui_font_size_idx;
+            session.settings_valid = 1;
+        }
 
         log::info!(
             "session: collected nav_depth={} active={:?}",
@@ -237,18 +294,12 @@ impl AppManager {
     }
 
     // restore session from RTC memory; returns true if successful
-    pub fn apply_session(
-        &mut self,
-        session: &crate::kernel::rtc_session::RtcSession,
-        k: &mut KernelHandle<'_>,
-    ) -> bool {
-        // validate session data
+    pub fn apply_session(&mut self, session: &SessionData, k: &mut KernelHandle<'_>) -> bool {
         if session.nav_depth == 0 || session.nav_depth > 4 {
             log::warn!("session: invalid nav_depth {}", session.nav_depth);
             return false;
         }
 
-        // restore navigation stack
         self.launcher.restore_stack(
             session.nav_depth as usize,
             &session.nav_stack,
@@ -267,7 +318,6 @@ impl AppManager {
             self.launcher.active()
         );
 
-        // restore home state (always in stack)
         self.home.restore_state(
             session.home_state,
             session.home_selected as usize,
@@ -275,7 +325,6 @@ impl AppManager {
             session.home_bm_scroll as usize,
         );
 
-        // restore files state if in stack
         if self.launcher.contains(AppId::Files) {
             self.files.restore_state(
                 session.files_scroll as usize,
@@ -284,12 +333,11 @@ impl AppManager {
             );
         }
 
-        // restore reader state if active or in stack
         if self.launcher.active() == AppId::Reader || self.launcher.contains(AppId::Reader) {
             let filename = &session.reader_filename[..session.reader_filename_len as usize];
             self.reader.restore_state(
                 filename,
-                session.reader_is_epub != 0,
+                session_fields::is_epub(session),
                 session.reader_chapter,
                 session.reader_page as usize,
                 session.reader_byte_offset,
@@ -297,7 +345,6 @@ impl AppManager {
             );
         }
 
-        // propagate fonts before entering apps
         self.propagate_fonts();
 
         // enter apps in stack order (bottom to top)
@@ -321,12 +368,13 @@ impl AppManager {
                     }
                 }
                 AppId::Reader => {
-                    if is_active {
-                        // set message for reader to know filename
-                        let filename =
-                            &session.reader_filename[..session.reader_filename_len as usize];
-                        self.launcher.ctx.set_message(filename);
-                        self.reader.on_enter(&mut self.launcher.ctx, k);
+                    // Initialize the book even when Settings is on top, so
+                    // resuming Reader follows its normal loading lifecycle.
+                    let filename = &session.reader_filename[..session.reader_filename_len as usize];
+                    self.launcher.ctx.set_message(filename);
+                    self.reader.on_enter(&mut self.launcher.ctx, k);
+                    if !is_active {
+                        self.reader.on_suspend();
                     }
                 }
                 AppId::Settings => {
@@ -347,7 +395,6 @@ impl AppManager {
             }
         }
 
-        // mark full redraw needed
         self.launcher.ctx.request_full_redraw();
 
         true
@@ -362,7 +409,7 @@ impl AppManager {
             return self.handle_quick_menu(event, bm_cache);
         }
 
-        if matches!(event, ActionEvent::Press(Action::Menu)) {
+        if self.opens_quick_menu(event) {
             let active = self.launcher.active();
             let actions: &[_] = with_app!(active, self, |app| app.quick_actions());
             self.quick_menu.show(actions);
@@ -374,6 +421,26 @@ impl AppManager {
         with_app!(active, self, |app| {
             app.on_event(event, &mut self.launcher.ctx)
         })
+    }
+
+    // X4: Power short press = Action::Menu. The OnePage C61 has no Menu key; the
+    // only quick-menu function without another route (Contents) is reached by a
+    // long press of ENTER inside the reader (pulp_board_logic::lifecycle).
+    #[inline]
+    fn opens_quick_menu(&self, event: ActionEvent) -> bool {
+        #[cfg(feature = "board-onepage-c61")]
+        {
+            use crate::board::lifecycle::{MenuKeyContext, opens_quick_menu};
+            let ctx = MenuKeyContext {
+                reader_active: self.launcher.active() == AppId::Reader,
+                quick_menu_open: self.quick_menu.open,
+                reader_showing_toc: self.reader.showing_toc(),
+            };
+            if opens_quick_menu(event, ctx) {
+                return true;
+            }
+        }
+        matches!(event, ActionEvent::Press(Action::Menu))
     }
 
     fn handle_quick_menu(
@@ -437,7 +504,7 @@ impl AppManager {
         if let Some(nav) = self.launcher.apply(transition) {
             log::info!("app: {:?} -> {:?}", nav.from, nav.to);
 
-            if nav.from != AppId::Upload {
+            if !is_upload(nav.from) {
                 with_app!(nav.from, self, |app| {
                     app.save_state(k.bookmark_cache_mut());
                     if nav.suspend {
@@ -451,7 +518,7 @@ impl AppManager {
             self.propagate_fonts();
             self.launcher.ctx.clear_loading();
 
-            if nav.to != AppId::Upload {
+            if !is_upload(nav.to) {
                 if nav.resume {
                     with_app!(nav.to, self, |app| {
                         app.on_resume(&mut self.launcher.ctx, k)
@@ -463,13 +530,12 @@ impl AppManager {
                 }
             }
 
-            if nav.resume {
-                self.launcher
-                    .ctx
-                    .mark_dirty(Region::new(0, 0, SCREEN_W, SCREEN_H));
-            } else {
-                self.launcher.ctx.request_full_redraw();
-            }
+            // a whole-screen partial, not Redraw::Full: pushing Files or the
+            // reader would otherwise flash the panel; ghost_clear_every still
+            // promotes to a full refresh periodically
+            self.launcher
+                .ctx
+                .mark_dirty(Region::new(0, 0, SCREEN_W, SCREEN_H));
         }
     }
 
@@ -493,11 +559,23 @@ impl AppManager {
         self.sync_button_config();
     }
 
+    pub fn prepare_render(&mut self, k: &mut KernelHandle<'_>) {
+        let active = self.launcher.active();
+        with_app!(active, self, |app| app
+            .prepare_render(&mut self.launcher.ctx, k));
+        let mut labels = fonts::cjk::VisibleText::new();
+        self.quick_menu.collect_text(&mut labels);
+        self.bumps.collect_text(&mut labels);
+        self.overlay_fonts.prepare(k, &labels);
+    }
+
     pub fn draw(&self, strip: &mut StripBuffer) {
         let active = self.launcher.active();
         with_app_ref!(active, self, |app| app.draw(strip));
 
-        // loading indicator: after app content, before overlays
+        // loading indicator: after app content, before overlays; its text
+        // must stay Latin literals (the built-in font cannot render CJK),
+        // user content (titles, filenames) goes through the prepared path
         if self.launcher.ctx.loading_active() {
             let region = self.launcher.ctx.loading_region();
             if region.intersects(strip.logical_window()) {
@@ -511,10 +589,24 @@ impl AppManager {
         }
 
         if self.quick_menu.open {
-            self.quick_menu.draw(strip);
+            self.quick_menu
+                .draw_prepared(strip, &self.overlay_fonts.view());
         }
 
-        self.bumps.draw(strip);
+        self.bumps.draw_prepared(strip, &self.overlay_fonts.view());
+        if let Some(error) = self.overlay_fonts.error {
+            crate::apps::widgets::bitmap_label::draw_surface_error(
+                strip,
+                Region::new(
+                    8,
+                    crate::ui::CONTENT_TOP,
+                    SCREEN_W - 16,
+                    fonts::chrome_font().line_height,
+                ),
+                fonts::chrome_font(),
+                error,
+            );
+        }
     }
 
     pub fn propagate_fonts(&mut self) {
@@ -600,8 +692,22 @@ impl AppLayer for AppManager {
         AppManager::apply_transition(self, t, k);
     }
 
+    fn storage_changed(&mut self, k: &mut KernelHandle<'_>) {
+        AppManager::storage_changed(self, k);
+    }
+
     async fn run_background(&mut self, k: &mut KernelHandle<'_>) {
         AppManager::run_background(self, k).await;
+    }
+
+    fn prefetch(&mut self, k: &mut KernelHandle<'_>) {
+        if self.launcher.active() == AppId::Reader {
+            self.reader.prefetch(k);
+        }
+    }
+
+    fn prepare_render(&mut self, k: &mut KernelHandle<'_>) {
+        AppManager::prepare_render(self, k);
     }
 
     fn draw(&self, strip: &mut StripBuffer) {
@@ -656,22 +762,30 @@ impl AppLayer for AppManager {
         AppManager::enter_initial(self, k);
     }
 
-    fn collect_session(&self, session: &mut crate::kernel::rtc_session::RtcSession) {
+    fn collect_session(&self, session: &mut SessionData) {
         AppManager::collect_session(self, session);
     }
 
-    fn apply_session(
-        &mut self,
-        session: &crate::kernel::rtc_session::RtcSession,
-        k: &mut KernelHandle<'_>,
-    ) -> bool {
+    fn apply_session(&mut self, session: &SessionData, k: &mut KernelHandle<'_>) -> bool {
         AppManager::apply_session(self, session, k)
     }
 
     fn needs_special_mode(&self) -> bool {
-        self.launcher.active() == AppId::Upload
+        is_upload(self.launcher.active())
     }
 
+    #[cfg(not(feature = "wifi"))]
+    async fn run_special_mode(
+        &mut self,
+        _epd: &mut Epd,
+        _strip: &mut StripBuffer,
+        _delay: &mut Delay,
+        _sd: &SdStorage,
+    ) {
+        // offline firmware: needs_special_mode() is always false
+    }
+
+    #[cfg(feature = "wifi")]
     async fn run_special_mode(
         &mut self,
         epd: &mut Epd,
@@ -679,14 +793,10 @@ impl AppLayer for AppManager {
         delay: &mut Delay,
         sd: &SdStorage,
     ) {
-        // Safety: WIFI is not owned by any other driver.  Upload mode
-        // runs in isolation (the scheduler exits the main dispatch loop
-        // first) and tears down the radio stack before returning.  The
-        // peripheral is not accessed again until the next upload session.
-        let wifi = unsafe { esp_hal::peripherals::WIFI::steal() };
-
+        // Upload mode runs in isolation (the scheduler leaves the main
+        // dispatch loop first) and has released the radio and the network
+        // interface when it returns.
         crate::apps::upload::run_upload_mode(
-            wifi,
             epd,
             strip,
             delay,

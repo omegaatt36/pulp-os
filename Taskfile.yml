@@ -1,0 +1,101 @@
+version: '3'
+
+vars:
+  ACCEPT: target/accept
+  C61_ELF: '{{.ACCEPT}}/c61/riscv32imac-unknown-none-elf/release/pulp-os-c61'
+  C61_WIFI_ELF: '{{.ACCEPT}}/c61-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61'
+  C61_PARTIAL_ELF: '{{.ACCEPT}}/c61-partial/riscv32imac-unknown-none-elf/release/pulp-os-c61'
+  C61_PARTIAL_WIFI_ELF: '{{.ACCEPT}}/c61-partial-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61'
+  IANSUI_URL: https://raw.githubusercontent.com/ButTaiwan/iansui/9d9a8e68bf1e138dd91e562eeff28d95bca33196/fonts/ttf/Iansui-Regular.ttf
+  IANSUI_SHA256: 7f1aa62e9dcbf40d0ce41a5d3f1e5ea602e66c295778ac6fefb6b84d8ed08bd5
+  CJK_URL: https://github.com/tonyhuan/GuanKiapTsingKhai/releases/download/V1.20/GuanKiapTsingKhai.ttf
+  CJK_SHA256: 758632243c499e431fd0c847f5e8c431acf59a9b41a26237a819466139994d38
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  build:
+    desc: Build the X4 and C61 release matrix (offline, Wi-Fi, partial, partial+Wi-Fi) into target/accept/
+    cmds:
+      - CARGO_TARGET_DIR={{.ACCEPT}}/x4 cargo build --release --locked --target riscv32imc-unknown-none-elf --features board-x4
+      - CARGO_TARGET_DIR={{.ACCEPT}}/x4-wifi cargo build --release --locked --target riscv32imc-unknown-none-elf --features board-x4,wifi
+      - CARGO_TARGET_DIR={{.ACCEPT}}/c61 cargo build --release --locked --target riscv32imac-unknown-none-elf --features board-onepage-c61
+      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-wifi cargo build --release --locked --target riscv32imac-unknown-none-elf --features board-onepage-c61,wifi
+      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial cargo build --release --locked --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh
+      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial-wifi cargo build --release --locked --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi
+
+  font:
+    desc: Fetch the pinned GuanKiapTsingKhai V1.20 font and build its SD bundle
+    cmds:
+      - task: font-source
+      - cargo run -p pulp-fontconv --release --locked --target host-tuple --config 'unstable.build-std=["std","test"]' -- bundle
+
+  font-source:
+    desc: Fetch and verify the selected CJK source font
+    status:
+      - echo "{{.CJK_SHA256}}  target/GuanKiapTsingKhai.ttf" | shasum -a 256 -c --status -
+    cmds:
+      - mkdir -p target
+      - curl -fsSL -o target/GuanKiapTsingKhai.ttf {{.CJK_URL}}
+      - echo "{{.CJK_SHA256}}  target/GuanKiapTsingKhai.ttf" | shasum -a 256 -c -
+
+  font-iansui:
+    desc: Fetch the pinned Iansui fixture for the converter regression tests
+    status:
+      - echo "{{.IANSUI_SHA256}}  Iansui-Regular.ttf" | shasum -a 256 -c --status -
+    cmds:
+      - curl -fsSL -o Iansui-Regular.ttf {{.IANSUI_URL}}
+      - echo "{{.IANSUI_SHA256}}  Iansui-Regular.ttf" | shasum -a 256 -c -
+
+  test:
+    desc: Host tests across all workspace crates
+    deps: [font-iansui]
+    env:
+      IANSUI_REQUIRED: '1'
+    cmds:
+      - cargo test-all
+
+  verify:
+    desc: ELF, dependency-graph and memory-budget checks of the built images
+    deps: [build]
+    cmds:
+      - cargo test-harness --locked
+
+  fmt:
+    desc: cargo fmt --check
+    cmds:
+      - cargo fmt -p pulp-os -p pulp-kernel -p pulp-board-logic -p board-harness -- --check
+
+  acceptance:
+    desc: Full software acceptance pipeline (build, test, verify, fmt)
+    cmds:
+      - task: build
+      - task: test
+      - task: verify
+      - task: fmt
+      - cmd: |
+          echo
+          echo "Software acceptance passed."
+        silent: true
+
+  size:
+    desc: Section sizes of the C61 images (offline, Wi-Fi, partial refresh, partial + Wi-Fi)
+    vars:
+      LLVM_SIZE:
+        sh: |
+          echo "$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n 's/^host: //p')/bin/llvm-size"
+    deps: [build]
+    cmds:
+      - '{{.LLVM_SIZE}} -A {{.C61_ELF}}'
+      - '{{.LLVM_SIZE}} -A {{.C61_WIFI_ELF}}'
+      - '{{.LLVM_SIZE}} -A {{.C61_PARTIAL_ELF}}'
+      - '{{.LLVM_SIZE}} -A {{.C61_PARTIAL_WIFI_ELF}}'
+
+  stack:
+    desc: Static worst-case stack depth of the offline C61 image
+    deps: [build]
+    cmds:
+      - cargo run -p board-harness --bin stack-analyzer --target host-tuple --config 'unstable.build-std=["std","test"]' -- {{.C61_ELF}}

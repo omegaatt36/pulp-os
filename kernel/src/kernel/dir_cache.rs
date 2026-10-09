@@ -1,15 +1,23 @@
 // directory listing cache: sorted entries with title resolution
 // loaded lazily from SD, held in RAM, invalidated on demand
 
+#[cfg(feature = "board-onepage-c61")]
+use super::bigbuf::{BufClass, TypedBuf};
+use crate::drivers::dir_entry::DirEntry;
 use crate::drivers::sdcard::SdStorage;
 use crate::drivers::storage::{
-    DirEntry, DirPage, PULP_DIR, TITLES_FILE, list_root_files, read_file_start_in_dir,
+    DirPage, PULP_DIR, TITLES_FILE, list_root_files, read_file_start_in_dir,
 };
 use crate::error::Result;
+#[cfg(feature = "board-onepage-c61")]
+use crate::error::{Error, ErrorKind};
 
 const MAX_DIR_ENTRIES: usize = 128;
 
 pub struct DirCache {
+    #[cfg(feature = "board-onepage-c61")]
+    entries: TypedBuf<DirEntry>,
+    #[cfg(feature = "board-x4")]
     entries: [DirEntry; MAX_DIR_ENTRIES],
     count: usize,
     valid: bool,
@@ -24,6 +32,9 @@ impl Default for DirCache {
 impl DirCache {
     pub const fn new() -> Self {
         Self {
+            #[cfg(feature = "board-onepage-c61")]
+            entries: TypedBuf::empty(),
+            #[cfg(feature = "board-x4")]
             entries: [DirEntry::EMPTY; MAX_DIR_ENTRIES],
             count: 0,
             valid: false,
@@ -35,6 +46,13 @@ impl DirCache {
             return Ok(());
         }
 
+        self.count = 0;
+        #[cfg(feature = "board-onepage-c61")]
+        if self.entries.is_empty() {
+            self.entries = TypedBuf::filled(BufClass::ZipToc, MAX_DIR_ENTRIES, DirEntry::EMPTY)
+                .map_err(|_| Error::new(ErrorKind::OutOfMemory, "directory cache"))?;
+        }
+        self.entries.fill(DirEntry::EMPTY);
         let count = list_root_files(sd, &mut self.entries)?;
         self.count = count;
         sort_entries(&mut self.entries, self.count);
@@ -96,7 +114,7 @@ impl DirCache {
     pub fn page(&self, offset: usize, buf: &mut [DirEntry]) -> DirPage {
         let total = self.count;
         let start = offset.min(total);
-        let end = (start + buf.len()).min(total);
+        let end = start + buf.len().min(total - start);
         let count = end - start;
         buf[..count].clone_from_slice(&self.entries[start..end]);
         DirPage { total, count }
@@ -104,6 +122,8 @@ impl DirCache {
 
     pub fn invalidate(&mut self) {
         self.valid = false;
+        self.count = 0;
+        self.entries.fill(DirEntry::EMPTY);
     }
 
     pub fn next_untitled_epub(&self, from: usize) -> Option<(usize, [u8; 13], u8)> {

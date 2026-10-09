@@ -15,13 +15,19 @@
 // idle current from ~150 uA to ~10 uA
 
 use embassy_futures::select::{Either, select};
-use embassy_time::{Duration, Ticker, with_timeout};
+#[cfg(feature = "board-x4")]
+use embassy_time::with_timeout;
+use embassy_time::{Duration, Ticker};
 use log::info;
 
-use super::app::{AppLayer, Redraw, Transition};
+#[cfg(feature = "board-x4")]
+use super::app::Redraw;
+use super::app::{AppLayer, Transition};
+#[cfg(feature = "board-x4")]
 use crate::board::button::Button;
 use crate::drivers::battery;
 use crate::drivers::input::Event;
+#[cfg(feature = "board-x4")]
 use crate::drivers::strip::StripBuffer;
 use crate::kernel::tasks;
 
@@ -29,6 +35,7 @@ use crate::ui::{free_stack_bytes, stack_high_water_mark};
 
 use super::timing;
 
+#[cfg(feature = "board-x4")]
 #[inline]
 fn is_power_event(ev: Event) -> bool {
     matches!(
@@ -37,7 +44,15 @@ fn is_power_event(ev: Event) -> bool {
     )
 }
 
+// the OnePage C61 has no Power button: no event is a power event
+#[cfg(feature = "board-onepage-c61")]
+#[inline]
+fn is_power_event(_ev: Event) -> bool {
+    false
+}
+
 impl super::Kernel {
+    #[cfg(feature = "board-x4")]
     // render boot console to EPD; call before boot() to show
     // hardware init progress in the built-in mono font
     pub async fn show_boot_console(&mut self, console: &super::BootConsole) {
@@ -47,6 +62,7 @@ impl super::Kernel {
             .await;
     }
 
+    #[cfg(feature = "board-x4")]
     // one-time boot: load caches, settings, render the home screen
     // if waking from deep sleep with valid RTC session, restore it
     pub async fn boot<A: AppLayer>(&mut self, app_mgr: &mut A) {
@@ -91,6 +107,7 @@ impl super::Kernel {
         }
 
         {
+            app_mgr.prepare_render(&mut self.handle());
             let draw = |s: &mut StripBuffer| app_mgr.draw(s);
             self.epd
                 .full_refresh_async(self.strip, &mut self.delay, &draw)
@@ -148,7 +165,19 @@ impl super::Kernel {
             //   3. render() touches the EPD; during the waveform window
             //      busy_wait_with_background runs SD I/O because the
             //      EPD charge pump is driving pixels with no SPI commands
-            //   4. no SD I/O outside these three sites
+            //   4. prepare_render may read font packs immediately before
+            //      each draw; no other SD I/O happens outside these sites
+            //   5. a long CJK glyph preparation (fonts::cjk) is cut into
+            //      slices, one per run_background call. A slice is plain
+            //      synchronous code that reads the pack inside one
+            //      `with_pulp_subdir_file` call. At every suspension point
+            //      (the yield that ends it, the select above, render), the
+            //      storage borrow and SD transactions have ended. Storage
+            //      may retain the RawFile for reuse; it holds no SPI bus
+            //      borrow. A panel refresh therefore never overlaps a read:
+            //      on the C61 `render` blocks until the controller is idle
+            //      before the next slice can start; on the X4 the slice
+            //      runs in the waveform window of point 3
             //
             // when input arrives during run_background, the background
             // future is dropped. this is safe: partial chapter cache
@@ -176,6 +205,16 @@ impl super::Kernel {
                 if app_mgr.needs_special_mode() {
                     continue;
                 }
+            }
+
+            #[cfg(feature = "board-onepage-c61")]
+            self.poll_card(app_mgr).await;
+
+            // the WAKE key was held and released (see tasks::SLEEP_REQUESTED)
+            #[cfg(feature = "board-onepage-c61")]
+            if tasks::SLEEP_REQUESTED.try_take().is_some() {
+                self.sleep_with_session(app_mgr, "wake key held").await;
+                continue;
             }
 
             if self.poll_housekeeping(app_mgr) {
@@ -213,9 +252,17 @@ impl super::Kernel {
     fn handle_input<A: AppLayer>(&mut self, hw_event: Event, app_mgr: &mut A) -> bool {
         let _ = tasks::IDLE_SLEEP_DUE.try_take();
 
+        #[cfg(feature = "board-x4")]
         if hw_event == Event::LongPress(Button::Power) {
             info!("handle_input: LongPress(Power) detected, triggering sleep");
             return true;
+        }
+
+        // C61: the previous frame was given up (BUSY timeout / bus error); the
+        // app already consumed its redraw request, so ask for a fresh one now
+        #[cfg(feature = "board-onepage-c61")]
+        if self.hw.display.redraw_on_input() {
+            app_mgr.request_full_redraw();
         }
 
         let suppressed_before = app_mgr.suppress_deferred_input();
@@ -244,6 +291,10 @@ impl super::Kernel {
             self.cached_battery_mv = mv;
         }
 
+        // C61: the battery monitor is owned by the kernel (see board_c61::hw)
+        #[cfg(feature = "board-onepage-c61")]
+        self.poll_battery();
+
         if tasks::SD_CHECK_DUE.try_take().is_some() {
             self.sd_ok = self.sd.probe_ok();
         }
@@ -260,17 +311,18 @@ impl super::Kernel {
         }
     }
 
-    // returns true if idle sleep is due
     fn poll_housekeeping<A: AppLayer>(&mut self, app_mgr: &A) -> bool {
         self.poll_housekeeping_inner(app_mgr);
         tasks::IDLE_SLEEP_DUE.try_take().is_some()
     }
 
+    #[cfg(feature = "board-x4")]
     // housekeeping without idle-sleep check; never sleep mid-refresh
     fn poll_housekeeping_waveform<A: AppLayer>(&mut self, app_mgr: &A) {
         self.poll_housekeeping_inner(app_mgr);
     }
 
+    #[cfg(feature = "board-x4")]
     // partial refreshes use DU waveform (~400 ms); after ghost_clear_every
     // partials, a full GC refresh (~1.6 s) clears ghosting
     //
@@ -287,6 +339,7 @@ impl super::Kernel {
                     let r = r.align8();
 
                     let rs = {
+                        app_mgr.prepare_render(&mut self.handle());
                         let draw = |s: &mut StripBuffer| app_mgr.draw(s);
                         if self.red_stale {
                             self.epd.partial_phase1_bw_inv_red(
@@ -328,6 +381,7 @@ impl super::Kernel {
                         } else {
                             self.red_stale = false;
                             {
+                                app_mgr.prepare_render(&mut self.handle());
                                 let draw = |s: &mut StripBuffer| app_mgr.draw(s);
                                 self.epd.partial_phase3_sync(self.strip, &rs, &draw);
                             }
@@ -357,6 +411,7 @@ impl super::Kernel {
                 self.log_stats();
 
                 {
+                    app_mgr.prepare_render(&mut self.handle());
                     let draw = |s: &mut StripBuffer| app_mgr.draw(s);
                     self.epd
                         .write_full_frame(self.strip, &mut self.delay, &draw);
@@ -380,6 +435,7 @@ impl super::Kernel {
         sleep_requested
     }
 
+    #[cfg(feature = "board-x4")]
     // collect input and run background work while EPD is busy refreshing
     //
     // during the DU/GC waveform the EPD charge pump drives pixels;
@@ -462,25 +518,22 @@ impl super::Kernel {
         (deferred, sleep_requested)
     }
 
+    #[cfg(feature = "board-x4")]
     // save session to RTC memory and enter deep sleep; call this
     // instead of enter_sleep directly to ensure session state is persisted
     async fn sleep_with_session<A: AppLayer>(&mut self, app_mgr: &mut A, reason: &str) {
         use super::rtc_session;
 
-        // collect session state from app layer
         let mut session = rtc_session::RtcSession::zeroed();
         app_mgr.collect_session(&mut session);
-
-        // increment wake count for debugging
         session.increment_wake_count();
-
-        // save to RTC memory (will be valid on next wake)
         rtc_session::save(&session);
         info!("session: saved to RTC memory");
 
         self.enter_sleep(reason).await;
     }
 
+    #[cfg(feature = "board-x4")]
     // flush bookmarks, render sleep screen, enter MCU deep sleep;
     // on real hardware this never returns (wake = full MCU reset)
     //
@@ -492,9 +545,7 @@ impl super::Kernel {
         use embedded_graphics::pixelcolor::BinaryColor;
         use embedded_graphics::prelude::*;
         use embedded_graphics::text::Text;
-        use esp_hal::gpio::RtcPinWithResistors;
-        use esp_hal::rtc_cntl::Rtc;
-        use esp_hal::rtc_cntl::sleep::{RtcSleepConfig, RtcioWakeupSource, WakeupLevel};
+        use esp_hal::rtc_cntl::sleep::{LowPower, RtcSleepConfig};
 
         info!("{}: entering sleep...", reason);
 
@@ -516,14 +567,11 @@ impl super::Kernel {
         info!("display: deep sleep mode 1");
 
         // safety: deep sleep never returns, the MCU resets on wake, so
-        // these stolen peripherals cannot alias with their original
-        // owners. LPWR is not used elsewhere; GPIO3 was previously
-        // cloned into InputHw but we are about to halt the CPU
-        let mut rtc = Rtc::new(unsafe { esp_hal::peripherals::LPWR::steal() });
-        let mut gpio3 = unsafe { esp_hal::peripherals::GPIO3::steal() };
-        let wakeup_pins: &mut [(&mut dyn RtcPinWithResistors, WakeupLevel)] =
-            &mut [(&mut gpio3, WakeupLevel::Low)];
-        let rtcio = RtcioWakeupSource::new(wakeup_pins);
+        // this stolen LPWR cannot alias with its original owner (nothing
+        // else uses it). The wake pin (GPIO3, FallingEdge listen with the
+        // low-power path) was armed in Board::init_input; in esp-hal 1.2
+        // the sleep call reads the armed sources instead of taking them.
+        let mut low_power = LowPower::new(unsafe { esp_hal::peripherals::LPWR::steal() });
 
         // custom sleep config: keep RTC FAST memory powered for session
         // persistence. this adds ~1-2µA to deep sleep current but enables
@@ -532,15 +580,10 @@ impl super::Kernel {
         sleep_config.set_rtc_fastmem_pd_en(false); // keep RTC FAST powered
 
         info!("mcu: entering deep sleep (power button to wake, RTC FAST retained)");
-        rtc.sleep(&sleep_config, &[&rtcio]);
-
-        // deep sleep resets the MCU; backstop if sleep returns
-        #[allow(unreachable_code)]
-        loop {
-            core::hint::spin_loop();
-        }
+        low_power.sleep_deep(sleep_config);
     }
 
+    #[cfg(feature = "board-x4")]
     // send cmd0 to put sd card into idle/sleep state;
     // reduces sd current from ~150 µa to ~10 µa during deep sleep.
     // call after all sd i/o is done and before epd sleep-screen render
@@ -587,5 +630,7 @@ impl super::Kernel {
             mins,
             if self.sd_ok { "ok" } else { "--" },
         );
+        #[cfg(feature = "board-onepage-c61")]
+        crate::board_c61::memory::log_usage();
     }
 }

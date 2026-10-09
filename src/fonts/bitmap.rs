@@ -110,7 +110,15 @@ impl BitmapFont {
         if code >= FIRST_CHAR as u32 && code <= LAST_CHAR as u32 {
             return true;
         }
-        self.ext_codepoints.binary_search(&code).is_ok()
+        // The table is sorted: a scalar outside [first, last] is not in it, so
+        // the search (flash reads, one cache miss per level) is skipped. CJK text
+        // asks about thousands of scalars above the last extended codepoint.
+        match (self.ext_codepoints.first(), self.ext_codepoints.last()) {
+            (Some(&lo), Some(&hi)) if code >= lo && code <= hi => {
+                self.ext_codepoints.binary_search(&code).is_ok()
+            }
+            _ => false,
+        }
     }
 
     // horizontal advance for a single character

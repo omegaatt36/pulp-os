@@ -1,0 +1,268 @@
+// Read-only view of the real ReaderApp's state for crate::reader::Rig. This
+// module sits in `apps` (the parent of `reader`) so it can see the `pub(super)`
+// fields of the real struct; it adds no behaviour.
+use super::App;
+use super::reader::{ReaderApp, State};
+use crate::error::ErrorKind;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Phase {
+    Loading,
+    Ready,
+    Toc,
+    Error,
+}
+
+pub fn phase(a: &ReaderApp) -> Phase {
+    match a.state {
+        State::Ready => Phase::Ready,
+        State::ShowToc => Phase::Toc,
+        State::Error => Phase::Error,
+        _ => Phase::Loading,
+    }
+}
+
+pub fn state_name(a: &ReaderApp) -> String {
+    format!("{:?}", a.state)
+}
+
+pub fn error_kind(a: &ReaderApp) -> Option<ErrorKind> {
+    a.error.as_ref().map(|e| e.kind())
+}
+
+pub fn page(a: &ReaderApp) -> usize {
+    a.pg.page
+}
+
+pub fn total_pages(a: &ReaderApp) -> usize {
+    a.pg.total_pages
+}
+
+pub fn fully_indexed(a: &ReaderApp) -> bool {
+    a.pg.fully_indexed
+}
+
+pub fn truncated(a: &ReaderApp) -> bool {
+    a.pg.truncated
+}
+
+// what the page counters and the progress figure treat as a complete index
+pub fn index_complete(a: &ReaderApp) -> bool {
+    a.index_complete()
+}
+
+pub fn progress_pct(a: &ReaderApp) -> u8 {
+    a.progress_pct()
+}
+
+pub fn offsets(a: &ReaderApp) -> Vec<u32> {
+    a.pg.offsets[..a.pg.total_pages].to_vec()
+}
+
+pub fn max_lines(a: &ReaderApp) -> usize {
+    a.max_lines as usize
+}
+
+pub fn text_w(a: &ReaderApp) -> u32 {
+    a.text_w
+}
+
+// Host geometry override; adds no layout or pagination behavior.
+pub fn set_text_width(a: &mut ReaderApp, width: u32) {
+    a.text_w_override = Some(width);
+    a.text_w = width;
+}
+
+pub fn text_margin(a: &ReaderApp) -> u16 {
+    a.text_margin
+}
+
+pub fn font_line_h(a: &ReaderApp) -> u16 {
+    a.font_line_h
+}
+
+pub fn text_y(a: &ReaderApp) -> u16 {
+    a.text_y
+}
+
+pub fn text_area_h(a: &ReaderApp) -> u16 {
+    a.text_area_h
+}
+
+// the current page, one entry per laid-out line, raw bytes of the page buffer
+pub fn lines(a: &ReaderApp) -> Vec<Vec<u8>> {
+    a.pg.lines[..a.pg.line_count]
+        .iter()
+        .map(|l| a.pg.buf[l.start as usize..(l.start + l.len) as usize].to_vec())
+        .collect()
+}
+
+// ---- EPUB navigation views (EPUB regression): the real reader's own fields / methods ----
+
+pub const QA_FONT_SIZE: u8 = super::reader::QA_FONT_SIZE;
+pub const QA_PREV_CHAPTER: u8 = super::reader::QA_PREV_CHAPTER;
+pub const QA_NEXT_CHAPTER: u8 = super::reader::QA_NEXT_CHAPTER;
+pub const QA_TOC: u8 = super::reader::QA_TOC;
+
+// one laid-out line of the current page: the raw page-buffer bytes and the
+// real LineSpan's image flags
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LineInfo {
+    pub bytes: Vec<u8>,
+    pub image: bool,
+    pub image_origin: bool,
+}
+
+pub fn is_epub(a: &ReaderApp) -> bool {
+    a.is_epub
+}
+
+pub fn chapter(a: &ReaderApp) -> u16 {
+    a.chapter()
+}
+
+pub fn spine_len(a: &ReaderApp) -> usize {
+    a.epub.spine.len()
+}
+
+pub fn epub_title(a: &ReaderApp) -> String {
+    a.epub.meta.title_str().to_string()
+}
+
+pub fn epub_author(a: &ReaderApp) -> String {
+    a.epub.meta.author_str().to_string()
+}
+
+pub fn toc_entries(a: &ReaderApp) -> Vec<(String, u16)> {
+    a.epub.toc.as_ref().map_or_else(Vec::new, |t| {
+        t.entries[..t.len()]
+            .iter()
+            .map(|e| (e.title_str().to_string(), e.spine_idx))
+            .collect()
+    })
+}
+
+pub fn toc_selected(a: &ReaderApp) -> usize {
+    a.epub.toc_selected
+}
+
+pub fn line_infos(a: &ReaderApp) -> Vec<LineInfo> {
+    a.pg.lines[..a.pg.line_count]
+        .iter()
+        .map(|l| LineInfo {
+            bytes: a.pg.buf[l.start as usize..(l.start + l.len) as usize].to_vec(),
+            image: l.is_image(),
+            image_origin: l.is_image_origin(),
+        })
+        .collect()
+}
+
+// the decoded 1-bit image the current page draws
+pub fn page_image(a: &ReaderApp) -> Option<(u16, u16)> {
+    a.page_img.as_ref().map(|i| (i.width, i.height))
+}
+
+pub fn quick_action_ids(a: &ReaderApp) -> Vec<u8> {
+    a.quick_actions().iter().map(|q| q.id).collect()
+}
+
+pub fn quick_trigger(a: &mut ReaderApp, id: u8, ctx: &mut super::AppContext) {
+    a.on_quick_trigger(id, ctx);
+}
+
+pub fn exit(a: &mut ReaderApp) {
+    a.on_exit();
+}
+
+pub fn has_bg_work(a: &ReaderApp) -> bool {
+    a.has_bg_work()
+}
+
+pub fn theme_idx(a: &ReaderApp) -> u8 {
+    a.reading_theme_idx
+}
+
+// the reader's page buffer size and monospace line width, the production consts
+pub const PAGE_BUF: usize = super::reader::PAGE_BUF;
+pub const CHARS_PER_LINE: usize = super::reader::CHARS_PER_LINE;
+
+// A firmware built without the Regular font data runs with `fonts == None`
+// (the state apply_font_metrics leaves when `HAS_REGULAR` is false), which
+// selects the monospace wrapper. The host build always has the font data, so
+// this clears the production field itself; the wrapping stays production code.
+pub fn drop_fonts(a: &mut ReaderApp) {
+    a.fonts = None;
+}
+
+// Bytes of a page window staged before layout (`usize::MAX`: the whole window,
+// what the reader did before it staged a prefix only).
+pub fn set_stage_prefix(a: &mut ReaderApp, bytes: usize) {
+    a.stage_prefix = bytes;
+}
+
+// Another clock and slice length for the reader's CJK preparation (see
+// fonts::cjk::CjkState::set_pace); the reader arms and ends slices itself.
+pub fn set_cjk_pace(a: &mut ReaderApp, now: fn() -> u64, slice_us: u32) {
+    a.cjk.set_pace(now, slice_us);
+}
+
+// ---- chapter working set, image LRU and stored page index (read-only views;
+// the profile setter fixes the policy the next on_enter would otherwise detect)
+
+pub fn set_profile(
+    a: &mut ReaderApp,
+    ring: pulp_board_logic::chapter_ring::RingConfig,
+    images: pulp_board_logic::image_lru::LruConfig,
+    persist_index: bool,
+) {
+    a.profile_override = Some(super::reader::metadata::MemProfile {
+        ring,
+        images,
+        persist_index,
+    });
+}
+
+pub fn ring_resident(a: &ReaderApp) -> Vec<u16> {
+    let mut v: Vec<u16> = a.epub.ring.resident().into_iter().flatten().collect();
+    v.sort_unstable();
+    v
+}
+
+pub fn ring_used(a: &ReaderApp) -> usize {
+    a.epub.ring.used()
+}
+
+pub fn warm_pending(a: &ReaderApp) -> bool {
+    a.epub.warm.is_some()
+}
+
+// chapter of the neighbor read in progress
+pub fn warm_chapter(a: &ReaderApp) -> Option<u16> {
+    a.epub.warm.as_ref().map(|w| w.job.key().chapter)
+}
+
+pub fn source_id(a: &ReaderApp) -> u64 {
+    a.epub.source.raw()
+}
+
+pub fn cache_dir(a: &ReaderApp) -> String {
+    a.epub.cache_dir_str().to_string()
+}
+
+pub fn cache_file(a: &ReaderApp) -> String {
+    a.epub.cache_file_str().to_string()
+}
+
+// (loaded, stored, rejected) stored page indexes since the book was opened
+pub fn index_counts(a: &ReaderApp) -> (u16, u16, u16) {
+    let c = a.pg.index_counts;
+    (c.loaded, c.stored, c.rejected)
+}
+
+pub fn lru_len(a: &ReaderApp) -> usize {
+    a.epub.images.len()
+}
+
+pub fn lru_used(a: &ReaderApp) -> usize {
+    a.epub.images.used()
+}

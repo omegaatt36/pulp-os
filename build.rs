@@ -1,7 +1,17 @@
 fn main() {
-    linker_be_nice();
-    println!("cargo:rustc-link-arg=-Tlinkall.x");
+    // the linker calls this binary back as its --error-handling-script
+    linker_error_script();
+    // esp-hal's linker scripts belong to the firmware targets only; pulp-host
+    // shares generate_bitmap_fonts below and links as an ordinary host binary
+    if std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() == Ok("riscv32") {
+        println!(
+            "cargo:rustc-link-arg=--error-handling-script={}",
+            std::env::current_exe().unwrap().display()
+        );
+        println!("cargo:rustc-link-arg=-Tlinkall.x");
+    }
     generate_bitmap_fonts();
+    generate_flash_fonts();
 }
 
 fn hint(msg: &str) {
@@ -10,7 +20,7 @@ fn hint(msg: &str) {
     eprintln!();
 }
 
-fn linker_be_nice() {
+fn linker_error_script() {
     let args: Vec<String> = std::env::args().collect();
     // --error-handling-script passes two args: kind and symbol
     if args.len() >= 3 {
@@ -48,11 +58,6 @@ fn linker_be_nice() {
 
         std::process::exit(0);
     }
-
-    println!(
-        "cargo:rustc-link-arg=--error-handling-script={}",
-        std::env::current_exe().unwrap().display()
-    );
 }
 
 // build-time font rasterisation: scan assets/fonts/ for TTFs, classify
@@ -152,12 +157,12 @@ fn extended_codepoints() -> Vec<u32> {
         0x2013, // – en dash
         0x2014, // — em dash
         0x2015, // ― horizontal bar
-        0x2018, // ' left single quotation mark
-        0x2019, // ' right single quotation mark
+        0x2018, // ‘ left single quotation mark
+        0x2019, // ’ right single quotation mark
         0x201A, // ‚ single low-9 quotation mark
         0x201B, // ‛ single high-reversed-9
-        0x201C, // " left double quotation mark
-        0x201D, // " right double quotation mark
+        0x201C, // “ left double quotation mark
+        0x201D, // ” right double quotation mark
         0x201E, // „ double low-9 quotation mark
         0x201F, // ‟ double high-reversed-9
         0x2022, // • bullet
@@ -233,7 +238,7 @@ fn extended_codepoints() -> Vec<u32> {
         0x00AE, // ® registered (already in Latin-1)
         0x2020, // † dagger
         0x2021, // ‡ double dagger
-        0x2023, // ‣ triangular bullet
+        0x2023, // ⁃ triangular bullet
         0x25A0, // ■ black square
         0x25A1, // □ white square
         0x25CF, // ● black circle
@@ -311,12 +316,15 @@ fn find_ttf(dir: &Path, keywords: &[&str]) -> Option<PathBuf> {
     None
 }
 
-fn generate_bitmap_fonts() {
+pub fn generate_bitmap_fonts() {
+    generate_bitmap_fonts_in(Path::new("assets/fonts"));
+}
+
+// `font_dir` is relative to the package being built (pulp-host: ../assets/fonts)
+pub fn generate_bitmap_fonts_in(font_dir: &Path) {
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let dest = Path::new(&out_dir).join("font_data.rs");
     let mut out = fs::File::create(&dest).unwrap();
-
-    let font_dir = Path::new("assets/fonts");
 
     // discover TTFs and classify by style
     let regular = find_ttf(font_dir, &["Regular"]);
@@ -333,7 +341,7 @@ fn generate_bitmap_fonts() {
     if let Some(ref p) = italic {
         println!("cargo:rerun-if-changed={}", p.display());
     }
-    println!("cargo:rerun-if-changed=assets/fonts");
+    println!("cargo:rerun-if-changed={}", font_dir.display());
 
     let ext_codepoints = extended_codepoints();
 
@@ -678,4 +686,106 @@ fn emit_bitmap_bytes(out: &mut fs::File, glyphs: &[RasterGlyph]) {
     if col > 0 {
         writeln!(out).unwrap();
     }
+}
+
+pub fn generate_flash_fonts() {
+    let out_dir = std::env::var("OUT_DIR").unwrap();
+    let dest = Path::new(&out_dir).join("flash_fonts.rs");
+    println!(
+        "cargo:rerun-if-env-changed={}",
+        pulp_board_logic::font_index::FLASH_FONT_ENV
+    );
+
+    let val = match std::env::var(pulp_board_logic::font_index::FLASH_FONT_ENV) {
+        Ok(v) => v,
+        Err(_) => {
+            emit_empty_flash_fonts(&dest);
+            return;
+        }
+    };
+
+    let trimmed = val.trim();
+    if trimmed.is_empty() {
+        emit_empty_flash_fonts(&dest);
+        return;
+    }
+
+    let paths: Vec<PathBuf> = std::env::split_paths(&val).collect();
+    if paths.is_empty() {
+        emit_empty_flash_fonts(&dest);
+        return;
+    }
+
+    generate_flash_fonts_in(&dest, &paths);
+}
+
+// Explicit paths let host tests exercise the same validation and emission as
+// the environment-driven firmware build without mutating process environment.
+pub fn generate_flash_fonts_in(dest: &Path, paths: &[PathBuf]) {
+    let mut pack_infos = Vec::new();
+    let mut validated_packs: Vec<(u16, PathBuf)> = Vec::new();
+
+    for path in paths {
+        println!("cargo:rerun-if-changed={}", path.display());
+        let data = match fs::read(path) {
+            Ok(d) => d,
+            Err(e) => {
+                panic!(
+                    "failed to read flash font pack file '{}': {e}",
+                    path.display()
+                );
+            }
+        };
+
+        let header = match pulp_fontpack::Pack::parse(&data) {
+            Ok(pack) => pack.header(),
+            Err(e) => {
+                panic!("flash font pack '{}' is malformed: {e:?}", path.display());
+            }
+        };
+
+        let px = header.info.pixel_size;
+        pack_infos.push(pulp_board_logic::font_index::FlashPackInfo {
+            pixel_size: px,
+            len: data.len(),
+        });
+        let abs_path = path.canonicalize().unwrap_or_else(|_| path.clone());
+        validated_packs.push((px, abs_path));
+    }
+
+    if let Err(err) = pulp_board_logic::font_index::validate_flash_set(&pack_infos) {
+        panic!(
+            "invalid flash font set in {}: {err}",
+            pulp_board_logic::font_index::FLASH_FONT_ENV
+        );
+    }
+
+    let mut out = fs::File::create(dest).unwrap();
+    writeln!(out, "// AUTO-GENERATED by build.rs - do not edit").unwrap();
+    writeln!(out).unwrap();
+
+    for (px, path) in &validated_packs {
+        let path_str = path.to_string_lossy().replace('\\', "/");
+        writeln!(
+            out,
+            "static PACK_{px}: &[u8] = include_bytes!(r\"{path_str}\");"
+        )
+        .unwrap();
+    }
+    writeln!(out).unwrap();
+    writeln!(out, "pub static FLASH_FONTS: &[(u16, &'static [u8])] = &[").unwrap();
+    for (px, _) in &validated_packs {
+        writeln!(out, "    ({px}, PACK_{px}),").unwrap();
+    }
+    writeln!(out, "];").unwrap();
+}
+
+fn emit_empty_flash_fonts(dest: &Path) {
+    let mut out = fs::File::create(dest).unwrap();
+    writeln!(out, "// AUTO-GENERATED by build.rs - do not edit").unwrap();
+    writeln!(
+        out,
+        "pub static FLASH_FONTS: &[(u16, &'static [u8])] = &[];"
+    )
+    .unwrap();
 }

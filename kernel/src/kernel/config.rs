@@ -8,22 +8,11 @@ pub const SETTINGS_FILE: &str = "SETTINGS.TXT";
 // default sleep timeout in minutes
 pub const DEFAULT_SLEEP_TIMEOUT: u16 = 10;
 
-// maximum sleep timeout in minutes
 pub const MAX_SLEEP_TIMEOUT: u16 = 120;
-
-// increment step for sleep timeout adjustment
 pub const SLEEP_TIMEOUT_STEP: u16 = 5;
-
-// default ghost clear interval
 pub const DEFAULT_GHOST_CLEAR: u8 = 10;
-
-// minimum ghost clear interval
 pub const MIN_GHOST_CLEAR: u8 = 5;
-
-// maximum ghost clear interval
 pub const MAX_GHOST_CLEAR: u8 = 100;
-
-// increment step for ghost clear adjustment
 pub const GHOST_CLEAR_STEP: u8 = 5;
 
 // default font size index (0=XSmall, 1=Small, 2=Medium, 3=Large, 4=XLarge)

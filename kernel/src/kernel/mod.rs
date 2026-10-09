@@ -7,13 +7,19 @@
 // kernel for the duration of an async lifecycle method
 
 pub mod app;
+pub mod bigbuf;
 pub mod bookmarks;
 pub mod config;
 pub mod console;
 pub mod dir_cache;
 pub mod handle;
+pub mod idle;
+#[cfg(feature = "board-x4")]
 pub mod rtc_session;
 pub mod scheduler;
+#[cfg(feature = "board-onepage-c61")]
+pub(crate) mod scheduler_c61;
+pub mod storage_change;
 pub mod tasks;
 pub mod timing;
 pub mod wake;
@@ -27,12 +33,13 @@ pub use crate::drivers::storage::StorageError;
 
 pub use app::{
     App, AppContext, AppIdType, AppLayer, Launcher, NavEvent, PendingSetting, QuickAction,
-    QuickActionKind, RECENT_FILE, Redraw, Transition,
+    QuickActionKind, RECENT_FILE, Redraw, SessionData, Transition,
 };
+pub use bigbuf::{BigBuf, BufClass, BufError, FONT_GLYPHS_PSRAM_BYTES, TypedBuf};
 pub use bookmarks::BookmarkCache;
 pub use console::BootConsole;
 pub use handle::KernelHandle;
-pub use wake::uptime_secs;
+pub use wake::{uptime_secs, uptime_us};
 
 use esp_hal::delay::Delay;
 
@@ -58,9 +65,14 @@ pub struct Kernel {
     // true when RED RAM is out of sync with BW after a skipped
     // phase3_sync (rapid navigation); next partial uses inv_red
     pub(crate) red_stale: bool,
+
+    // OnePage C61: power rail, battery, card detect, sleep parts
+    #[cfg(feature = "board-onepage-c61")]
+    pub(crate) hw: crate::board_c61::hw::C61Hw,
 }
 
 impl Kernel {
+    #[cfg(feature = "board-x4")]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         sd: SdStorage,
@@ -83,6 +95,34 @@ impl Kernel {
             cached_battery_mv: battery_mv,
             partial_refreshes: 0,
             red_stale: false,
+        }
+    }
+
+    #[cfg(feature = "board-onepage-c61")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        sd: SdStorage,
+        epd: Epd,
+        strip: &'static mut StripBuffer,
+        dir_cache: &'static mut DirCache,
+        bm_cache: &'static mut BookmarkCache,
+        delay: Delay,
+        sd_ok: bool,
+        battery_mv: u16,
+        hw: crate::board_c61::hw::C61Hw,
+    ) -> Self {
+        Self {
+            sd,
+            dir_cache,
+            bm_cache,
+            epd,
+            strip,
+            delay,
+            sd_ok,
+            cached_battery_mv: battery_mv,
+            partial_refreshes: 0,
+            red_stale: false,
+            hw,
         }
     }
 

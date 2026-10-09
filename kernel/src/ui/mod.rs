@@ -13,7 +13,9 @@ pub use layout::{
     CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN, SECTION_GAP, TITLE_Y, TITLE_Y_OFFSET,
 };
 pub use stack_fmt::{StackFmt, stack_fmt};
-pub use statusbar::{BAR_HEIGHT, free_stack_bytes, paint_stack, stack_high_water_mark};
+pub use statusbar::{
+    BAR_HEIGHT, BATTERY_REGION, BatteryStatus, free_stack_bytes, paint_stack, stack_high_water_mark,
+};
 pub use widget::{
     Alignment, Region, draw_loading_indicator, draw_progress_bar, wrap_next, wrap_prev,
 };

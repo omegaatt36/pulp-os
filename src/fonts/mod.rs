@@ -5,6 +5,7 @@
 // five size tiers: 0=XSmall  1=Small  2=Medium  3=Large  4=XLarge
 
 pub mod bitmap;
+pub mod cjk;
 
 #[allow(clippy::all)]
 pub mod font_data {
@@ -84,6 +85,46 @@ pub enum Style {
     Heading,
 }
 
+/// Independent style markers retain their state until their own closing marker.
+/// Heading has precedence over nested bold and italic emphasis.
+#[derive(Clone, Copy)]
+pub struct StyleState {
+    flags: u8,
+}
+impl StyleState {
+    pub const fn from_flags(flags: u8) -> Self {
+        Self { flags: flags & 7 }
+    }
+    pub fn flags(self) -> u8 {
+        self.flags
+    }
+    pub fn apply_marker(&mut self, marker: u8) {
+        use smol_epub::html_strip::{
+            BOLD_OFF, BOLD_ON, HEADING_OFF, HEADING_ON, ITALIC_OFF, ITALIC_ON,
+        };
+        match marker {
+            BOLD_ON => self.flags |= 1,
+            BOLD_OFF => self.flags &= !1,
+            ITALIC_ON => self.flags |= 2,
+            ITALIC_OFF => self.flags &= !2,
+            HEADING_ON => self.flags |= 4,
+            HEADING_OFF => self.flags &= !4,
+            _ => {}
+        }
+    }
+    pub fn style(self) -> Style {
+        if self.flags & 4 != 0 {
+            Style::Heading
+        } else if self.flags & 1 != 0 {
+            Style::Bold
+        } else if self.flags & 2 != 0 {
+            Style::Italic
+        } else {
+            Style::Regular
+        }
+    }
+}
+
 // complete set of four style variants at a single size tier
 // missing weights fall back to regular automatically
 #[derive(Clone, Copy)]
@@ -158,6 +199,28 @@ impl FontSet {
                 &font_data::REGULAR_HEADING_SMALL,
             ),
         }
+    }
+
+    /// Fingerprint of everything the layout reads from this set: per style the
+    /// line metrics and the advance of every ASCII and extended glyph. A page
+    /// index stored for other font data (another firmware build, other assets)
+    /// does not match.
+    pub fn signature(&self) -> u32 {
+        let mut h = pulp_board_logic::source_id::Fnv64::new();
+        for style in [Style::Regular, Style::Bold, Style::Italic, Style::Heading] {
+            let font = self.font(style);
+            h.update(&font.line_height.to_le_bytes());
+            h.update(&font.ascent.to_le_bytes());
+            for glyph in font.glyphs.iter() {
+                h.update(&[glyph.advance]);
+            }
+            for (cp, glyph) in font.ext_codepoints.iter().zip(font.ext_glyphs.iter()) {
+                h.update_u32(*cp);
+                h.update(&[glyph.advance]);
+            }
+        }
+        let v = h.finish();
+        (v ^ (v >> 32)) as u32
     }
 
     #[inline]

@@ -30,6 +30,13 @@ use super::config::{SystemSettings, WifiConfig};
 
 pub const MAX_APP_ACTIONS: usize = 6;
 
+// the board's session payload: X4 keeps it in RTC FAST memory, the OnePage C61
+// has no such section and stores the same fields on the SD card
+#[cfg(feature = "board-x4")]
+pub type SessionData = super::rtc_session::RtcSession;
+#[cfg(feature = "board-onepage-c61")]
+pub type SessionData = pulp_board_logic::session::SessionState;
+
 #[derive(Debug, Clone, Copy)]
 pub enum QuickActionKind {
     Cycle {
@@ -298,6 +305,8 @@ pub trait App<Id> {
 
     fn on_quick_cycle_update(&mut self, _id: u8, _value: u8, _ctx: &mut AppContext) {}
 
+    fn prepare_render(&mut self, _ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {}
+
     fn draw(&self, strip: &mut StripBuffer);
 
     async fn background(&mut self, _ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {}
@@ -362,7 +371,6 @@ impl<Id: AppIdType> Launcher<Id> {
         self.stack[index]
     }
 
-    // check if an app ID is anywhere in the stack
     pub fn contains(&self, id: Id) -> bool {
         self.stack[..self.depth].contains(&id)
     }
@@ -451,11 +459,17 @@ pub trait AppLayer {
     fn active(&self) -> Self::Id;
     fn dispatch_event(&mut self, event: Event, bm: &mut BookmarkCache) -> Transition<Self::Id>;
     fn apply_transition(&mut self, t: Transition<Self::Id>, k: &mut KernelHandle<'_>);
+    fn storage_changed(&mut self, k: &mut KernelHandle<'_>);
 
     // background work (SD I/O, caching); async for epub streaming
     async fn run_background(&mut self, k: &mut KernelHandle<'_>);
 
+    // dedicated bounded prefetch hook during BUSY; safe to run while
+    // SPI is free because it does not mutate visible state or launch long decodes
+    fn prefetch(&mut self, _k: &mut KernelHandle<'_>) {}
+
     // rendering
+    fn prepare_render(&mut self, k: &mut KernelHandle<'_>);
     fn draw(&self, strip: &mut StripBuffer);
     fn has_redraw(&self) -> bool;
     fn take_redraw(&mut self) -> Redraw;
@@ -474,16 +488,13 @@ pub trait AppLayer {
     fn enter_initial(&mut self, k: &mut KernelHandle<'_>);
 
     // session persistence: save/restore active app across sleep/wake
-    // using RTC FAST memory (survives deep sleep, zeroed on power-on)
+    // X4: RTC FAST memory (survives deep sleep, zeroed on power-on)
+    // C61: two slot files on the SD card (pulp_board_logic::session)
     //
-    // collect_session writes app state to the provided RtcSession struct
-    // apply_session restores app state from RtcSession, returns true if successful
-    fn collect_session(&self, session: &mut super::rtc_session::RtcSession);
-    fn apply_session(
-        &mut self,
-        session: &super::rtc_session::RtcSession,
-        k: &mut KernelHandle<'_>,
-    ) -> bool;
+    // collect_session writes app state to the provided SessionData struct
+    // apply_session restores app state from SessionData, returns true if successful
+    fn collect_session(&self, session: &mut SessionData);
+    fn apply_session(&mut self, session: &SessionData, k: &mut KernelHandle<'_>) -> bool;
 
     // true when the active app wants to take over the main loop
     // (e.g. wifi upload mode bypasses the normal event dispatch)

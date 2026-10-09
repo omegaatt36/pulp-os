@@ -1,9 +1,11 @@
 [workspace]
-members = [".", "kernel"]
+members = [".", "kernel", "board-logic", "host", "fontpack", "fontconv", "harness"]
 
 [workspace.dependencies]
-esp-hal  = { version = "1.0.0", features = ["esp32c3", "log-04", "unstable"] }
-embassy-executor = "0.9"
+# chip selection (esp32c3 / esp32c61) is NOT set here; it comes from the
+# target-specific dependency tables of each crate (see "Board selection").
+esp-hal  = { version = "=1.2.0", features = ["log-04", "unstable"] }
+embassy-executor = "0.10"
 embassy-time     = "0.5"
 embassy-futures  = "0.1"
 embassy-sync     = "0.7"
@@ -13,17 +15,18 @@ embedded-hal-bus   = "0.3.0"
 embedded-graphics-core = "0.4.1"
 embedded-graphics      = "0.8.2"
 embedded-sdmmc = { git = "https://github.com/hansmrtn/embedded-sdmmc-rs", branch = "async", features = ["async"] }
-smol-epub      = { path = "../smol-epub", features = ["async"] }
+smol-epub      = { path = "vendor/smol-epub", features = ["async"] }
 critical-section = "1.2.0"
 static_cell      = "2.1.1"
 nb  = "1.1.0"
 log = "0.4.27"
-esp-alloc = { version = "0.9.0", features = ["internal-heap-stats"] }
+esp-alloc = { version = "=0.11.0", features = ["internal-heap-stats"] }
+pulp-board-logic = { path = "board-logic" }
 
 [package]
 edition      = "2024"
 name         = "pulp-os"
-rust-version = "1.88"
+rust-version = "1.95"
 version      = "0.1.0"
 authors      = ["Hans Martin <https://github.com/hansmrtn>"]
 repository   = "https://github.com/hansmrtn/pulp-os"
@@ -32,8 +35,65 @@ license      = "MIT"
 [[bin]]
 name = "pulp-os"
 path = "./src/bin/main.rs"
+required-features = ["board-x4"]
+
+# OnePage C61 full offline firmware
+[[bin]]
+name = "pulp-os-c61"
+path = "./src/bin/main_c61.rs"
+required-features = ["board-onepage-c61"]
+
+# OnePage C61 minimal bring-up image (pins, SD, EPD, keys, PSRAM,
+# battery/USB, session, sleep demo); kept for hardware bring-up
+[[bin]]
+name = "pulp-os-c61-boot"
+path = "./src/bin/c61_boot.rs"
+required-features = ["board-onepage-c61"]
+
+# Board selection
+# ---------------
+# Exactly one board feature must be enabled (compile_error! in
+# kernel/src/lib.rs). There is deliberately no default feature.
+#   X4: cargo build-x4   (riscv32imc,  esp32c3)
+#   C61 : cargo build-c61  (riscv32imac, esp32c61)
+# The *chip* is selected by the build target through the target-specific
+# dependency tables below, not by the board feature. Reason: Cargo features
+# are additive, so chip features driven by board features would build
+# conflicting esp-* chip crates when none/both boards are given and fail in
+# upstream build scripts with unreadable messages before our check runs.
+# With chip = f(target) every esp-* crate always builds, and the board /
+# target consistency is checked by our own compile_error!.
+[features]
+default = []
+
+# Wi-Fi upload stack (optional boundary). Off by default for every board:
+# without it esp-radio / embassy-net / embedded-io-async are not linked, the
+# Upload app, its home-menu entry and the WIFI peripheral steal are compiled
+# out . Build with upload via `cargo build-x4-wifi` / `cargo build-c61-wifi``.
+wifi = [
+  "dep:esp-radio",
+  "dep:embassy-net",
+  "dep:embedded-io-async",
+  "esp-rtos/esp-radio",
+  "esp-rtos/esp-alloc",
+  "pulp-kernel/wifi",
+]
+
+# OnePage C61 partial refresh (off by default; X4 always refreshes partially).
+# Build with `cargo build-c61-partial`.
+partial-refresh = ["pulp-kernel/partial-refresh"]
+
+# CJK pack read measurement (count, bytes, time, distinct scalars; one log line per
+# preparation). Off by default; the default image carries none of it.
+# Build with `cargo build-c61-sd-metrics`.
+sd-metrics = ["pulp-kernel/sd-metrics"]
+
+board-x4          = ["pulp-kernel/board-x4"]
+board-onepage-c61 = ["pulp-kernel/board-onepage-c61"]
 
 [dependencies]
+pulp-board-logic.workspace = true
+pulp-fontpack = { path = "fontpack" }
 pulp-kernel = { path = "kernel" }
 
 esp-hal.workspace              = true
@@ -47,29 +107,57 @@ log.workspace                  = true
 esp-alloc.workspace            = true
 smol-epub.workspace            = true
 
-esp-rtos = { version = "0.2.0", features = ["embassy", "esp32c3", "esp-radio", "log-04"] }
+esp-rtos = { version = "=0.4.0", features = ["embassy", "log-04"] }
 
-# wifi / networking (used by apps/upload.rs)
-esp-radio = { version = "0.17", default-features = false, features = [
-  "esp32c3",
+# wifi / networking (used by apps/upload/); optional, enabled via `wifi`
+esp-radio = { version = "=1.0.0-beta.1", optional = true, default-features = false, features = [
   "wifi",
   "log-04",
   "esp-alloc",
 ] }
-embassy-net       = { version = "0.8", features = ["dhcpv4", "medium-ethernet", "tcp", "udp"] }
-embedded-io-async = "0.7"
+embassy-net       = { version = "0.8", optional = true, features = ["dhcpv4", "medium-ethernet", "multicast", "tcp", "udp"] }
+embedded-io-async = { version = "0.7", optional = true }
 
-esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3", "log-04"] }
+esp-bootloader-esp-idf = { version = "=0.6.0", features = ["log-04"] }
 
-esp-backtrace = { version = "0.18.1", features = [
-  "esp32c3",
+esp-backtrace = { version = "0.20", features = [
   "panic-handler",
   "println",
 ] }
-esp-println = { version = "0.16.1", features = ["esp32c3", "log-04"] }
+
+# chip features: X4 = esp32c3 (riscv32imc)
+[target.riscv32imc-unknown-none-elf.dependencies]
+esp-hal                = { workspace = true, features = ["esp32c3"] }
+esp-alloc              = { workspace = true, features = ["esp32c3"] }
+esp-rtos               = { version = "=0.4.0", features = ["esp32c3"] }
+esp-radio              = { version = "=1.0.0-beta.1", optional = true, default-features = false, features = ["esp32c3"] }
+esp-bootloader-esp-idf = { version = "=0.6.0", features = ["esp32c3"] }
+esp-backtrace          = { version = "0.20", features = ["esp32c3"] }
+esp-println            = { version = "0.18", features = ["esp32c3", "log-04"] }
+
+# chip features: OnePage C61 = esp32c61 (riscv32imac)
+[target.riscv32imac-unknown-none-elf.dependencies]
+esp-hal                = { workspace = true, features = ["esp32c61"] }
+esp-alloc              = { workspace = true, features = ["esp32c61"] }
+esp-rtos               = { version = "=0.4.0", features = ["esp32c61"] }
+esp-radio              = { version = "=1.0.0-beta.1", optional = true, default-features = false, features = ["esp32c61"] }
+esp-bootloader-esp-idf = { version = "=0.6.0", features = ["esp32c61"] }
+esp-backtrace          = { version = "0.20", features = ["esp32c61"] }
+# jtag-serial instead of the default `auto`: auto falls back to UART0 on a cold boot
+# without USB, and UART0's default pins GPIO10/GPIO11 are the charge-control / USB-detect
+# lines of this board. colors and critical-section are the defaults, kept explicitly.
+esp-println            = { version = "0.18", default-features = false, features = [
+  "esp32c61",
+  "jtag-serial",
+  "log-04",
+  "colors",
+  "critical-section",
+] }
 
 [build-dependencies]
 fontdue = "0.9"
+pulp-board-logic = { path = "board-logic" }
+pulp-fontpack = { path = "fontpack" }
 
 [profile.dev]
 opt-level = "s"
@@ -82,3 +170,11 @@ incremental      = false
 lto              = 'fat'
 opt-level        = 's'
 overflow-checks  = false
+
+# esp-radio documents that the radio blobs require optimization level 2 or 3
+# (esp-radio src/lib.rs, "Optimization level"); the global level stays 's'.
+[profile.dev.package.esp-radio]
+opt-level = 3
+
+[profile.release.package.esp-radio]
+opt-level = 3

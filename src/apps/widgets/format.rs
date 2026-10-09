@@ -29,11 +29,8 @@ pub fn draw_position_indicator<const N: usize>(
     label.draw(strip).unwrap();
 }
 
-// format position as "current/total" into a buffer
 pub fn fmt_position(buf: &mut [u8], current: usize, total: usize) -> usize {
     let mut pos = 0;
-
-    // format current
     if current >= 10000 {
         buf[pos] = b'0' + ((current / 10000) % 10) as u8;
         pos += 1;

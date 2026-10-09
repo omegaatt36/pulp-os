@@ -1,0 +1,49 @@
+[package]
+name         = "pulp-host"
+edition      = "2024"
+rust-version = "1.95"
+version      = "0.1.0"
+description  = "Host-side validation entry: paging / rendering / storage tests over the production sources"
+license      = "MIT"
+publish      = false
+build        = "build.rs"
+
+# Host-only crate: no esp-* dependency and no embedded linker script, so the
+# host triple builds and `cargo test` runs. Production logic is reached by
+# `#[path]`-including the firmware's own source files (never a copy); only
+# the hardware edge (SD card, display, Kernel struct) is a host stand-in.
+# Host test command: `cargo test-host`.
+[features]
+default = ["board-x4"]
+# Declared so the production files' cfg(feature = "board-x4") arms select the
+# heap-backed BigBuf and the RTC session type (the C61 arms need esp-alloc /
+# PSRAM). Never changes paging, wrapping or bookmark logic.
+board-x4 = []
+# declared only so the production files' cfg(feature = "board-onepage-c61")
+# arms are known; never enabled
+board-onepage-c61 = []
+# Enables the production measurement code for captured-log validation.
+sd-metrics = []
+
+[dependencies]
+pulp-fontpack = { path = "../fontpack" }
+pulp-board-logic = { path = "../board-logic" }
+smol-epub.workspace = true
+embassy-time = { workspace = true, features = ["std", "generic-queue-8"] }
+embassy-sync.workspace = true
+embassy-executor.workspace = true
+embassy-futures.workspace = true
+critical-section = { workspace = true, features = ["std"] }
+embedded-graphics.workspace = true
+embedded-graphics-core.workspace = true
+log.workspace = true
+embedded-io-async = "0.7"
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
+
+[dev-dependencies]
+fontdue = "0.9"
+
+[build-dependencies]
+fontdue = "0.9"
+pulp-board-logic = { path = "../board-logic" }
+pulp-fontpack = { path = "../fontpack" }

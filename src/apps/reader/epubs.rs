@@ -5,7 +5,6 @@
 // methods that also touch PageState or ReaderApp fields stay on
 // impl ReaderApp (epub_init_opf, epub_index_chapter, bg_cache_step).
 
-use alloc::vec::Vec;
 use core::cell::RefCell;
 
 use smol_epub::cache;
@@ -14,8 +13,11 @@ use smol_epub::epub;
 use crate::error::{Error, ErrorKind};
 use crate::kernel::KernelHandle;
 use crate::kernel::work_queue;
+use crate::kernel::{BigBuf, BufClass};
+use pulp_board_logic::source_id::SourceId;
+use pulp_kernel::util::utf8_prefix_len;
 
-use super::{BgCacheState, CHAPTER_CACHE_MAX, EOCD_TAIL, EpubState, PAGE_BUF, ReaderApp, ZipIndex};
+use super::{BgCacheState, EOCD_TAIL, EpubState, PAGE_BUF, ReaderApp, WARM_CHUNK, Warm};
 
 // one cell shared between reader and writer; safe because
 // stream_strip_entry_async never borrows both simultaneously
@@ -48,6 +50,7 @@ impl EpubState {
         name: &str,
         scratch: &mut [u8],
     ) -> crate::error::Result<()> {
+        self.zip.clear();
         let epub_size = k.file_size(name)?;
         if epub_size < 22 {
             return Err(Error::new(
@@ -58,13 +61,20 @@ impl EpubState {
         self.archive_size = epub_size;
         self.name_hash = cache::fnv1a(name.as_bytes());
         self.cache_file = cache::cache_filename(self.name_hash);
-        self.cache_dir = cache::dir_name_for_hash(self.name_hash);
+        // until the central directory is hashed the identity is unknown and
+        // nothing may be keyed by it
+        self.source = SourceId::NONE;
+        self.cache_started = false;
+        self.ring.clear();
+        self.images.clear();
+        self.warm = None;
 
         let tail_size = (epub_size as usize).min(EOCD_TAIL);
         let tail_offset = epub_size - tail_size as u32;
         let n = k.read_chunk(name, tail_offset, &mut scratch[..tail_size])?;
-        let (cd_offset, cd_size) = ZipIndex::parse_eocd(&scratch[..n], epub_size)
-            .map_err(|_| Error::new(ErrorKind::ParseFailed, "epub_init_zip: EOCD"))?;
+        let (cd_offset, cd_size) =
+            smol_epub::zip::ZipIndex::parse_eocd(&scratch[..n], epub_size)
+                .map_err(|_| Error::new(ErrorKind::ParseFailed, "epub_init_zip: EOCD"))?;
 
         log::info!(
             "epub: CD at offset {} size {} ({} file bytes)",
@@ -73,16 +83,21 @@ impl EpubState {
             epub_size
         );
 
-        let mut cd_buf = Vec::new();
-        cd_buf
-            .try_reserve_exact(cd_size as usize)
+        let mut cd_buf = BigBuf::zeroed(BufClass::ZipToc, cd_size as usize)
             .map_err(|_| Error::new(ErrorKind::OutOfMemory, "epub_init_zip: CD alloc"))?;
-        cd_buf.resize(cd_size as usize, 0);
         super::read_full(k, name, cd_offset, &mut cd_buf)?;
-        self.zip.clear();
+        self.zip = super::metadata::new_zip();
         self.zip
             .parse_central_directory(&cd_buf)
             .map_err(|_| Error::new(ErrorKind::ParseFailed, "epub_init_zip: CD parse"))?;
+        // the text cache file is named after the file name, so a replacement
+        // book of the same name and size would find it. What identifies the
+        // content is the central directory (names, CRC-32s, sizes): hash those
+        // bytes. the identity validates the cache header, names the directory
+        // of the book's images and page indexes, and keys the working set
+        self.source = SourceId::from_archive(epub_size, cd_offset, &cd_buf);
+        self.cache_dir = cache::dir_name_for_hash(self.source.dir_hash());
+        self.images.retarget(self.source);
         drop(cd_buf);
 
         log::info!("epub: {} entries in ZIP", self.zip.count());
@@ -113,6 +128,7 @@ impl EpubState {
                     self.spine.len(),
                 )
                 .is_ok()
+                    && cache::validate_v3_source(&hdr, self.source.raw()).is_ok()
                     && hdr.chapters_complete()
                 {
                     // read chapter table
@@ -132,6 +148,7 @@ impl EpubState {
                             .is_ok()
                             {
                                 self.chapters_cached = true;
+                                self.cache_started = true;
                                 for i in 0..count {
                                     self.ch_cached[i] = true;
                                 }
@@ -154,6 +171,7 @@ impl EpubState {
         let dir = cache::dir_name_str(&dir_buf);
         k.ensure_app_subdir(dir)?;
         self.cache_chapter = 0;
+        self.cache_started = false;
         Ok(false)
     }
 
@@ -174,8 +192,9 @@ impl EpubState {
         hdr.flags = cache::FLAG_CHAPTERS_COMPLETE;
         hdr.epub_size = self.archive_size;
         hdr.name_hash = self.name_hash;
+        hdr.source_id = self.source.raw();
 
-        let tlen = title.len().min(cache::TITLE_CAP);
+        let tlen = utf8_prefix_len(title, cache::TITLE_CAP);
         hdr.title[..tlen].copy_from_slice(&title[..tlen]);
         hdr.title_len = tlen as u8;
         let nlen = filename.len().min(cache::NAME_CAP);
@@ -219,10 +238,12 @@ impl EpubState {
         let entry_idx = self.spine.items[ch] as usize;
         let entry = *self.zip.entry(entry_idx);
 
-        // if this is the first chapter, create the file with a
-        // placeholder header + empty chapter table so appends start
-        // at the correct data offset
-        if self.cache_chapter == 0 && ch == 0 {
+        // the first chapter written in this session (not necessarily chapter 0:
+        // a restored position caches its own chapter first) creates the file
+        // with a placeholder header + empty chapter table so appends start
+        // at the correct data offset, and nothing of an older or foreign file
+        // survives
+        if !self.cache_started {
             let spine_len = self.spine.len();
             let mut init_buf = [0u8; cache::HEADER_SIZE];
             // write a minimal header (will be overwritten by finish_cache)
@@ -231,6 +252,7 @@ impl EpubState {
             hdr.chapter_count = spine_len as u16;
             hdr.epub_size = self.archive_size;
             hdr.name_hash = self.name_hash;
+            hdr.source_id = self.source.raw();
             cache::encode_v3_header(&hdr, &mut init_buf);
             k.write_cache(cf_str, &init_buf)?;
             // pad with zeroes for the chapter table
@@ -242,6 +264,7 @@ impl EpubState {
                 k.append_cache(cf_str, &zeros[..chunk])?;
                 remaining -= chunk;
             }
+            self.cache_started = true;
         }
 
         // record the offset where this chapter's data starts
@@ -253,11 +276,12 @@ impl EpubState {
         let mut reader = CellReader(&k_cell, epub_name);
         let mut writer = CellWriter(&k_cell, cf_str);
 
-        let text_size = smol_epub::async_io::stream_strip_entry_async(
+        let text_size = smol_epub::async_io::stream_strip_entry_async_with_scratch(
             &entry,
             entry.local_offset,
             &mut reader,
             &mut writer,
+            |layout| super::allocate_decoder_scratch(BufClass::ChapterText, layout),
         )
         .await
         .map_err(|msg| Error::from(msg).with_source("cache_chapter_async: stream"))?;
@@ -275,63 +299,135 @@ impl EpubState {
         Ok(())
     }
 
+    // make the current chapter's text resident. it is found in the ring by its
+    // full key (so a warmed neighbor needs no read at all) or read from the
+    // cache file into a fresh block; only a block that was read completely is
+    // published. false: the chapter streams from the card (too large for a ring
+    // slot, no memory, or a short or failed read)
     pub(super) fn try_cache_chapter(&mut self, k: &mut KernelHandle<'_>) -> bool {
-        if !self.chapters_cached {
-            return false;
-        }
-
-        let ch = self.chapter as usize;
-        let (ch_off, ch_size_u32) = if ch < cache::MAX_CACHE_CHAPTERS {
-            self.chapter_table[ch]
-        } else {
+        let Some(key) = self.chapter_key(self.chapter as usize) else {
             return false;
         };
-        let ch_size = ch_size_u32 as usize;
+        self.ring.retarget(self.source, self.chapter);
 
-        if ch_size == 0 || ch_size > CHAPTER_CACHE_MAX {
-            self.ch_cache = Vec::new();
-            return false;
-        }
-
-        if self.ch_cache.len() == ch_size {
-            log::info!("chapter cache: reusing {} bytes in RAM", ch_size);
+        if self.ring.contains(&key) {
+            log::info!(
+                "chapter cache: reusing ch{} ({} bytes)",
+                key.chapter,
+                key.size
+            );
             return true;
         }
-
-        self.ch_cache = Vec::new();
-        if self.ch_cache.try_reserve_exact(ch_size).is_err() {
-            log::info!("chapter cache: OOM for {} bytes", ch_size);
+        if let Err(why) = self.ring.admit(&key) {
+            log::info!(
+                "chapter cache: ch{} ({} bytes) streams from the card: {:?}",
+                key.chapter,
+                key.size,
+                why
+            );
             return false;
         }
-        self.ch_cache.resize(ch_size, 0);
+
+        let ch_size = key.size as usize;
+        let mut buf = match BigBuf::zeroed(BufClass::ChapterText, ch_size) {
+            Ok(b) => b,
+            Err(_) => {
+                log::info!("chapter cache: OOM for {} bytes", ch_size);
+                return false;
+            }
+        };
 
         let cf = self.cache_file;
         let cf_str = cache::cache_filename_str(&cf);
-
         let mut pos = 0usize;
         while pos < ch_size {
             let chunk = (ch_size - pos).min(PAGE_BUF);
-            match k.read_cache_chunk(
-                cf_str,
-                ch_off + pos as u32,
-                &mut self.ch_cache[pos..pos + chunk],
-            ) {
+            match k.read_cache_chunk(cf_str, key.offset + pos as u32, &mut buf[pos..pos + chunk]) {
                 Ok(n) if n > 0 => pos += n,
-                Ok(_) => break,
+                // the cache file ends before the chapter does: not a chapter
+                Ok(_) => {
+                    log::info!("chapter cache: short read at {} of {}", pos, ch_size);
+                    return false;
+                }
                 Err(e) => {
                     log::info!("chapter cache: SD read failed at {}: {}", pos, e);
-                    self.ch_cache = Vec::new();
                     return false;
                 }
             }
         }
 
-        log::info!(
-            "chapter cache: loaded ch{} ({} bytes) into RAM",
-            self.chapter,
-            ch_size,
-        );
-        true
+        match self.ring.insert(key, buf) {
+            Ok(()) => {
+                log::info!(
+                    "chapter cache: loaded ch{} ({} bytes) into RAM",
+                    key.chapter,
+                    ch_size,
+                );
+                true
+            }
+            Err((why, _)) => {
+                log::info!("chapter cache: ch{} not kept: {:?}", key.chapter, why);
+                false
+            }
+        }
+    }
+
+    // one bounded step of reading a neighbor chapter into the ring: pick the
+    // next candidate, then read WARM_CHUNK bytes per call. The block stays
+    // private to the job until every byte arrived; a job whose window moved
+    // (navigation, new book, memory pressure) is dropped, never published
+    pub(super) fn warm_step(&mut self, k: &mut KernelHandle<'_>) {
+        if self.warm_blocked || !self.chapters_cached || self.source.is_none() {
+            return;
+        }
+        let Some(mut warm) = self.warm.take() else {
+            let count = self.spine.len().min(cache::MAX_CACHE_CHAPTERS) as u16;
+            let Some(job) = self
+                .ring
+                .next_warm(count, |ch| self.chapter_key(usize::from(ch)))
+            else {
+                return;
+            };
+            match BigBuf::zeroed(BufClass::ChapterText, job.key().size as usize) {
+                Ok(buf) => self.warm = Some(Warm { job, buf }),
+                Err(_) => {
+                    log::info!("warm: no memory for ch{}", job.key().chapter);
+                    self.warm_blocked = true;
+                }
+            }
+            return;
+        };
+
+        if warm.job.generation() != self.ring.generation() {
+            log::info!("warm: ch{} dropped, window moved", warm.job.key().chapter);
+            return;
+        }
+        let Some((at, len)) = warm.job.next_read(WARM_CHUNK) else {
+            return;
+        };
+        let cf = self.cache_file;
+        let cf_str = cache::cache_filename_str(&cf);
+        let base = warm.job.key().offset + at;
+        let at = at as usize;
+        let read = k.read_cache_chunk(cf_str, base, &mut warm.buf[at..at + len]);
+        let done = match read {
+            Ok(n) => warm.job.record(n, len),
+            Err(_) => Err(pulp_board_logic::chapter_ring::WarmError::ShortRead),
+        };
+        match done {
+            Ok(false) => self.warm = Some(warm),
+            Ok(true) => {
+                let chapter = warm.job.key().chapter;
+                match self.ring.publish(&warm.job, warm.buf) {
+                    Ok(()) => log::info!("warm: ch{} resident", chapter),
+                    Err((why, _)) => log::info!("warm: ch{} not kept: {:?}", chapter, why),
+                }
+            }
+            Err(e) => {
+                log::info!("warm: ch{} read failed: {:?}", warm.job.key().chapter, e);
+                self.warm_blocked = true;
+            }
+        }
     }
 
     #[inline]
@@ -416,9 +512,12 @@ impl ReaderApp {
 
     pub(super) fn epub_index_chapter(&mut self) {
         self.reset_paging();
-        // force reload; ch_cache may hold a different chapter's data
-        // with the same byte count (try_cache_chapter only checks len)
-        self.epub.ch_cache = Vec::new();
+        // aim the working set at this chapter: the neighbors that are still
+        // adjacent stay resident, the rest leave, and a neighbor read that was
+        // pending for the old position can no longer publish
+        self.epub.ring.retarget(self.epub.source, self.epub.chapter);
+        self.epub.warm = None;
+        self.epub.warm_blocked = false;
         self.file_size = self.epub.current_chapter_size();
         log::info!(
             "epub: index chapter {}/{} ({} bytes cached text)",

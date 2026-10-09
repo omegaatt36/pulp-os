@@ -1,7 +1,6 @@
 // paginated file browser for SD card root directory
 // background title scanner resolves EPUB titles from OPF metadata
 
-use alloc::vec::Vec;
 use core::fmt::Write as _;
 
 use embedded_graphics::pixelcolor::BinaryColor;
@@ -11,12 +10,13 @@ use embedded_graphics::primitives::PrimitiveStyle;
 use crate::apps::{App, AppContext, AppId, Transition};
 use crate::board::action::{Action, ActionEvent};
 use crate::board::{SCREEN_H, SCREEN_W};
-use crate::drivers::storage::DirEntry;
+use crate::drivers::dir_entry::DirEntry;
 use crate::drivers::strip::StripBuffer;
 use crate::error::{Error, ErrorKind};
 use crate::fonts;
 use crate::kernel::KernelHandle;
 use crate::kernel::QuickAction;
+use crate::kernel::{BigBuf, BufClass};
 use crate::ui::{
     Alignment, BitmapDynLabel, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN,
     Region, SECTION_GAP, TITLE_Y_OFFSET,
@@ -71,6 +71,7 @@ pub struct FilesApp {
     stale_cache: bool,
     error: Option<Error>,
     ui_fonts: fonts::UiFonts,
+    label_fonts: fonts::cjk::SurfaceFonts,
     list_y: u16,
 
     title_scan_idx: usize,
@@ -98,6 +99,7 @@ impl FilesApp {
             stale_cache: false,
             error: None,
             ui_fonts: uf,
+            label_fonts: fonts::cjk::SurfaceFonts::new(),
             list_y,
             title_scan_idx: 0,
             title_scanning: false,
@@ -111,8 +113,24 @@ impl FilesApp {
 
     pub fn set_ui_font_size(&mut self, idx: u8) {
         self.ui_fonts = fonts::UiFonts::for_size(idx);
+        self.label_fonts.set_size(idx);
         self.list_y = TITLE_Y + self.ui_fonts.heading.line_height + HEADER_LIST_GAP;
         self.page_size = compute_page_size(self.list_y);
+    }
+
+    pub fn reset_storage(&mut self) {
+        self.on_exit();
+        self.total = 0;
+        self.scroll = 0;
+        self.selected = 0;
+        self.needs_load = false;
+        self.stale_cache = true;
+        self.error = None;
+        self.title_scan_idx = 0;
+        self.title_reload = false;
+        self.qa_count = 0;
+        self.pending_delete_file = false;
+        self.pending_delete_cache = false;
     }
 
     // Session state accessors for RTC persistence
@@ -288,11 +306,14 @@ impl App<AppId> for FilesApp {
     }
 
     fn on_exit(&mut self) {
+        self.label_fonts.clear();
         self.count = 0;
         self.title_scanning = false;
     }
 
-    fn on_suspend(&mut self) {}
+    fn on_suspend(&mut self) {
+        self.label_fonts.clear();
+    }
 
     fn on_resume(&mut self, ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {
         ctx.mark_dirty(Region::new(
@@ -314,7 +335,6 @@ impl App<AppId> for FilesApp {
                     let name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
                     log::info!("files: deleting {}", name);
 
-                    // also remove bookmark
                     k.bookmark_cache_mut().remove(&nb[..nl]);
 
                     match k.delete_file(name) {
@@ -450,12 +470,38 @@ impl App<AppId> for FilesApp {
         }
     }
 
+    fn prepare_render(&mut self, _ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
+        let mut labels = fonts::cjk::VisibleText::new();
+        labels.add("Files", self.ui_fonts.heading, true);
+        if self.error.is_none() {
+            for entry in self.entries.iter().take(self.count.min(self.page_size)) {
+                labels.add(entry.display_name(), self.ui_fonts.body, false);
+            }
+        }
+        self.label_fonts.prepare(k, &labels);
+    }
+
     fn draw(&self, strip: &mut StripBuffer) {
+        if let Some(error) = self.label_fonts.error {
+            crate::apps::widgets::bitmap_label::draw_surface_error(
+                strip,
+                Region::new(
+                    8,
+                    crate::ui::CONTENT_TOP,
+                    crate::board::SCREEN_W - 16,
+                    self.ui_fonts.body.line_height,
+                ),
+                self.ui_fonts.body,
+                error,
+            );
+            return;
+        }
+
         let header_region =
             Region::new(LIST_X, TITLE_Y, HEADER_W, self.ui_fonts.heading.line_height);
         BitmapLabel::new(header_region, "Files", self.ui_fonts.heading)
             .alignment(Alignment::CenterLeft)
-            .draw(strip)
+            .draw_prepared(strip, &self.label_fonts.view())
             .unwrap();
 
         if self.total > 0 {
@@ -465,21 +511,25 @@ impl App<AppId> for FilesApp {
             if self.title_scanning {
                 let _ = write!(status, " ...");
             }
-            status.draw(strip).unwrap();
+            status
+                .draw_prepared(strip, &self.label_fonts.view())
+                .unwrap();
         }
 
         if let Some(e) = self.error {
             let mut label = BitmapDynLabel::<32>::new(self.row_region(0), self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft);
             let _ = core::fmt::Write::write_fmt(&mut label, format_args!("{}", e));
-            label.draw(strip).unwrap();
+            label
+                .draw_prepared(strip, &self.label_fonts.view())
+                .unwrap();
             return;
         }
 
         if self.count == 0 && self.needs_load {
             BitmapLabel::new(self.row_region(0), "Loading...", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
-                .draw(strip)
+                .draw_prepared(strip, &self.label_fonts.view())
                 .unwrap();
             return;
         }
@@ -487,7 +537,7 @@ impl App<AppId> for FilesApp {
         if self.count == 0 && !self.needs_load {
             BitmapLabel::new(self.row_region(0), "No files found", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
-                .draw(strip)
+                .draw_prepared(strip, &self.label_fonts.view())
                 .unwrap();
             return;
         }
@@ -502,7 +552,7 @@ impl App<AppId> for FilesApp {
                 BitmapLabel::new(region, name, self.ui_fonts.body)
                     .alignment(Alignment::CenterLeft)
                     .inverted(i == self.selected)
-                    .draw(strip)
+                    .draw_prepared(strip, &self.label_fonts.view())
                     .unwrap();
             } else {
                 region
@@ -558,11 +608,8 @@ fn scan_one_epub_title(k: &mut KernelHandle<'_>, from: usize) -> Option<TitleSca
         // the From<&'static str> impl on Error converts automatically via ?
         let (cd_offset, cd_size) = ZipIndex::parse_eocd(&buf[..n], file_size)?;
 
-        let mut cd_buf = Vec::new();
-        cd_buf
-            .try_reserve_exact(cd_size as usize)
+        let mut cd_buf = BigBuf::zeroed(BufClass::ZipToc, cd_size as usize)
             .map_err(|_| Error::new(ErrorKind::OutOfMemory, "title_scan: CD alloc"))?;
-        cd_buf.resize(cd_size as usize, 0);
 
         let mut total = 0usize;
         while total < cd_buf.len() {
@@ -576,7 +623,7 @@ fn scan_one_epub_title(k: &mut KernelHandle<'_>, from: usize) -> Option<TitleSca
             total += rd;
         }
 
-        let mut zip = ZipIndex::new();
+        let mut zip = super::reader::metadata::new_zip();
         zip.parse_central_directory(&cd_buf)?;
         drop(cd_buf);
 
