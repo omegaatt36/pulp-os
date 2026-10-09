@@ -102,6 +102,20 @@ impl ReaderApp {
         n: usize,
         at_eof: bool,
     ) -> crate::error::Result<usize> {
+        #[cfg(feature = "sd-metrics")]
+        let tick = self.profile.tick();
+        let result = self.wrap_lines_counted_inner(k, n, at_eof);
+        #[cfg(feature = "sd-metrics")]
+        self.profile.record(super::profile::Phase::Layout, tick);
+        result
+    }
+
+    fn wrap_lines_counted_inner(
+        &mut self,
+        k: &mut KernelHandle<'_>,
+        n: usize,
+        at_eof: bool,
+    ) -> crate::error::Result<usize> {
         if self.layout_identity.is_none() {
             self.layout_identity = Some(self.current_layout_identity(k)?);
         }
@@ -213,6 +227,15 @@ impl ReaderApp {
         &mut self,
         k: &mut KernelHandle<'_>,
     ) -> crate::error::Result<()> {
+        #[cfg(feature = "sd-metrics")]
+        let tick = self.profile.tick();
+        let result = self.prepare_page_fonts_inner(k);
+        #[cfg(feature = "sd-metrics")]
+        self.profile.record(super::profile::Phase::Visible, tick);
+        result
+    }
+
+    fn prepare_page_fonts_inner(&mut self, k: &mut KernelHandle<'_>) -> crate::error::Result<()> {
         if let Some(fs) = self.fonts {
             let idx = self.book_font_size_idx.min(4) as usize;
             let body = fonts::cjk::BODY_PIXELS[idx];
@@ -368,6 +391,8 @@ impl ReaderApp {
         k: &mut KernelHandle<'_>,
         visible: bool,
     ) -> crate::error::Result<()> {
+        #[cfg(feature = "sd-metrics")]
+        let text_tick = self.profile.tick();
         if !self.epub.ch_cache.is_empty() {
             let start = (self.pg.offsets[self.pg.page] as usize).min(self.epub.ch_cache.len());
             let end = (start + PAGE_BUF).min(self.epub.ch_cache.len());
@@ -378,6 +403,8 @@ impl ReaderApp {
             self.pg.buf_len = n;
             self.pg.prefetch_page = NO_PREFETCH;
             self.pg.prefetch_len = 0;
+            #[cfg(feature = "sd-metrics")]
+            self.profile.record(super::profile::Phase::Text, text_tick);
             self.wrap_lines_counted(
                 k,
                 text_len(&self.pg.buf, n, end == self.epub.ch_cache.len()),
@@ -404,63 +431,71 @@ impl ReaderApp {
         let kept = self.paused.window.is_some_and(|w| {
             w.chapter == source && w.offset == base && w.len as usize == self.pg.buf_len
         });
-        if !kept {
-            if self.pg.prefetch_page == self.pg.page {
-                let pf_len = self.pg.prefetch_len;
-                self.pg.buf[..pf_len].copy_from_slice(&self.pg.prefetch[..pf_len]);
-                self.pg.buf_len = pf_len;
-                self.pg.prefetch_page = NO_PREFETCH;
-                self.pg.prefetch_len = 0;
-            } else if self.is_epub && self.epub.chapters_cached {
-                let cf_str = self.epub.cache_file_str();
-                let ch = self.epub.chapter as usize;
-                let ch_base = self.epub.chapter_table[ch].0;
-                let n = k.read_cache_chunk(
-                    cf_str,
-                    ch_base + self.pg.offsets[self.pg.page],
-                    &mut self.pg.buf,
-                )?;
-                self.pg.buf_len = n;
-            } else if self.file_size == 0 {
-                let (size, n) = k.read_file_start(name, &mut self.pg.buf)?;
-                self.file_size = size;
-                self.pg.buf_len = n;
-                log::info!("reader: opened {} ({} bytes)", name, size);
-
-                if size == 0 {
-                    self.pg.fully_indexed = true;
-                    self.pg.line_count = 0;
-                    return Ok(());
-                }
-            } else {
-                let n = k.read_chunk(name, self.pg.offsets[self.pg.page], &mut self.pg.buf)?;
-                self.pg.buf_len = n;
-            }
-
-            // A short device read is not EOF when the known file size says more
-            // bytes remain. Complete this bounded window before deriving pages.
-            while self.pg.buf_len < PAGE_BUF
-                && base as usize + self.pg.buf_len < self.file_size as usize
-            {
-                let at = base + self.pg.buf_len as u32;
-                let out = &mut self.pg.buf[self.pg.buf_len..];
-                let n = if self.is_epub && self.epub.chapters_cached {
+        let fetched = (|| -> crate::error::Result<bool> {
+            if !kept {
+                if self.pg.prefetch_page == self.pg.page {
+                    let pf_len = self.pg.prefetch_len;
+                    self.pg.buf[..pf_len].copy_from_slice(&self.pg.prefetch[..pf_len]);
+                    self.pg.buf_len = pf_len;
+                    self.pg.prefetch_page = NO_PREFETCH;
+                    self.pg.prefetch_len = 0;
+                } else if self.is_epub && self.epub.chapters_cached {
                     let cf_str = self.epub.cache_file_str();
-                    let ch_base = self.epub.chapter_table[self.epub.chapter as usize].0;
-                    k.read_cache_chunk(cf_str, ch_base + at, out)?
+                    let ch = self.epub.chapter as usize;
+                    let ch_base = self.epub.chapter_table[ch].0;
+                    let n = k.read_cache_chunk(
+                        cf_str,
+                        ch_base + self.pg.offsets[self.pg.page],
+                        &mut self.pg.buf,
+                    )?;
+                    self.pg.buf_len = n;
+                } else if self.file_size == 0 {
+                    let (size, n) = k.read_file_start(name, &mut self.pg.buf)?;
+                    self.file_size = size;
+                    self.pg.buf_len = n;
+                    log::info!("reader: opened {} ({} bytes)", name, size);
+
+                    if size == 0 {
+                        self.pg.fully_indexed = true;
+                        self.pg.line_count = 0;
+                        return Ok(true);
+                    }
                 } else {
-                    k.read_chunk(name, at, out)?
-                };
-                if n == 0 || n > out.len() {
-                    return Err(crate::error::Error::READ_FAILED);
+                    let n = k.read_chunk(name, self.pg.offsets[self.pg.page], &mut self.pg.buf)?;
+                    self.pg.buf_len = n;
                 }
-                self.pg.buf_len += n;
+
+                // A short device read is not EOF when the known file size says more
+                // bytes remain. Complete this bounded window before deriving pages.
+                while self.pg.buf_len < PAGE_BUF
+                    && base as usize + self.pg.buf_len < self.file_size as usize
+                {
+                    let at = base + self.pg.buf_len as u32;
+                    let out = &mut self.pg.buf[self.pg.buf_len..];
+                    let n = if self.is_epub && self.epub.chapters_cached {
+                        let cf_str = self.epub.cache_file_str();
+                        let ch_base = self.epub.chapter_table[self.epub.chapter as usize].0;
+                        k.read_cache_chunk(cf_str, ch_base + at, out)?
+                    } else {
+                        k.read_chunk(name, at, out)?
+                    };
+                    if n == 0 || n > out.len() {
+                        return Err(crate::error::Error::READ_FAILED);
+                    }
+                    self.pg.buf_len += n;
+                }
+                self.paused.window = Some(super::TextWindow {
+                    chapter: source,
+                    offset: base,
+                    len: self.pg.buf_len as u32,
+                });
             }
-            self.paused.window = Some(super::TextWindow {
-                chapter: source,
-                offset: base,
-                len: self.pg.buf_len as u32,
-            });
+            Ok(false)
+        })();
+        #[cfg(feature = "sd-metrics")]
+        self.profile.record(super::profile::Phase::Text, text_tick);
+        if fetched? {
+            return Ok(());
         }
         let at_eof =
             self.pg.offsets[self.pg.page] as usize + self.pg.buf_len >= self.file_size as usize;
@@ -484,6 +519,8 @@ impl ReaderApp {
             }
         }
 
+        #[cfg(feature = "sd-metrics")]
+        let prefetch_tick = self.profile.tick();
         if self.pg.page + 1 < self.pg.total_pages
             && self
                 .pg
@@ -514,6 +551,10 @@ impl ReaderApp {
             self.pg.prefetch_page = NO_PREFETCH;
             self.pg.prefetch_len = 0;
         }
+
+        #[cfg(feature = "sd-metrics")]
+        self.profile
+            .record(super::profile::Phase::Text, prefetch_tick);
 
         // loaded: only a pause keeps the window for the next slice
         self.paused.window = None;
@@ -547,8 +588,12 @@ impl ReaderApp {
             self.pg.page = self.pg.total_pages - 1;
             let end = (offset + PAGE_BUF).min(total);
             let n = end - offset;
+            #[cfg(feature = "sd-metrics")]
+            let text_tick = self.profile.tick();
             self.pg.buf[..n].copy_from_slice(&self.epub.ch_cache[offset..end]);
             self.pg.buf_len = n;
+            #[cfg(feature = "sd-metrics")]
+            self.profile.record(super::profile::Phase::Text, text_tick);
 
             let consumed =
                 self.wrap_lines_counted(k, text_len(&self.pg.buf, n, end == total), end == total)?;

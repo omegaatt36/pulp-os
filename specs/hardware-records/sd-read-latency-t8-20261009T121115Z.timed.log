@@ -1,0 +1,5 @@
+# {"capture_started_utc": "2026-10-09T12:11:15.866856+00:00", "wrapper_pid": 203652, "monitor_pid": 203653, "raw_log": "/home/raiven/dev/pulp-os/specs/hardware-records/sd-read-latency-t8-20261009T121115Z.raw.log", "timed_log": "/home/raiven/dev/pulp-os/specs/hardware-records/sd-read-latency-t8-20261009T121115Z.timed.log", "command": ["espflash", "monitor", "--chip", "esp32c61", "--port", "/dev/ttyACM0", "--non-interactive", "--no-reset", "--skip-update-check"], "reset_requested": false, "time_basis": "host line arrival UTC and monotonic; not GPIO event or device emission timestamps"}
+2026-10-09T12:11:15.871+00:00 monotonic_ns=12614793264773 [2026-10-09T12:11:15Z INFO ] Serial port: '/dev/ttyACM0'
+2026-10-09T12:11:15.871+00:00 monotonic_ns=12614793337584 [2026-10-09T12:11:15Z INFO ] Connecting...
+2026-10-09T12:11:16.186+00:00 monotonic_ns=12615109109144 [2026-10-09T12:11:16Z INFO ] Using flash stub
+# monitor_exit=-2

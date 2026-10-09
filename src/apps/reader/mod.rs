@@ -1,6 +1,8 @@
 mod epubs;
 mod images;
 mod paging;
+#[cfg(feature = "sd-metrics")]
+mod profile;
 
 pub use pulp_kernel::util::{Utf8Iter, decode_utf8_char};
 
@@ -418,6 +420,8 @@ pub struct ReaderApp {
     pub(super) goto_last_page: bool,
     pub(super) restore_offset: Option<u32>,
     pub(super) paused: Paused,
+    #[cfg(feature = "sd-metrics")]
+    profile: profile::Profile,
     session_position: Option<(u16, u32)>,
 
     pub(super) page_img: Option<DecodedImage>,
@@ -469,6 +473,8 @@ impl ReaderApp {
             goto_last_page: false,
             restore_offset: None,
             paused: Paused::NONE,
+            #[cfg(feature = "sd-metrics")]
+            profile: profile::Profile::new(),
             session_position: None,
 
             page_img: None,
@@ -605,6 +611,284 @@ impl ReaderApp {
             return;
         }
         embassy_futures::yield_now().await;
+    }
+
+    async fn profiled_cjk_pause(&mut self, ctx: &mut AppContext) {
+        #[cfg(feature = "sd-metrics")]
+        let tick = self.profile.tick();
+        self.cjk_pause(ctx).await;
+        #[cfg(feature = "sd-metrics")]
+        {
+            self.profile.record(profile::Phase::Pause, tick);
+            self.profile.sliced = true;
+        }
+    }
+
+    async fn background_step(&mut self, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
+        // Glyph preparation of this step runs in slices: it ends one early
+        // (`cjk_pause`) instead of holding the executor, see fonts::cjk::SLICE_US.
+        self.cjk.arm_slice();
+        loop {
+            // once per load: a pack cannot change between two slices of it
+            // (a removed card fails the next card access with an error), and the
+            // check opens the packs again
+            if matches!(self.state, State::NeedIndex | State::NeedPage) && !self.paused.verified {
+                if let Err(e) = self.check_layout_identity(k) {
+                    self.enter_error(ctx, e);
+                    break;
+                }
+                self.paused.verified = true;
+            }
+            match self.state {
+                State::NeedBookmark => {
+                    if self.restore_offset.is_none() {
+                        self.bookmark_load(k.bookmark_cache());
+                    }
+
+                    let _ = k.write_app_data(RECENT_FILE, &self.filename[..self.filename_len]);
+
+                    if self.is_epub {
+                        self.epub.zip.clear();
+                        self.epub.meta = EpubMeta::new();
+                        self.epub.spine = EpubSpine::new();
+                        self.epub.chapters_cached = false;
+                        self.goto_last_page = false;
+                        self.state = State::NeedInit;
+                        ctx.set_loading(LOADING_REGION, "Loading", 10);
+                    } else {
+                        self.state = State::NeedPage;
+                        ctx.set_loading(LOADING_REGION, "Loading", 50);
+                    }
+                    continue;
+                }
+
+                State::NeedInit => {
+                    let (nb, nl) = self.name_copy();
+                    let name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
+                    match self.epub.init_zip(k, name, &mut self.pg.buf) {
+                        Ok(()) => {
+                            self.state = State::NeedOpf;
+                            ctx.set_loading(LOADING_REGION, "Loading", 25);
+                        }
+                        Err(e) => {
+                            log::info!("reader: epub init (zip) failed: {}", e);
+                            self.enter_error(ctx, e);
+                        }
+                    }
+                }
+
+                State::NeedOpf => match self.epub_init_opf(k) {
+                    Ok(()) => {
+                        // clamp restored chapter to valid spine range
+                        let spine_len = self.epub.spine.len();
+                        if spine_len > 0 && self.epub.chapter as usize >= spine_len {
+                            self.epub.chapter = (spine_len - 1) as u16;
+                        }
+                        self.state = State::NeedToc;
+                        ctx.set_loading(LOADING_REGION, "Loading", 40);
+                    }
+                    Err(e) => {
+                        log::info!("reader: epub init (opf) failed: {}", e);
+                        self.enter_error(ctx, e);
+                    }
+                },
+
+                State::NeedToc => {
+                    if let Some(source) = self.epub.toc_source.take() {
+                        let (nb, nl) = self.name_copy();
+                        let name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
+                        let toc_idx = source.zip_index();
+
+                        let mut toc_dir_buf = [0u8; 256];
+                        let toc_dir_len = {
+                            let toc_path = self.epub.zip.entry_name(toc_idx);
+                            let dir = toc_path.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
+                            let n = dir.len().min(toc_dir_buf.len());
+                            toc_dir_buf[..n].copy_from_slice(dir.as_bytes());
+                            n
+                        };
+                        let toc_dir =
+                            core::str::from_utf8(&toc_dir_buf[..toc_dir_len]).unwrap_or("");
+
+                        match extract_zip_entry(k, name, &self.epub.zip, toc_idx) {
+                            Ok(toc_data) => {
+                                if let Ok(mut toc) = EpubToc::try_new() {
+                                    epub::parse_toc(
+                                        source,
+                                        &toc_data,
+                                        toc_dir,
+                                        &self.epub.spine,
+                                        &self.epub.zip,
+                                        &mut toc,
+                                    );
+                                    log::info!("epub: TOC has {} entries", toc.len());
+                                    self.epub.toc = Some(toc);
+                                } else {
+                                    log::warn!(
+                                        "epub: TOC allocation failed; continuing without TOC"
+                                    );
+                                }
+                            }
+                            Err(_e) => {
+                                log::warn!("epub: failed to read TOC");
+                            }
+                        }
+                    }
+                    self.rebuild_quick_actions();
+                    self.state = State::NeedCache;
+                    ctx.set_loading(LOADING_REGION, "Caching", 55);
+                }
+
+                State::NeedCache => match self.epub.check_cache(k, &mut self.pg.buf) {
+                    Ok(true) => {
+                        self.state = State::NeedIndex;
+                        ctx.set_loading(LOADING_REGION, "Indexing", 75);
+                    }
+                    Ok(false) => {
+                        // cache the current chapter; async version yields
+                        // during deflate so the scheduler's select can
+                        // interrupt if the user presses back
+                        let ch = self.epub.chapter as usize;
+                        let (nb, nl) = self.name_copy();
+                        let epub_name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
+                        match self.epub.cache_chapter_async(k, ch, epub_name).await {
+                            Ok(()) => {
+                                self.epub.chapters_cached = true;
+                                self.epub.cache_chapter = 0;
+
+                                // eagerly dispatch nearby images to
+                                // the worker so they decode while the
+                                // user reads the first page
+                                if self.try_dispatch_nearby_image(k) {
+                                    self.epub.bg_cache = BgCacheState::WaitNearbyImage;
+                                } else {
+                                    self.epub.bg_cache = BgCacheState::CacheChapter;
+                                }
+
+                                self.state = State::NeedIndex;
+                                ctx.set_loading(LOADING_REGION, "Indexing", 75);
+                            }
+                            Err(e) => {
+                                log::info!("reader: cache ch{} failed: {}", ch, e);
+                                self.enter_error(ctx, e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::info!("reader: cache check failed: {}", e);
+                        self.enter_error(ctx, e);
+                    }
+                },
+
+                State::NeedIndex => {
+                    if !self.paused.index {
+                        // ensure the target chapter is cached before
+                        // indexing (it may not be if background caching
+                        // hasn't reached it yet)
+                        if self.is_epub
+                            && self.epub.chapters_cached
+                            && !self.epub.ch_cached[self.epub.chapter as usize]
+                        {
+                            // async version yields during deflate so the
+                            // scheduler's select can interrupt on input
+                            let ch = self.epub.chapter as usize;
+                            let (nb, nl) = self.name_copy();
+                            let epub_name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
+                            if let Err(e) = self.epub.cache_chapter_async(k, ch, epub_name).await {
+                                self.enter_error(ctx, e);
+                                break;
+                            }
+                        }
+
+                        self.epub_index_chapter();
+                    }
+
+                    // goto_last_page stays set while the indexing is paused
+                    let want_last = self.goto_last_page;
+                    match self.index_chapter_pages(k, want_last) {
+                        Err(e) if fonts::cjk::is_slice_end(&e) => {
+                            self.paused.index = true;
+                            self.profiled_cjk_pause(ctx).await;
+                            return;
+                        }
+                        Err(e) => {
+                            self.paused.index = false;
+                            self.goto_last_page = false;
+                            self.enter_error(ctx, e);
+                            break;
+                        }
+                        Ok(()) => {
+                            self.paused.index = false;
+                            self.goto_last_page = false;
+                        }
+                    }
+
+                    if want_last {
+                        self.defer_image_decode = false;
+                        self.state = State::Ready;
+                        self.cjk_idle();
+                        ctx.clear_loading();
+                        ctx.mark_dirty(PAGE_REGION);
+                    } else {
+                        self.state = State::NeedPage;
+                        ctx.set_loading(LOADING_REGION, "Loading page", 90);
+                    }
+                }
+
+                State::NeedPage => match self.load_page_step(k) {
+                    Ok(()) => {
+                        self.defer_image_decode = false;
+                        self.state = State::Ready;
+                        self.cjk_idle();
+                        ctx.clear_loading();
+                        ctx.mark_dirty(PAGE_REGION);
+                    }
+                    Err(e) if fonts::cjk::is_slice_end(&e) => {
+                        self.profiled_cjk_pause(ctx).await;
+                        return;
+                    }
+                    Err(e) => {
+                        log::info!("reader: load failed: {}", e);
+                        self.enter_error(ctx, e);
+                    }
+                },
+
+                _ => {}
+            }
+            break;
+        }
+
+        // background caching; runs whenever the page content is
+        // settled and there is work to do. NeedIndex is included so
+        // adjacent-chapter caching can overlap with page indexing
+        // after a chapter jump. the scheduler wraps run_background
+        // in select(run_background, input) so every .await inside
+        // bg_cache_step is interruptible by user input.
+        if matches!(
+            self.state,
+            State::Ready | State::ShowToc | State::NeedIndex | State::NeedPage
+        ) && self.epub.bg_cache != BgCacheState::Idle
+        {
+            // ensure caching indicator is visible (covers resume
+            // and the transition from initial load to bg caching)
+            if !ctx.loading_active() {
+                self.set_cache_loading(ctx);
+            }
+            let prev_count = self.cached_chapter_count();
+            let prev_bg = self.epub.bg_cache;
+            let prev_img_found = self.epub.img_found_count;
+            let prev_img_cached = self.epub.img_cached_count;
+            self.bg_cache_step(k).await;
+            if self.epub.bg_cache == BgCacheState::Idle {
+                ctx.clear_loading();
+            } else if self.cached_chapter_count() != prev_count
+                || self.epub.bg_cache != prev_bg
+                || self.epub.img_found_count != prev_img_found
+                || self.epub.img_cached_count != prev_img_cached
+            {
+                self.set_cache_loading(ctx);
+            }
+        }
     }
 
     // the load that paused is over (page ready, or failed)
@@ -1092,269 +1376,20 @@ impl App<AppId> for ReaderApp {
     }
 
     async fn background(&mut self, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
-        // Glyph preparation of this step runs in slices: it ends one early
-        // (`cjk_pause`) instead of holding the executor, see fonts::cjk::SLICE_US.
-        self.cjk.arm_slice();
-        loop {
-            // once per load: a pack cannot change between two slices of it
-            // (a removed card fails the next card access with an error), and the
-            // check opens the packs again
-            if matches!(self.state, State::NeedIndex | State::NeedPage) && !self.paused.verified {
-                if let Err(e) = self.check_layout_identity(k) {
-                    self.enter_error(ctx, e);
-                    break;
-                }
-                self.paused.verified = true;
-            }
-            match self.state {
-                State::NeedBookmark => {
-                    if self.restore_offset.is_none() {
-                        self.bookmark_load(k.bookmark_cache());
-                    }
-
-                    let _ = k.write_app_data(RECENT_FILE, &self.filename[..self.filename_len]);
-
-                    if self.is_epub {
-                        self.epub.zip.clear();
-                        self.epub.meta = EpubMeta::new();
-                        self.epub.spine = EpubSpine::new();
-                        self.epub.chapters_cached = false;
-                        self.goto_last_page = false;
-                        self.state = State::NeedInit;
-                        ctx.set_loading(LOADING_REGION, "Loading", 10);
-                    } else {
-                        self.state = State::NeedPage;
-                        ctx.set_loading(LOADING_REGION, "Loading", 50);
-                    }
-                    continue;
-                }
-
-                State::NeedInit => {
-                    let (nb, nl) = self.name_copy();
-                    let name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
-                    match self.epub.init_zip(k, name, &mut self.pg.buf) {
-                        Ok(()) => {
-                            self.state = State::NeedOpf;
-                            ctx.set_loading(LOADING_REGION, "Loading", 25);
-                        }
-                        Err(e) => {
-                            log::info!("reader: epub init (zip) failed: {}", e);
-                            self.enter_error(ctx, e);
-                        }
-                    }
-                }
-
-                State::NeedOpf => match self.epub_init_opf(k) {
-                    Ok(()) => {
-                        // clamp restored chapter to valid spine range
-                        let spine_len = self.epub.spine.len();
-                        if spine_len > 0 && self.epub.chapter as usize >= spine_len {
-                            self.epub.chapter = (spine_len - 1) as u16;
-                        }
-                        self.state = State::NeedToc;
-                        ctx.set_loading(LOADING_REGION, "Loading", 40);
-                    }
-                    Err(e) => {
-                        log::info!("reader: epub init (opf) failed: {}", e);
-                        self.enter_error(ctx, e);
-                    }
-                },
-
-                State::NeedToc => {
-                    if let Some(source) = self.epub.toc_source.take() {
-                        let (nb, nl) = self.name_copy();
-                        let name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
-                        let toc_idx = source.zip_index();
-
-                        let mut toc_dir_buf = [0u8; 256];
-                        let toc_dir_len = {
-                            let toc_path = self.epub.zip.entry_name(toc_idx);
-                            let dir = toc_path.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
-                            let n = dir.len().min(toc_dir_buf.len());
-                            toc_dir_buf[..n].copy_from_slice(dir.as_bytes());
-                            n
-                        };
-                        let toc_dir =
-                            core::str::from_utf8(&toc_dir_buf[..toc_dir_len]).unwrap_or("");
-
-                        match extract_zip_entry(k, name, &self.epub.zip, toc_idx) {
-                            Ok(toc_data) => {
-                                if let Ok(mut toc) = EpubToc::try_new() {
-                                    epub::parse_toc(
-                                        source,
-                                        &toc_data,
-                                        toc_dir,
-                                        &self.epub.spine,
-                                        &self.epub.zip,
-                                        &mut toc,
-                                    );
-                                    log::info!("epub: TOC has {} entries", toc.len());
-                                    self.epub.toc = Some(toc);
-                                } else {
-                                    log::warn!(
-                                        "epub: TOC allocation failed; continuing without TOC"
-                                    );
-                                }
-                            }
-                            Err(_e) => {
-                                log::warn!("epub: failed to read TOC");
-                            }
-                        }
-                    }
-                    self.rebuild_quick_actions();
-                    self.state = State::NeedCache;
-                    ctx.set_loading(LOADING_REGION, "Caching", 55);
-                }
-
-                State::NeedCache => match self.epub.check_cache(k, &mut self.pg.buf) {
-                    Ok(true) => {
-                        self.state = State::NeedIndex;
-                        ctx.set_loading(LOADING_REGION, "Indexing", 75);
-                    }
-                    Ok(false) => {
-                        // cache the current chapter; async version yields
-                        // during deflate so the scheduler's select can
-                        // interrupt if the user presses back
-                        let ch = self.epub.chapter as usize;
-                        let (nb, nl) = self.name_copy();
-                        let epub_name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
-                        match self.epub.cache_chapter_async(k, ch, epub_name).await {
-                            Ok(()) => {
-                                self.epub.chapters_cached = true;
-                                self.epub.cache_chapter = 0;
-
-                                // eagerly dispatch nearby images to
-                                // the worker so they decode while the
-                                // user reads the first page
-                                if self.try_dispatch_nearby_image(k) {
-                                    self.epub.bg_cache = BgCacheState::WaitNearbyImage;
-                                } else {
-                                    self.epub.bg_cache = BgCacheState::CacheChapter;
-                                }
-
-                                self.state = State::NeedIndex;
-                                ctx.set_loading(LOADING_REGION, "Indexing", 75);
-                            }
-                            Err(e) => {
-                                log::info!("reader: cache ch{} failed: {}", ch, e);
-                                self.enter_error(ctx, e);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        log::info!("reader: cache check failed: {}", e);
-                        self.enter_error(ctx, e);
-                    }
-                },
-
-                State::NeedIndex => {
-                    if !self.paused.index {
-                        // ensure the target chapter is cached before
-                        // indexing (it may not be if background caching
-                        // hasn't reached it yet)
-                        if self.is_epub
-                            && self.epub.chapters_cached
-                            && !self.epub.ch_cached[self.epub.chapter as usize]
-                        {
-                            // async version yields during deflate so the
-                            // scheduler's select can interrupt on input
-                            let ch = self.epub.chapter as usize;
-                            let (nb, nl) = self.name_copy();
-                            let epub_name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
-                            if let Err(e) = self.epub.cache_chapter_async(k, ch, epub_name).await {
-                                self.enter_error(ctx, e);
-                                break;
-                            }
-                        }
-
-                        self.epub_index_chapter();
-                    }
-
-                    // goto_last_page stays set while the indexing is paused
-                    let want_last = self.goto_last_page;
-                    match self.index_chapter_pages(k, want_last) {
-                        Err(e) if fonts::cjk::is_slice_end(&e) => {
-                            self.paused.index = true;
-                            self.cjk_pause(ctx).await;
-                            return;
-                        }
-                        Err(e) => {
-                            self.paused.index = false;
-                            self.goto_last_page = false;
-                            self.enter_error(ctx, e);
-                            break;
-                        }
-                        Ok(()) => {
-                            self.paused.index = false;
-                            self.goto_last_page = false;
-                        }
-                    }
-
-                    if want_last {
-                        self.defer_image_decode = false;
-                        self.state = State::Ready;
-                        self.cjk_idle();
-                        ctx.clear_loading();
-                        ctx.mark_dirty(PAGE_REGION);
-                    } else {
-                        self.state = State::NeedPage;
-                        ctx.set_loading(LOADING_REGION, "Loading page", 90);
-                    }
-                }
-
-                State::NeedPage => match self.load_page_step(k) {
-                    Ok(()) => {
-                        self.defer_image_decode = false;
-                        self.state = State::Ready;
-                        self.cjk_idle();
-                        ctx.clear_loading();
-                        ctx.mark_dirty(PAGE_REGION);
-                    }
-                    Err(e) if fonts::cjk::is_slice_end(&e) => {
-                        self.cjk_pause(ctx).await;
-                        return;
-                    }
-                    Err(e) => {
-                        log::info!("reader: load failed: {}", e);
-                        self.enter_error(ctx, e);
-                    }
-                },
-
-                _ => {}
-            }
-            break;
+        #[cfg(feature = "sd-metrics")]
+        let profiling = !matches!(self.state, State::Ready | State::ShowToc | State::Error);
+        #[cfg(feature = "sd-metrics")]
+        if profiling {
+            self.profile.begin(
+                self.state,
+                self.paused.since.is_some(),
+                self.paused.window.is_some(),
+            );
         }
-
-        // background caching; runs whenever the page content is
-        // settled and there is work to do. NeedIndex is included so
-        // adjacent-chapter caching can overlap with page indexing
-        // after a chapter jump. the scheduler wraps run_background
-        // in select(run_background, input) so every .await inside
-        // bg_cache_step is interruptible by user input.
-        if matches!(
-            self.state,
-            State::Ready | State::ShowToc | State::NeedIndex | State::NeedPage
-        ) && self.epub.bg_cache != BgCacheState::Idle
-        {
-            // ensure caching indicator is visible (covers resume
-            // and the transition from initial load to bg caching)
-            if !ctx.loading_active() {
-                self.set_cache_loading(ctx);
-            }
-            let prev_count = self.cached_chapter_count();
-            let prev_bg = self.epub.bg_cache;
-            let prev_img_found = self.epub.img_found_count;
-            let prev_img_cached = self.epub.img_cached_count;
-            self.bg_cache_step(k).await;
-            if self.epub.bg_cache == BgCacheState::Idle {
-                ctx.clear_loading();
-            } else if self.cached_chapter_count() != prev_count
-                || self.epub.bg_cache != prev_bg
-                || self.epub.img_found_count != prev_img_found
-                || self.epub.img_cached_count != prev_img_cached
-            {
-                self.set_cache_loading(ctx);
-            }
+        self.background_step(ctx, k).await;
+        #[cfg(feature = "sd-metrics")]
+        if profiling {
+            self.profile.finish(self.state);
         }
     }
 

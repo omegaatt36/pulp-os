@@ -22,8 +22,7 @@ board-x4 = []
 # declared only so the production files' cfg(feature = "board-onepage-c61")
 # arms are known; never enabled
 board-onepage-c61 = []
-# declared only so the production files' cfg(feature = "sd-metrics") arms are known;
-# never enabled (the measurement build is firmware-only)
+# Enables the production measurement code for captured-log validation.
 sd-metrics = []
 
 [dependencies]

@@ -17,7 +17,8 @@ use smol_epub::html_strip::{IMG_REF, MARKER};
 pub const BODY_PIXELS: [u16; 5] = [16, 19, 23, 28, 35];
 pub const HEADING_PIXELS: [u16; 5] = [23, 27, 32, 38, 46];
 // Body state: persistent internal metrics <=16 KiB (growth can temporarily
-// hold old and new vectors, <=32 KiB), two slot tables <=16 KiB each, scratch
+// hold old and new vectors, <=32 KiB), two 700-slot tables (16,800 bytes each
+// on the 32-bit boards), scratch
 // <=4 KiB. Bitmap bytes use the explicit FontGlyphs board budget, in PSRAM on
 // C61.
 // Auxiliary surfaces are body role only: <=4 KiB metrics, 170 slots (~4 KiB)
@@ -27,9 +28,11 @@ pub const HEADING_PIXELS: [u16; 5] = [23, 27, 32, 38, 46];
 // Pack index caches (see `IndexBanks`) are heap, one per pixel size a state
 // looks up in, at most `INDEX_BANKS` per state, allocated on first use and freed
 // by `clear`: 4 KiB each for the reader, 508 bytes each for an auxiliary surface.
+// Board allocation bound. The 64-bit host uses the same slot counts with
+// larger pointer-sized metadata to simulate preparation, not board heap use.
 pub const CJK_STORAGE_BUDGET: usize = 336 * 1024;
 const METRIC_BUDGET: usize = 16 * 1024;
-const SLOT_BUDGET: usize = 16 * 1024;
+const SLOT_BUDGET: usize = 700 * size_of::<PageGlyphSlot>();
 const BITMAP_BUDGET: usize = 64 * 1024;
 const CACHE_BUDGET: usize = SLOT_BUDGET + BITMAP_BUDGET + size_of::<OwnedCache>();
 const SCRATCH_BUDGET: usize = 4 * 1024;
@@ -50,16 +53,24 @@ const AUX_INDEX_LEVELS: u32 = 7;
 const INDEX_BANKS: usize = 2;
 const INDEX_BUDGET: usize = INDEX_BANKS * OwnedIndex::nodes_for_levels(INDEX_LEVELS) * 4;
 const AUX_INDEX_BUDGET: usize = INDEX_BANKS * OwnedIndex::nodes_for_levels(AUX_INDEX_LEVELS) * 4;
-const _: () = assert!(
-    2 * METRIC_BUDGET
-        + 2 * CACHE_BUDGET
-        + SCRATCH_BUDGET
-        + INDEX_BUDGET
-        + size_of::<CjkState>()
-        + AUX_SURFACES
-            * (AUX_METRIC_BUDGET + AUX_CACHE_BUDGET + AUX_INDEX_BUDGET + size_of::<CjkState>())
-        <= CJK_STORAGE_BUDGET
-);
+const _: () = {
+    if size_of::<usize>() == 4 {
+        assert!(size_of::<PageGlyphSlot>() == 24);
+        assert!(
+            2 * METRIC_BUDGET
+                + 2 * CACHE_BUDGET
+                + SCRATCH_BUDGET
+                + INDEX_BUDGET
+                + size_of::<CjkState>()
+                + AUX_SURFACES
+                    * (AUX_METRIC_BUDGET
+                        + AUX_CACHE_BUDGET
+                        + AUX_INDEX_BUDGET
+                        + size_of::<CjkState>())
+                <= CJK_STORAGE_BUDGET
+        );
+    }
+};
 const _: () =
     assert!(2 * BITMAP_BUDGET + AUX_SURFACES * AUX_BITMAP_BUDGET <= FONT_GLYPHS_PSRAM_BYTES);
 
@@ -93,9 +104,13 @@ mod stats {
     use crate::kernel::uptime_us;
 
     pub type Tick = u64;
-    // end of the previous log line, low 32 bits of the µs clock (load/store
+    // End of the previous log line (after logging), low 32 bits of the µs clock (load/store
     // only: the X4 core has no atomic read-modify-write)
     static LAST_END: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+    static LOG_US: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+    pub(super) fn log_us() -> u32 {
+        LOG_US.load(core::sync::atomic::Ordering::Relaxed)
+    }
     pub struct Stats {
         began: u64,
         opens: u32,
@@ -146,11 +161,12 @@ mod stats {
         }
         pub fn log(&self, op: &str) {
             use core::sync::atomic::Ordering::Relaxed;
-            // time since the previous line ended: the work between preparations
+            // Time after the previous line finished logging, including reader
+            // work and scheduler/display time; reader-sd separates those spans.
             let gap_us = (self.began as u32).wrapping_sub(LAST_END.load(Relaxed));
-            LAST_END.store(uptime_us() as u32, Relaxed);
+            let log_start = uptime_us();
             log::info!(
-                "cjk-sd op={} gap_us={} opens={} reads={} bytes={} open_us={} read_us={} max_read_us={} wall_us={} scalars={} lookups={}",
+                "cjk-sd op={} gap_after_log_us={} opens={} reads={} bytes={} open_us={} read_us={} max_read_us={} wall_us={} scalars={} lookups={}",
                 op,
                 gap_us,
                 self.opens,
@@ -159,10 +175,18 @@ mod stats {
                 self.open_us,
                 self.read_us,
                 self.max_us,
-                uptime_us().saturating_sub(self.began),
+                log_start.saturating_sub(self.began),
                 self.scalars,
                 self.lookups,
             );
+            let end = uptime_us();
+            LOG_US.store(
+                LOG_US
+                    .load(Relaxed)
+                    .wrapping_add(end.saturating_sub(log_start) as u32),
+                Relaxed,
+            );
+            LAST_END.store(end as u32, Relaxed);
         }
     }
 }
@@ -189,6 +213,11 @@ mod stats {
         pub fn log(&self, _op: &str) {}
     }
 }
+#[cfg(feature = "sd-metrics")]
+pub(crate) fn measurement_log_us() -> u32 {
+    stats::log_us()
+}
+
 use stats::Stats;
 
 enum Source<'a, 's> {
@@ -243,10 +272,11 @@ fn empty_header(px: u16) -> [u8; pulp_fontpack::HEADER_LEN] {
     }
     raw
 }
-/// Run `f` on a validated reader of the `px` bank. The pack file is opened
-/// once for the whole call, so every index probe and bitmap read is a
-/// positioned read on that handle; it closes on every path. `f` also learns
-/// whether a pack is installed. An absent pack is the validated empty pack.
+/// Run `f` on a validated reader of the `px` bank. Every index probe and
+/// bitmap read uses the same positioned file handle. Storage may retain that
+/// handle after the call; its borrow and SD transactions end before returning.
+/// `f` also learns whether a pack is installed. An absent pack is the validated
+/// empty pack.
 fn with_pack<T>(
     k: &mut KernelHandle<'_>,
     px: u16,
@@ -411,15 +441,16 @@ fn note(metrics: &mut Vec<Entry>, budget: usize, key: (u16, char)) -> Result<()>
     }
 }
 
-/// Time slicing of a preparation that can run for seconds (R2). The reader arms
+/// Time slicing of a preparation that can run for seconds. The reader arms
 /// a slice before each background step; staging and bitmap reading then stop
 /// after the glyph that crosses its end and return `SLICE_END`, with everything
 /// done so far kept. The same call again resumes, and the finished result is
 /// the one an unsliced call produces. With no slice armed nothing is cut off.
 ///
-/// A pause always falls between two glyphs, outside `with_pack`: the pack file
-/// is closed and no SD transaction is open when the caller gets control back,
-/// so whatever it does next (poll keys, refresh the panel) cannot overlap one.
+/// A pause always falls between two glyphs, outside `with_pack`: its storage
+/// borrow and SD transactions have ended when the caller gets control back.
+/// A retained file handle does not hold the SPI bus, so polling keys or
+/// refreshing the panel cannot overlap a font read.
 pub const SLICE_US: u32 = 60_000;
 /// A paused preparation logs its progress at least this often.
 const HEARTBEAT_US: u64 = 4_000_000;
@@ -825,8 +856,8 @@ impl CjkState {
             }
             stats.scalars(count);
             // The same scalars as the page still held: no glyph is read again.
-            // The pack is still opened and its header checked, so a replaced
-            // or damaged pack fails closed as before.
+            // The pack header is still validated; clearing for a bank identity
+            // change remains the caller's lifecycle responsibility.
             if let Some((_, cache)) = slot.as_ref().filter(|(p, _)| *p == px)
                 && cache.len() == count
                 && chars.iter().all(|&c| cache.get(c).is_some())

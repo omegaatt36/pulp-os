@@ -1,0 +1,670 @@
+[2026-10-09T11:55:55Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T11:55:55Z INFO ] Connecting...
+[2026-10-09T11:55:55Z INFO ] Using flash stub
+[2026-10-09T11:55:56Z INFO ] Flash content successfully read and written to '/tmp/tmp.J9ieEXuj0H/head.bin'!
+Chip type:         esp32c61
+Merge:             false
+Skip padding:      false
+App/part. size:    886,752/16,384,000 bytes, 5.41%
+[2026-10-09T11:55:57Z INFO ] Image successfully saved!
+[2026-10-09T11:55:57Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T11:55:57Z INFO ] Connecting...
+[2026-10-09T11:55:57Z INFO ] Using flash stub
+Chip type:         esp32c61 (revision v1.1)
+Crystal frequency: 40 MHz
+Flash size:        16MB
+Features:          WiFi 6, BT 5
+MAC address:       88:56:a6:cf:da:90
+[2026-10-09T11:56:08Z INFO ] Binary successfully written to flash!
+[2026-10-09T11:56:09Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-10-09T11:56:09Z INFO ] Connecting...
+[2026-10-09T11:56:09Z INFO ] Using flash stub
+ESP-ROM:esp32c61-eco4-20250829
+Build:Aug 29 2025
+rst:0x15 (USB_UART_HPSYS),boot:0xa (SPI_FAST_FLASH_BOOT)
+SPI mode:DIO, clock div:1
+load:0x40845b90,len:0x11e0
+load:0x4083bd70,len:0xad4
+load:0x4083ea70,len:0x3008
+entry 0x4083bd70
+INFO - Detected PSRAM chip id = e3b4135a5d0d
+INFO - Detected PSRAM chip density = 2
+INFO - PSRAM size is 8388608
+INFO - PSRAM size: 8 MB
+INFO - psram: 2097152 B at 0x420d0000, heap registered
+INFO - psram: ready
+INFO - memory Internal: pool 0 / 162304 B
+INFO - memory Psram: pool 0 / 1900544 B
+INFO - memory class chapter-text Psram: reserved 0 / 262144 B, peak 0 B
+INFO - memory class image-data   Psram: reserved 0 / 524288 B, peak 0 B
+INFO - memory class page-table   Psram: reserved 0 / 65536 B, peak 0 B
+INFO - memory class zip-toc      Psram: reserved 0 / 262144 B, peak 0 B
+INFO - memory class font-glyphs  Psram: reserved 0 / 262144 B, peak 0 B
+INFO - memory class net-scratch  Psram: reserved 0 / 32768 B, peak 0 B
+INFO - heap internal: used 0 B, free 162304 B; psram heap: used 0 B, free 2097152 B
+INFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B
+INFO - gpio27 power-cycled, state=PowerCycled
+INFO - pulp-os c61: esp32c61 rv32imac, rtos + embassy up, wake PowerOn
+INFO - spi2: sck=GPIO22 mosi=GPIO23 miso=GPIO24, epd_cs=GPIO25 sd_cs=GPIO26, dma ch0 4096B tx+rx, 400 kHz
+INFO - sd: 63864569856 bytes (60906 MB), attempt 1
+INFO - SD card: filesystem mounted
+INFO - SD: ok
+INFO - spi2: 400 kHz -> 10000 kHz
+INFO - sd: fat32 mounted
+INFO - battery: cell 4608 mV, 100%
+INFO - bookmarks: loaded 6 slots from SD
+INFO - settings: loaded from SETTINGS.TXT
+INFO - font: size_idx=2 line_h=31 (native 31 x 100%) ascent=25 max_lines=24 margin=8
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - stats: heap 0/158K peak 0K | stack free 67K hwm 8K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 0 B; reserved 0 / 1900544 B, peak 0 B
+INFO - boot: session restore (cause PowerOn, slot B seq 8)
+INFO - session: restored nav stack depth=3 active=Reader
+INFO - home: restore_state state=Menu selected=1
+INFO - files: restore_state scroll=0 selected=0 total=8
+INFO - reader: restore_state file=ASSEMB~1.EPU ch=3 off=0
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - [work] reset -> gen 1
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - reader: opening ASSEMB~1.EPU
+INFO - cjk-sd op=stage gap_after_log_us=1280545 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=45 scalars=0 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=55 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=66 scalars=0 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=111 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=2 scalars=0 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=4 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=3 scalars=0 lookups=0
+INFO - ui ready.
+INFO - kernel ready.
+INFO - [work] worker ready
+INFO - reader-sd resume step=1 state=NeedBookmark resumed=false retained_window=false outside_step_us=0 outside_step_known=false previous_step_complete=true
+INFO - epub: CD at offset 281729 size 1868 (283619 file bytes)
+INFO - epub: 28 entries in ZIP
+INFO - reader-sd step=1 outcome=pending state=NeedOpf wall_us=342684 text_us=0 layout_us=0 visible_us=0 pause_us=0 logging_us=614 other_us=342070 text_calls=0 layout_calls=0 visible_calls=0
+INFO - stats: heap 1/158K peak 1K | stack free 67K hwm 8K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 1868 B; reserved 0 / 1900544 B, peak 1872 B
+INFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 1)
+INFO - reader-sd resume step=2 state=NeedOpf resumed=false retained_window=false outside_step_us=652392 outside_step_known=true previous_step_complete=true
+INFO - zip: deflate stream 174 -> 257 bytes
+INFO - epub: OPF at OEBPS/content.opf
+INFO - zip: deflate stream 1047 -> 4106 bytes
+INFO - epub: TOC source = EPUB3 nav (zip #22)
+INFO - epub: "集合體" by 娜塔夏‧ 布朗（Natasha Brown） -- 17 chapters
+INFO - reader-sd step=2 outcome=pending state=NeedToc wall_us=409329 text_us=0 layout_us=0 visible_us=0 pause_us=0 logging_us=573 other_us=408756 text_calls=0 layout_calls=0 visible_calls=0
+INFO - stats: heap 1/158K peak 9K | stack free 67K hwm 8K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 10500 B; reserved 0 / 1900544 B, peak 10512 B
+INFO - cjk-sd op=stage gap_after_log_us=5300731 opens=1 reads=25 bytes=2090 open_us=189671 read_us=31149 max_read_us=2037 wall_us=221543 scalars=3 lookups=3
+INFO - cjk-sd op=prepare gap_after_log_us=176 opens=1 reads=4 bytes=138 open_us=151 read_us=6240 max_read_us=2025 wall_us=7198 scalars=3 lookups=0
+INFO - display: partial refresh 448x24 at (8, 24) in 649 ms (partial count 2)
+INFO - reader-sd resume step=3 state=NeedToc resumed=false retained_window=false outside_step_us=884257 outside_step_known=true previous_step_complete=true
+INFO - zip: deflate stream 703 -> 1533 bytes
+INFO - epub: TOC has 9 entries
+INFO - reader-sd step=3 outcome=pending state=NeedCache wall_us=138450 text_us=0 layout_us=0 visible_us=0 pause_us=0 logging_us=500 other_us=137950 text_calls=0 layout_calls=0 visible_calls=0
+INFO - stats: heap 15/158K peak 17K | stack free 67K hwm 8K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 96 B, free 2097056 B, peak 10596 B; reserved 96 / 1900544 B, peak 10608 B
+INFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 3)
+INFO - reader-sd resume step=4 state=NeedCache resumed=false retained_window=false outside_step_us=653401 outside_step_known=true previous_step_complete=true
+INFO - epub: v3 cache hit (17 chapters)
+INFO - reader-sd step=4 outcome=pending state=NeedIndex wall_us=376619 text_us=0 layout_us=0 visible_us=0 pause_us=0 logging_us=575 other_us=376044 text_calls=0 layout_calls=0 visible_calls=0
+INFO - stats: heap 15/158K peak 17K | stack free 67K hwm 8K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 96 B, free 2097056 B, peak 10596 B; reserved 96 / 1900544 B, peak 10608 B
+INFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 4)
+INFO - reader-sd resume step=5 state=NeedIndex resumed=false retained_window=false outside_step_us=653476 outside_step_known=true previous_step_complete=true
+INFO - epub: index chapter 4/17 (0 bytes cached text)
+INFO - reader-sd step=5 outcome=pending state=NeedPage wall_us=1011 text_us=0 layout_us=0 visible_us=0 pause_us=0 logging_us=453 other_us=558 text_calls=0 layout_calls=0 visible_calls=0
+INFO - stats: heap 15/158K peak 17K | stack free 67K hwm 8K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 96 B, free 2097056 B, peak 10596 B; reserved 96 / 1900544 B, peak 10608 B
+INFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 5)
+INFO - reader-sd resume step=6 state=NeedPage resumed=false retained_window=false outside_step_us=652444 outside_step_known=true previous_step_complete=true
+INFO - cjk: lookup 1/751 glyphs, about 152958 ms left
+INFO - cjk-sd op=stage gap_after_log_us=3320874 opens=1 reads=12 bytes=528 open_us=189335 read_us=13931 max_read_us=2033 wall_us=204800 scalars=751 lookups=1
+INFO - reader-sd step=6 outcome=slice state=NeedPage wall_us=397451 text_us=141848 layout_us=254177 visible_us=0 pause_us=133 logging_us=1034 other_us=259 text_calls=1 layout_calls=1 visible_calls=0
+INFO - stats: heap 35/158K peak 41K | stack free 67K hwm 10K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 96 B, free 2097056 B, peak 10596 B; reserved 96 / 1900544 B, peak 10608 B
+INFO - display: partial refresh 448x24 at (8, 24) in 651 ms (partial count 6)
+INFO - reader-sd resume step=7 state=NeedPage resumed=true retained_window=true outside_step_us=654644 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=668904 opens=1 reads=68 bytes=10208 open_us=121 read_us=59216 max_read_us=2014 wall_us=60633 scalars=751 lookups=41
+INFO - reader-sd step=7 outcome=slice state=NeedPage wall_us=75248 text_us=57 layout_us=73435 visible_us=0 pause_us=390 logging_us=1121 other_us=245 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=8 state=NeedPage resumed=true retained_window=true outside_step_us=153 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14583 opens=1 reads=75 bytes=10274 open_us=40 read_us=62935 max_read_us=2984 wall_us=64092 scalars=751 lookups=41
+INFO - reader-sd step=8 outcome=slice state=NeedPage wall_us=78660 text_us=44 layout_us=76720 visible_us=0 pause_us=618 logging_us=1133 other_us=145 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=9 state=NeedPage resumed=true retained_window=true outside_step_us=128 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14686 opens=1 reads=72 bytes=11726 open_us=58 read_us=61349 max_read_us=3797 wall_us=62642 scalars=751 lookups=46
+INFO - reader-sd step=9 outcome=slice state=NeedPage wall_us=76999 text_us=33 layout_us=75290 visible_us=0 pause_us=204 logging_us=1311 other_us=161 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=10 state=NeedPage resumed=true retained_window=true outside_step_us=119 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14391 opens=1 reads=69 bytes=8536 open_us=34 read_us=60592 max_read_us=1991 wall_us=61619 scalars=751 lookups=33
+INFO - reader-sd step=10 outcome=slice state=NeedPage wall_us=76273 text_us=32 layout_us=74223 visible_us=0 pause_us=604 logging_us=1281 other_us=133 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=11 state=NeedPage resumed=true retained_window=true outside_step_us=131 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14815 opens=1 reads=64 bytes=7546 open_us=55 read_us=59540 max_read_us=1965 wall_us=60599 scalars=751 lookups=30
+INFO - reader-sd step=11 outcome=slice state=NeedPage wall_us=74972 text_us=25 layout_us=73255 visible_us=0 pause_us=208 logging_us=1323 other_us=161 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=12 state=NeedPage resumed=true retained_window=true outside_step_us=112 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14418 opens=1 reads=59 bytes=9020 open_us=42 read_us=59517 max_read_us=1990 wall_us=60563 scalars=751 lookups=37
+INFO - reader-sd step=12 outcome=slice state=NeedPage wall_us=75239 text_us=24 layout_us=73210 visible_us=0 pause_us=592 logging_us=1280 other_us=133 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=13 state=NeedPage resumed=true retained_window=true outside_step_us=138 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14911 opens=1 reads=66 bytes=8822 open_us=55 read_us=60645 max_read_us=3765 wall_us=61803 scalars=751 lookups=35
+INFO - reader-sd step=13 outcome=slice state=NeedPage wall_us=76175 text_us=32 layout_us=74485 visible_us=0 pause_us=199 logging_us=1294 other_us=165 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=14 state=NeedPage resumed=true retained_window=true outside_step_us=115 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14452 opens=1 reads=69 bytes=9966 open_us=38 read_us=61823 max_read_us=2984 wall_us=62922 scalars=751 lookups=41
+INFO - reader-sd step=14 outcome=slice state=NeedPage wall_us=77558 text_us=32 layout_us=75581 visible_us=0 pause_us=607 logging_us=1203 other_us=135 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=15 state=NeedPage resumed=true retained_window=true outside_step_us=127 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14654 opens=1 reads=57 bytes=7986 open_us=59 read_us=59556 max_read_us=2032 wall_us=60632 scalars=751 lookups=30
+INFO - reader-sd step=15 outcome=slice state=NeedPage wall_us=74914 text_us=24 layout_us=73322 visible_us=0 pause_us=204 logging_us=1201 other_us=163 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=16 state=NeedPage resumed=true retained_window=true outside_step_us=123 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14443 opens=1 reads=71 bytes=8514 open_us=34 read_us=61666 max_read_us=2010 wall_us=62723 scalars=751 lookups=32
+INFO - reader-sd step=16 outcome=slice state=NeedPage wall_us=77416 text_us=25 layout_us=75392 visible_us=0 pause_us=600 logging_us=1265 other_us=134 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=17 state=NeedPage resumed=true retained_window=true outside_step_us=127 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14679 opens=1 reads=75 bytes=8800 open_us=63 read_us=59562 max_read_us=3888 wall_us=60750 scalars=751 lookups=33
+INFO - reader-sd step=17 outcome=slice state=NeedPage wall_us=75056 text_us=32 layout_us=73424 visible_us=0 pause_us=200 logging_us=1236 other_us=164 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=18 state=NeedPage resumed=true retained_window=true outside_step_us=122 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14445 opens=1 reads=68 bytes=7260 open_us=34 read_us=59565 max_read_us=2018 wall_us=60565 scalars=751 lookups=26
+INFO - reader-sd step=18 outcome=slice state=NeedPage wall_us=75255 text_us=32 layout_us=73195 visible_us=0 pause_us=611 logging_us=1284 other_us=133 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=19 state=NeedPage resumed=true retained_window=true outside_step_us=127 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14771 opens=1 reads=72 bytes=9394 open_us=59 read_us=59699 max_read_us=2015 wall_us=60920 scalars=751 lookups=38
+INFO - reader-sd step=19 outcome=slice state=NeedPage wall_us=75122 text_us=24 layout_us=73600 visible_us=0 pause_us=199 logging_us=1136 other_us=163 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=20 state=NeedPage resumed=true retained_window=true outside_step_us=123 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14452 opens=1 reads=69 bytes=7810 open_us=38 read_us=60648 max_read_us=2017 wall_us=61666 scalars=751 lookups=29
+INFO - reader-sd step=20 outcome=slice state=NeedPage wall_us=76365 text_us=25 layout_us=74317 visible_us=0 pause_us=600 logging_us=1291 other_us=132 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=21 state=NeedPage resumed=true retained_window=true outside_step_us=131 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14705 opens=1 reads=76 bytes=9768 open_us=51 read_us=60791 max_read_us=2005 wall_us=62035 scalars=751 lookups=37
+INFO - reader-sd step=21 outcome=slice state=NeedPage wall_us=76251 text_us=32 layout_us=74705 visible_us=0 pause_us=203 logging_us=1147 other_us=164 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=22 state=NeedPage resumed=true retained_window=true outside_step_us=115 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14274 opens=1 reads=78 bytes=8536 open_us=38 read_us=67847 max_read_us=2967 wall_us=68977 scalars=751 lookups=31
+INFO - reader-sd step=22 outcome=slice state=NeedPage wall_us=83537 text_us=32 layout_us=81620 visible_us=0 pause_us=604 logging_us=1147 other_us=134 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=23 state=NeedPage resumed=true retained_window=true outside_step_us=134 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14638 opens=1 reads=66 bytes=10120 open_us=59 read_us=60665 max_read_us=2962 wall_us=61901 scalars=751 lookups=41
+INFO - reader-sd step=23 outcome=slice state=NeedPage wall_us=76052 text_us=24 layout_us=74579 visible_us=0 pause_us=200 logging_us=1085 other_us=164 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=24 state=NeedPage resumed=true retained_window=true outside_step_us=115 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14307 opens=1 reads=69 bytes=8580 open_us=34 read_us=63292 max_read_us=3811 wall_us=64412 scalars=751 lookups=35
+INFO - reader-sd step=24 outcome=slice state=NeedPage wall_us=79114 text_us=25 layout_us=77063 visible_us=0 pause_us=600 logging_us=1293 other_us=133 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=25 state=NeedPage resumed=true retained_window=true outside_step_us=131 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14909 opens=1 reads=71 bytes=8536 open_us=59 read_us=60176 max_read_us=3874 wall_us=61362 scalars=751 lookups=35
+INFO - reader-sd step=25 outcome=slice state=NeedPage wall_us=75760 text_us=32 layout_us=74032 visible_us=0 pause_us=204 logging_us=1329 other_us=163 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=26 state=NeedPage resumed=true retained_window=true outside_step_us=115 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14257 opens=1 reads=71 bytes=9614 open_us=38 read_us=59902 max_read_us=2013 wall_us=61049 scalars=751 lookups=38
+INFO - reader-sd step=26 outcome=slice state=NeedPage wall_us=75582 text_us=32 layout_us=73694 visible_us=0 pause_us=608 logging_us=1116 other_us=132 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=27 state=NeedPage resumed=true retained_window=true outside_step_us=131 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14846 opens=2 reads=50 bytes=5500 open_us=189288 read_us=45356 max_read_us=2974 wall_us=235886 scalars=751 lookups=20
+INFO - reader-sd step=27 outcome=slice state=NeedPage wall_us=250232 text_us=24 layout_us=248564 visible_us=0 pause_us=232 logging_us=1240 other_us=172 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=28 state=NeedPage resumed=true retained_window=true outside_step_us=138 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14508 opens=1 reads=57 bytes=3784 open_us=62 read_us=61077 max_read_us=3802 wall_us=61947 scalars=751 lookups=11
+INFO - reader-sd step=28 outcome=slice state=NeedPage wall_us=76720 text_us=45 layout_us=74672 visible_us=0 pause_us=681 logging_us=1160 other_us=162 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=29 state=NeedPage resumed=true retained_window=true outside_step_us=123 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=14838 opens=1 reads=61 bytes=3234 open_us=57 read_us=57358 max_read_us=1991 wall_us=58228 scalars=751 lookups=10
+INFO - cjk-sd op=bank gap_after_log_us=34 opens=1 reads=1 bytes=44 open_us=73 read_us=1087 max_read_us=1087 wall_us=1260 scalars=0 lookups=0
+INFO - cjk-sd op=bank gap_after_log_us=63 opens=1 reads=1 bytes=44 open_us=21 read_us=1015 max_read_us=1015 wall_us=1066 scalars=0 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3105 opens=1 reads=2 bytes=51 open_us=172 read_us=3706 max_read_us=2059 wall_us=5404 scalars=93 lookups=0
+INFO - reader-sd step=29 outcome=slice state=NeedPage wall_us=85588 text_us=52 layout_us=75438 visible_us=6272 pause_us=264 logging_us=3271 other_us=291 text_calls=2 layout_calls=1 visible_calls=1
+INFO - reader-sd resume step=30 state=NeedPage resumed=true retained_window=false outside_step_us=226 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=156249 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=273 scalars=751 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2940 opens=1 reads=51 bytes=3017 open_us=164 read_us=55615 max_read_us=2887 wall_us=57155 scalars=93 lookups=0
+INFO - reader-sd step=30 outcome=slice state=NeedPage wall_us=217673 text_us=141455 layout_us=15134 visible_us=57983 pause_us=806 logging_us=1989 other_us=306 text_calls=2 layout_calls=1 visible_calls=1
+INFO - reader-sd resume step=31 state=NeedPage resumed=true retained_window=false outside_step_us=201 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=156695 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=249 scalars=751 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2930 opens=1 reads=40 bytes=2522 open_us=189 read_us=55625 max_read_us=2883 wall_us=57287 scalars=93 lookups=0
+INFO - reader-sd step=31 outcome=slice state=NeedPage wall_us=217371 text_us=141500 layout_us=15098 visible_us=58093 pause_us=458 logging_us=1957 other_us=265 text_calls=2 layout_calls=1 visible_calls=1
+INFO - reader-sd resume step=32 state=NeedPage resumed=true retained_window=false outside_step_us=187 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=156117 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=245 scalars=751 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2920 opens=2 reads=8 bytes=548 open_us=201 read_us=15289 max_read_us=2854 wall_us=16813 scalars=96 lookups=0
+INFO - reader-sd step=32 outcome=ready state=Ready wall_us=176076 text_us=141161 layout_us=15054 visible_us=17643 pause_us=0 logging_us=1892 other_us=326 text_calls=2 layout_calls=1 visible_calls=1
+INFO - stats: heap 41/158K peak 42K | stack free 67K hwm 10K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 6016 B, free 2091136 B, peak 10596 B; reserved 6032 / 1900544 B, peak 10608 B
+INFO - display: partial refresh 480x794 at (0, 6) in 818 ms (partial count 7)
+INFO - stats: heap 41/158K peak 42K | stack free 67K hwm 10K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 6016 B, free 2091136 B, peak 10596 B; reserved 6032 / 1900544 B, peak 10608 B
+INFO - reader-sd resume step=33 state=NeedIndex resumed=false retained_window=false outside_step_us=3433633 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=bank gap_after_log_us=3435057 opens=1 reads=1 bytes=44 open_us=132 read_us=2085 max_read_us=2085 wall_us=2412 scalars=0 lookups=0
+INFO - cjk-sd op=bank gap_after_log_us=26 opens=1 reads=1 bytes=44 open_us=40 read_us=1015 max_read_us=1015 wall_us=1097 scalars=0 lookups=0
+INFO - epub: index chapter 5/17 (3496 bytes cached text)
+INFO - chapter cache: loaded ch4 (3496 bytes) into RAM
+INFO - cjk-sd op=stage gap_after_log_us=138671 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=273 scalars=431 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=6916 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=198 scalars=390 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=5940 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=196 scalars=344 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=5305 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=196 scalars=265 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=4088 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=196 scalars=209 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=3263 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=195 scalars=156 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=2431 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=196 scalars=71 lookups=0
+INFO - chapter pre-indexed: 7 pages
+INFO - reader-sd step=33 outcome=pending state=NeedPage wall_us=179009 text_us=340 layout_us=36117 visible_us=0 pause_us=0 logging_us=5616 other_us=136936 text_calls=7 layout_calls=7 visible_calls=0
+INFO - stats: heap 41/158K peak 42K | stack free 67K hwm 10K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 9512 B, free 2087640 B, peak 10596 B; reserved 9536 / 1900544 B, peak 10608 B
+INFO - display: partial refresh 480x794 at (0, 6) in 822 ms (partial count 8)
+INFO - reader-sd resume step=34 state=NeedPage resumed=false retained_window=false outside_step_us=825393 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=bank gap_after_log_us=828261 opens=1 reads=1 bytes=44 open_us=127 read_us=1943 max_read_us=1943 wall_us=2268 scalars=0 lookups=0
+INFO - cjk-sd op=bank gap_after_log_us=27 opens=1 reads=1 bytes=44 open_us=13 read_us=1034 max_read_us=1034 wall_us=1073 scalars=0 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=6099 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=246 scalars=431 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2887 opens=2 reads=2 bytes=88 open_us=161 read_us=2549 max_read_us=1549 wall_us=3796 scalars=96 lookups=0
+INFO - reader-sd step=34 outcome=ready state=Ready wall_us=19624 text_us=284 layout_us=7970 visible_us=4622 pause_us=0 logging_us=2896 other_us=3852 text_calls=1 layout_calls=1 visible_calls=1
+INFO - stats: heap 41/158K peak 42K | stack free 67K hwm 10K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 9512 B, free 2087640 B, peak 10596 B; reserved 9536 / 1900544 B, peak 10608 B
+INFO - display: partial refresh 480x794 at (0, 6) in 818 ms (partial count 9)
+INFO - reader-sd resume step=35 state=NeedPage resumed=false retained_window=false outside_step_us=1129676 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=bank gap_after_log_us=1131159 opens=1 reads=1 bytes=44 open_us=133 read_us=2072 max_read_us=2072 wall_us=2397 scalars=0 lookups=0
+INFO - cjk-sd op=bank gap_after_log_us=25 opens=1 reads=1 bytes=44 open_us=40 read_us=1049 max_read_us=1049 wall_us=1135 scalars=0 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=5346 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=257 scalars=390 lookups=0
+INFO - cjk: bitmap 46/120 glyphs, about 98 ms left
+INFO - cjk-sd op=prepare gap_after_log_us=3387 opens=1 reads=47 bytes=2745 open_us=184 read_us=55174 max_read_us=2884 wall_us=58014 scalars=120 lookups=0
+INFO - reader-sd step=35 outcome=slice state=NeedPage wall_us=74055 text_us=253 layout_us=7628 visible_us=58975 pause_us=600 logging_us=2642 other_us=3957 text_calls=1 layout_calls=1 visible_calls=1
+INFO - stats: heap 42/158K peak 42K | stack free 67K hwm 10K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 11208 B, free 2085944 B, peak 11208 B; reserved 11232 / 1900544 B, peak 11232 B
+INFO - display: partial refresh 480x794 at (0, 6) in 770 ms (partial count 10)
+INFO - reader-sd resume step=36 state=NeedPage resumed=true retained_window=false outside_step_us=774330 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=781557 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=265 scalars=390 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3325 opens=1 reads=43 bytes=2735 open_us=184 read_us=55583 max_read_us=2806 wall_us=57214 scalars=120 lookups=0
+INFO - reader-sd step=36 outcome=slice state=NeedPage wall_us=68758 text_us=245 layout_us=7562 visible_us=58150 pause_us=859 logging_us=1683 other_us=259 text_calls=1 layout_calls=1 visible_calls=1
+INFO - reader-sd resume step=37 state=NeedPage resumed=true retained_window=false outside_step_us=181 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7409 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=217 scalars=390 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3347 opens=1 reads=33 bytes=1944 open_us=168 read_us=39959 max_read_us=2809 wall_us=41595 scalars=120 lookups=0
+INFO - reader-sd step=37 outcome=ready state=Ready wall_us=52430 text_us=185 layout_us=7484 visible_us=42570 pause_us=0 logging_us=1878 other_us=313 text_calls=1 layout_calls=1 visible_calls=1
+INFO - stats: heap 42/158K peak 42K | stack free 67K hwm 10K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 10884 B, free 2086268 B, peak 11208 B; reserved 10896 / 1900544 B, peak 11232 B
+INFO - display: partial refresh 480x794 at (0, 6) in 830 ms (partial count 11)
+INFO - reader-sd resume step=38 state=NeedPage resumed=false retained_window=false outside_step_us=937277 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=bank gap_after_log_us=938792 opens=1 reads=1 bytes=44 open_us=120 read_us=2071 max_read_us=2071 wall_us=2385 scalars=0 lookups=0
+INFO - cjk-sd op=bank gap_after_log_us=21 opens=1 reads=1 bytes=44 open_us=32 read_us=1027 max_read_us=1027 wall_us=1092 scalars=0 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=4452 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=287 scalars=344 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3791 opens=1 reads=51 bytes=2952 open_us=194 read_us=53227 max_read_us=2041 wall_us=55713 scalars=136 lookups=0
+INFO - reader-sd step=38 outcome=slice state=NeedPage wall_us=71775 text_us=211 layout_us=7142 visible_us=56758 pause_us=591 logging_us=3178 other_us=3895 text_calls=1 layout_calls=1 visible_calls=1
+INFO - stats: heap 42/158K peak 43K | stack free 67K hwm 10K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 11884 B, free 2085268 B, peak 11884 B; reserved 11904 / 1900544 B, peak 11904 B
+INFO - display: partial refresh 480x794 at (0, 6) in 772 ms (partial count 12)
+INFO - reader-sd resume step=39 state=NeedPage resumed=true retained_window=false outside_step_us=775228 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=781486 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=269 scalars=344 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3739 opens=1 reads=43 bytes=2731 open_us=177 read_us=54870 max_read_us=2887 wall_us=56493 scalars=136 lookups=0
+INFO - reader-sd step=39 outcome=slice state=NeedPage wall_us=67480 text_us=220 layout_us=7065 visible_us=57516 pause_us=853 logging_us=1542 other_us=284 text_calls=1 layout_calls=1 visible_calls=1
+INFO - stats: heap 42/158K peak 43K | stack free 67K hwm 10K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 11884 B, free 2085268 B, peak 11884 B; reserved 11904 / 1900544 B, peak 11904 B
+INFO - reader-sd resume step=40 state=NeedPage resumed=true retained_window=false outside_step_us=2022 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=8525 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=211 scalars=344 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3818 opens=1 reads=42 bytes=2656 open_us=189 read_us=54504 max_read_us=2007 wall_us=56262 scalars=136 lookups=0
+INFO - reader-sd step=40 outcome=slice state=NeedPage wall_us=66590 text_us=151 layout_us=7085 visible_us=57266 pause_us=258 logging_us=1594 other_us=236 text_calls=1 layout_calls=1 visible_calls=1
+INFO - reader-sd resume step=41 state=NeedPage resumed=true retained_window=false outside_step_us=169 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=6145 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=238 scalars=344 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3643 opens=1 reads=4 bytes=126 open_us=169 read_us=6738 max_read_us=2036 wall_us=7828 scalars=136 lookups=0
+INFO - reader-sd step=41 outcome=ready state=Ready wall_us=18041 text_us=196 layout_us=6972 visible_us=8840 pause_us=0 logging_us=1746 other_us=287 text_calls=1 layout_calls=1 visible_calls=1
+INFO - stats: heap 42/158K peak 43K | stack free 67K hwm 10K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 11884 B, free 2085268 B, peak 11884 B; reserved 11904 / 1900544 B, peak 11904 B
+INFO - display: partial refresh 480x794 at (0, 6) in 839 ms (partial count 13)
+INFO - app: Reader -> Files
+INFO - bookmark: cached off=993 ch=4 gen=17 for "ASSEMB~1.EPU"
+INFO - [work] reset -> gen 2
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - stats: heap 1/158K peak 43K | stack free 67K hwm 13K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 11884 B; reserved 0 / 1900544 B, peak 11904 B
+INFO - cjk-sd op=stage gap_after_log_us=3462250 opens=1 reads=25 bytes=2090 open_us=189612 read_us=31838 max_read_us=2080 wall_us=222142 scalars=3 lookups=3
+INFO - cjk-sd op=prepare gap_after_log_us=161 opens=1 reads=4 bytes=360 open_us=140 read_us=8235 max_read_us=2863 wall_us=9216 scalars=3 lookups=0
+INFO - display: partial refresh 480x800 at (0, 0) in 795 ms (partial count 14)
+INFO - titles: scan complete
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 11884 B; reserved 320 / 1900544 B, peak 11904 B
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 11884 B; reserved 320 / 1900544 B, peak 11904 B
+INFO - display: partial refresh 448x167 at (16, 8) in 672 ms (partial count 15)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 11884 B; reserved 320 / 1900544 B, peak 11904 B
+INFO - display: partial refresh 448x223 at (16, 8) in 683 ms (partial count 16)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 11884 B; reserved 320 / 1900544 B, peak 11904 B
+INFO - display: partial refresh 448x279 at (16, 8) in 693 ms (partial count 17)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 100% 4.6V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 11884 B; reserved 320 / 1900544 B, peak 11904 B
+INFO - display: partial refresh 448x335 at (16, 8) in 704 ms (partial count 18)
+INFO - battery: cell 4180 mV, 98% (periodic)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 11884 B; reserved 320 / 1900544 B, peak 11904 B
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 11884 B; reserved 320 / 1900544 B, peak 11904 B
+INFO - display: partial refresh 448x391 at (16, 8) in 714 ms (partial count 19)
+INFO - app: Files -> Reader
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - [work] reset -> gen 3
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - reader: opening ZH1.TXT
+INFO - reader-sd resume step=42 state=NeedBookmark resumed=false retained_window=false outside_step_us=10200181 outside_step_known=true previous_step_complete=true
+INFO - bookmark: restoring off=0 ch=0 for ZH1.TXT
+INFO - reader: opened ZH1.TXT (43 bytes)
+INFO - cjk: lookup 1/14 glyphs, about 2654 ms left
+INFO - cjk-sd op=stage gap_after_log_us=6709185 opens=1 reads=12 bytes=528 open_us=189605 read_us=13959 max_read_us=2033 wall_us=204596 scalars=14 lookups=1
+INFO - reader-sd step=42 outcome=slice state=NeedPage wall_us=408432 text_us=63886 layout_us=205185 visible_us=0 pause_us=163 logging_us=1094 other_us=138104 text_calls=1 layout_calls=1 visible_calls=0
+INFO - stats: heap 6/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 11884 B; reserved 0 / 1900544 B, peak 11904 B
+INFO - cjk-sd op=stage gap_after_log_us=3050 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=10 scalars=0 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=46 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=67 scalars=0 lookups=0
+INFO - reader-sd resume step=43 state=NeedPage resumed=true retained_window=true outside_step_us=3895720 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3893459 opens=1 reads=58 bytes=3146 open_us=129 read_us=67775 max_read_us=2016 wall_us=68714 scalars=14 lookups=9
+INFO - reader-sd step=43 outcome=slice state=NeedPage wall_us=70966 text_us=65 layout_us=69000 visible_us=0 pause_us=200 logging_us=1465 other_us=236 text_calls=1 layout_calls=1 visible_calls=0
+INFO - stats: heap 6/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 11884 B; reserved 0 / 1900544 B, peak 11904 B
+INFO - reader-sd resume step=44 state=NeedPage resumed=true retained_window=true outside_step_us=1774 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3593 opens=1 reads=29 bytes=1584 open_us=51 read_us=28801 max_read_us=1947 wall_us=29276 scalars=14 lookups=4
+INFO - cjk-sd op=bank gap_after_log_us=34 opens=1 reads=1 bytes=44 open_us=67 read_us=1067 max_read_us=1067 wall_us=1233 scalars=0 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=825 opens=1 reads=15 bytes=745 open_us=151 read_us=25213 max_read_us=2888 wall_us=26396 scalars=14 lookups=0
+INFO - reader-sd step=44 outcome=ready state=Ready wall_us=60728 text_us=70 layout_us=31325 visible_us=26648 pause_us=0 logging_us=2386 other_us=299 text_calls=2 layout_calls=1 visible_calls=1
+INFO - stats: heap 6/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 704 B, free 2096448 B, peak 11884 B; reserved 704 / 1900544 B, peak 11904 B
+INFO - display: partial refresh 480x794 at (0, 6) in 773 ms (partial count 1)
+INFO - app: Reader -> Files
+INFO - bookmark: cached off=0 ch=0 gen=14 for "ZH1.TXT"
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - stats: heap 1/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 11884 B; reserved 0 / 1900544 B, peak 11904 B
+INFO - cjk-sd op=stage gap_after_log_us=1677462 opens=1 reads=25 bytes=2090 open_us=155 read_us=32917 max_read_us=2240 wall_us=33742 scalars=3 lookups=3
+INFO - cjk-sd op=prepare gap_after_log_us=158 opens=1 reads=4 bytes=360 open_us=131 read_us=8159 max_read_us=2877 wall_us=9085 scalars=3 lookups=0
+INFO - display: partial refresh 480x800 at (0, 0) in 796 ms (partial count 2)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 316 B, free 2096836 B, peak 11884 B; reserved 320 / 1900544 B, peak 11904 B
+INFO - display: partial refresh 448x447 at (16, 8) in 725 ms (partial count 3)
+INFO - app: Files -> Reader
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - [work] reset -> gen 4
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - reader: opening ZH2.TXT
+INFO - reader-sd resume step=45 state=NeedBookmark resumed=false retained_window=false outside_step_us=3786903 outside_step_known=true previous_step_complete=true
+INFO - bookmark: restoring off=999 ch=0 for ZH2.TXT
+INFO - reader: opened ZH2.TXT (1189 bytes)
+INFO - cjk: lookup 24/247 glyphs, about 562 ms left
+INFO - cjk-sd op=stage gap_after_log_us=2276934 opens=1 reads=61 bytes=6556 open_us=140 read_us=59354 max_read_us=2033 wall_us=61025 scalars=247 lookups=24
+INFO - reader-sd step=45 outcome=slice state=NeedPage wall_us=273575 text_us=66005 layout_us=67445 visible_us=0 pause_us=787 logging_us=1135 other_us=138203 text_calls=1 layout_calls=1 visible_calls=0
+INFO - stats: heap 10/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 11884 B; reserved 0 / 1900544 B, peak 11904 B
+INFO - cjk-sd op=stage gap_after_log_us=3644 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=6 scalars=0 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=46 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=66 scalars=0 lookups=0
+INFO - reader-sd resume step=46 state=NeedPage resumed=true retained_window=true outside_step_us=3889001 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3888275 opens=1 reads=67 bytes=7656 open_us=109 read_us=60149 max_read_us=2009 wall_us=61299 scalars=247 lookups=29
+INFO - reader-sd step=46 outcome=slice state=NeedPage wall_us=65048 text_us=51 layout_us=63195 visible_us=0 pause_us=138 logging_us=1404 other_us=260 text_calls=1 layout_calls=1 visible_calls=0
+INFO - stats: heap 10/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 11884 B; reserved 0 / 1900544 B, peak 11904 B
+INFO - display: partial refresh 448x24 at (8, 24) in 651 ms (partial count 1)
+INFO - reader-sd resume step=47 state=NeedPage resumed=true retained_window=true outside_step_us=654230 outside_step_known=true previous_step_complete=true
+INFO - cjk: lookup 75/247 glyphs, about 477 ms left
+INFO - cjk-sd op=stage gap_after_log_us=657966 opens=1 reads=67 bytes=6072 open_us=140 read_us=60036 max_read_us=1987 wall_us=61713 scalars=247 lookups=22
+INFO - reader-sd step=47 outcome=slice state=NeedPage wall_us=65232 text_us=56 layout_us=63601 visible_us=0 pause_us=228 logging_us=1105 other_us=242 text_calls=1 layout_calls=1 visible_calls=0
+INFO - bookmarks: flushed 6 slots to SD
+INFO - stats: heap 10/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 0 B, free 2097152 B, peak 11884 B; reserved 0 / 1900544 B, peak 11904 B
+INFO - reader-sd resume step=48 state=NeedPage resumed=true retained_window=true outside_step_us=139045 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=142700 opens=1 reads=63 bytes=6842 open_us=106 read_us=62837 max_read_us=3764 wall_us=63961 scalars=247 lookups=25
+INFO - reader-sd step=48 outcome=slice state=NeedPage wall_us=68084 text_us=97 layout_us=65864 visible_us=0 pause_us=756 logging_us=1158 other_us=209 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=49 state=NeedPage resumed=true retained_window=true outside_step_us=166 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=4280 opens=1 reads=70 bytes=7040 open_us=63 read_us=60788 max_read_us=2006 wall_us=61771 scalars=247 lookups=28
+INFO - reader-sd step=49 outcome=slice state=NeedPage wall_us=65314 text_us=24 layout_us=63577 visible_us=0 pause_us=344 logging_us=1210 other_us=159 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=50 state=NeedPage resumed=true retained_window=true outside_step_us=138 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3630 opens=1 reads=62 bytes=5060 open_us=41 read_us=61303 max_read_us=2015 wall_us=62109 scalars=247 lookups=18
+INFO - reader-sd step=50 outcome=slice state=NeedPage wall_us=65803 text_us=28 layout_us=63913 visible_us=0 pause_us=628 logging_us=1093 other_us=141 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=51 state=NeedPage resumed=true retained_window=true outside_step_us=134 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3886 opens=1 reads=66 bytes=4884 open_us=57 read_us=59613 max_read_us=2060 wall_us=60464 scalars=247 lookups=18
+INFO - reader-sd step=51 outcome=slice state=NeedPage wall_us=63561 text_us=29 layout_us=62258 visible_us=0 pause_us=171 logging_us=947 other_us=156 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=52 state=NeedPage resumed=true retained_window=true outside_step_us=131 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3423 opens=1 reads=70 bytes=6006 open_us=44 read_us=63462 max_read_us=2008 wall_us=64331 scalars=247 lookups=21
+INFO - reader-sd step=52 outcome=slice state=NeedPage wall_us=68179 text_us=28 layout_us=66137 visible_us=0 pause_us=620 logging_us=1253 other_us=141 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=53 state=NeedPage resumed=true retained_window=true outside_step_us=138 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3979 opens=1 reads=65 bytes=5566 open_us=54 read_us=59535 max_read_us=1972 wall_us=60408 scalars=247 lookups=20
+INFO - reader-sd step=53 outcome=slice state=NeedPage wall_us=63858 text_us=29 layout_us=62204 visible_us=0 pause_us=175 logging_us=1291 other_us=159 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=54 state=NeedPage resumed=true retained_window=true outside_step_us=131 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3432 opens=1 reads=63 bytes=6314 open_us=41 read_us=59541 max_read_us=3790 wall_us=60408 scalars=247 lookups=25
+INFO - reader-sd step=54 outcome=slice state=NeedPage wall_us=63926 text_us=29 layout_us=62214 visible_us=0 pause_us=616 logging_us=926 other_us=141 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=55 state=NeedPage resumed=true retained_window=true outside_step_us=135 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3852 opens=1 reads=54 bytes=4686 open_us=57 read_us=51369 max_read_us=2014 wall_us=52167 scalars=247 lookups=17
+INFO - cjk-sd op=bank gap_after_log_us=34 opens=1 reads=1 bytes=44 open_us=76 read_us=1047 max_read_us=1047 wall_us=1233 scalars=0 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=70683 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=141 scalars=114 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2642 opens=1 reads=2 bytes=50 open_us=192 read_us=3915 max_read_us=2067 wall_us=5768 scalars=114 lookups=0
+INFO - reader-sd step=55 outcome=slice state=NeedPage wall_us=138354 text_us=66443 layout_us=61358 visible_us=6501 pause_us=279 logging_us=3362 other_us=411 text_calls=4 layout_calls=2 visible_calls=1
+INFO - reader-sd resume step=56 state=NeedPage resumed=true retained_window=false outside_step_us=227 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=68062 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=129 scalars=114 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2875 opens=1 reads=50 bytes=3035 open_us=164 read_us=55711 max_read_us=2066 wall_us=57113 scalars=114 lookups=0
+INFO - reader-sd step=56 outcome=slice state=NeedPage wall_us=129157 text_us=65026 layout_us=3082 visible_us=57819 pause_us=932 logging_us=1994 other_us=304 text_calls=2 layout_calls=1 visible_calls=1
+INFO - stats: heap 13/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 15156 B, free 2081996 B, peak 15156 B; reserved 15168 / 1900544 B, peak 15168 B
+INFO - reader-sd resume step=57 state=NeedPage resumed=true retained_window=false outside_step_us=1952 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=70731 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=105 scalars=114 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2804 opens=1 reads=43 bytes=2719 open_us=189 read_us=55723 max_read_us=2884 wall_us=57332 scalars=114 lookups=0
+INFO - reader-sd step=57 outcome=slice state=NeedPage wall_us=129153 text_us=65432 layout_us=3025 visible_us=58025 pause_us=245 logging_us=2173 other_us=253 text_calls=2 layout_calls=1 visible_calls=1
+INFO - reader-sd resume step=58 state=NeedPage resumed=true retained_window=false outside_step_us=199 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=67888 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=107 scalars=114 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2776 opens=1 reads=23 bytes=1333 open_us=158 read_us=26223 max_read_us=2098 wall_us=27442 scalars=114 lookups=0
+INFO - reader-sd step=58 outcome=ready state=Ready wall_us=98279 text_us=65081 layout_us=2950 visible_us=28136 pause_us=0 logging_us=1808 other_us=304 text_calls=2 layout_calls=1 visible_calls=1
+INFO - stats: heap 13/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 15156 B, free 2081996 B, peak 15156 B; reserved 15168 / 1900544 B, peak 15168 B
+INFO - display: partial refresh 480x794 at (0, 6) in 816 ms (partial count 2)
+INFO - reader-sd resume step=59 state=NeedPage resumed=false retained_window=false outside_step_us=2220254 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=bank gap_after_log_us=2221766 opens=1 reads=1 bytes=44 open_us=121 read_us=2035 max_read_us=2035 wall_us=2345 scalars=0 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=67934 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=126 scalars=247 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=4349 opens=1 reads=56 bytes=3216 open_us=184 read_us=54176 max_read_us=2091 wall_us=56809 scalars=174 lookups=0
+INFO - reader-sd step=59 outcome=slice state=NeedPage wall_us=135348 text_us=65889 layout_us=5230 visible_us=57945 pause_us=609 logging_us=2895 other_us=2780 text_calls=1 layout_calls=1 visible_calls=1
+INFO - stats: heap 14/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 18828 B, free 2078324 B, peak 18828 B; reserved 18832 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 480x794 at (0, 6) in 769 ms (partial count 3)
+INFO - reader-sd resume step=60 state=NeedPage resumed=true retained_window=true outside_step_us=772124 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=776111 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=138 scalars=247 lookups=0
+INFO - cjk: bitmap 107/174 glyphs, about 78 ms left
+INFO - cjk-sd op=prepare gap_after_log_us=4309 opens=1 reads=53 bytes=3382 open_us=156 read_us=54191 max_read_us=2881 wall_us=56303 scalars=174 lookups=0
+INFO - reader-sd step=60 outcome=slice state=NeedPage wall_us=65560 text_us=69 layout_us=5246 visible_us=57398 pause_us=855 logging_us=1719 other_us=273 text_calls=1 layout_calls=1 visible_calls=1
+INFO - reader-sd resume step=61 state=NeedPage resumed=true retained_window=true outside_step_us=189 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=4297 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=72 scalars=247 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=4265 opens=1 reads=45 bytes=2885 open_us=149 read_us=54657 max_read_us=2829 wall_us=56289 scalars=174 lookups=0
+INFO - reader-sd step=61 outcome=slice state=NeedPage wall_us=64555 text_us=31 layout_us=5058 visible_us=57396 pause_us=218 logging_us=1618 other_us=234 text_calls=1 layout_calls=1 visible_calls=1
+INFO - reader-sd resume step=62 state=NeedPage resumed=true retained_window=true outside_step_us=157 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3713 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=73 scalars=247 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=4242 opens=1 reads=24 bytes=1327 open_us=155 read_us=22191 max_read_us=2030 wall_us=23557 scalars=174 lookups=0
+INFO - reader-sd step=62 outcome=ready state=Ready wall_us=97119 text_us=65199 layout_us=5110 visible_us=24631 pause_us=0 logging_us=1908 other_us=271 text_calls=2 layout_calls=1 visible_calls=1
+INFO - stats: heap 14/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 18828 B, free 2078324 B, peak 18828 B; reserved 18832 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 480x794 at (0, 6) in 859 ms (partial count 4)
+INFO - reader-sd resume step=63 state=NeedPage resumed=false retained_window=false outside_step_us=1147092 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=bank gap_after_log_us=1213822 opens=1 reads=1 bytes=44 open_us=132 read_us=2045 max_read_us=2045 wall_us=2378 scalars=0 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=1110 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=129 scalars=114 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2845 opens=1 reads=51 bytes=3041 open_us=159 read_us=55826 max_read_us=2644 wall_us=57279 scalars=114 lookups=0
+INFO - reader-sd step=63 outcome=slice state=NeedPage wall_us=67368 text_us=133 layout_us=3100 visible_us=57984 pause_us=565 logging_us=2850 other_us=2736 text_calls=1 layout_calls=1 visible_calls=1
+INFO - stats: heap 14/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 18828 B, free 2078324 B, peak 18828 B; reserved 18832 / 1900544 B, peak 18832 B
+INFO - stats: heap 14/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 18828 B, free 2078324 B, peak 18828 B; reserved 18832 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 480x794 at (0, 6) in 768 ms (partial count 5)
+INFO - reader-sd resume step=64 state=NeedPage resumed=true retained_window=true outside_step_us=772746 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=775517 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=115 scalars=114 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2726 opens=1 reads=43 bytes=2719 open_us=164 read_us=56202 max_read_us=2886 wall_us=57724 scalars=114 lookups=0
+INFO - reader-sd step=64 outcome=slice state=NeedPage wall_us=64270 text_us=53 layout_us=3012 visible_us=58396 pause_us=949 logging_us=1580 other_us=280 text_calls=1 layout_calls=1 visible_calls=1
+INFO - reader-sd resume step=65 state=NeedPage resumed=true retained_window=true outside_step_us=188 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=3588 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=83 scalars=114 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=2741 opens=1 reads=23 bytes=1333 open_us=160 read_us=26506 max_read_us=2159 wall_us=27703 scalars=114 lookups=0
+INFO - reader-sd step=65 outcome=ready state=Ready wall_us=33331 text_us=72 layout_us=2916 visible_us=28399 pause_us=0 logging_us=1640 other_us=304 text_calls=2 layout_calls=1 visible_calls=1
+INFO - stats: heap 14/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 18828 B, free 2078324 B, peak 18828 B; reserved 18832 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 480x794 at (0, 6) in 816 ms (partial count 6)
+INFO - app: Reader -> Files
+INFO - bookmark: cached off=759 ch=0 gen=15 for "ZH2.TXT"
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - stats: heap 1/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 8192 B, free 2088960 B, peak 18828 B; reserved 8192 / 1900544 B, peak 18832 B
+INFO - cjk-sd op=stage gap_after_log_us=1040317 opens=1 reads=25 bytes=2090 open_us=166 read_us=32952 max_read_us=2264 wall_us=33812 scalars=3 lookups=3
+INFO - cjk-sd op=prepare gap_after_log_us=152 opens=1 reads=4 bytes=360 open_us=135 read_us=8151 max_read_us=2876 wall_us=9106 scalars=3 lookups=0
+INFO - display: partial refresh 480x800 at (0, 0) in 796 ms (partial count 7)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 8508 B, free 2088644 B, peak 18828 B; reserved 8512 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 448x447 at (16, 8) in 725 ms (partial count 8)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 8508 B, free 2088644 B, peak 18828 B; reserved 8512 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 448x391 at (16, 8) in 714 ms (partial count 9)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 8508 B, free 2088644 B, peak 18828 B; reserved 8512 / 1900544 B, peak 18832 B
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 8508 B, free 2088644 B, peak 18828 B; reserved 8512 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 448x335 at (16, 8) in 703 ms (partial count 10)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 8508 B, free 2088644 B, peak 18828 B; reserved 8512 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 448x279 at (16, 8) in 692 ms (partial count 11)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 8508 B, free 2088644 B, peak 18828 B; reserved 8512 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 448x223 at (16, 8) in 684 ms (partial count 12)
+INFO - stats: heap 2/158K peak 43K | stack free 67K hwm 17K | bat 98% 4.1V | up 0:00 | SD:ok
+INFO - heap psram: used 8508 B, free 2088644 B, peak 18828 B; reserved 8512 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 448x167 at (16, 8) in 672 ms (partial count 13)
+INFO - battery: cell 4106 mV, 93% (periodic)
+INFO - app: Files -> Reader
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - [work] reset -> gen 5
+INFO - font: size_idx=2 line_h=49 (native 31 x 160%) ascent=25 max_lines=15 margin=40
+INFO - reader: opening ASSEMB~1.EPU
+INFO - reader-sd resume step=66 state=NeedBookmark resumed=false retained_window=false outside_step_us=8849420 outside_step_known=true previous_step_complete=true
+INFO - bookmark: restoring off=993 ch=4 for ASSEMB~1.EPU
+INFO - epub: CD at offset 281729 size 1868 (283619 file bytes)
+INFO - epub: 28 entries in ZIP
+INFO - reader-sd step=66 outcome=pending state=NeedOpf wall_us=336130 text_us=0 layout_us=0 visible_us=0 pause_us=0 logging_us=442 other_us=335688 text_calls=0 layout_calls=0 visible_calls=0
+INFO - stats: heap 1/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 8192 B, free 2088960 B, peak 18828 B; reserved 8192 / 1900544 B, peak 18832 B
+INFO - cjk-sd op=stage gap_after_log_us=8104361 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=47 scalars=0 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=55 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=66 scalars=0 lookups=0
+INFO - reader-sd resume step=67 state=NeedOpf resumed=false retained_window=false outside_step_us=3888441 outside_step_known=true previous_step_complete=true
+INFO - zip: deflate stream 174 -> 257 bytes
+INFO - epub: OPF at OEBPS/content.opf
+INFO - zip: deflate stream 1047 -> 4106 bytes
+INFO - epub: TOC source = EPUB3 nav (zip #22)
+INFO - epub: "集合體" by 娜塔夏‧ 布朗（Natasha Brown） -- 17 chapters
+INFO - reader-sd step=67 outcome=pending state=NeedToc wall_us=409348 text_us=0 layout_us=0 visible_us=0 pause_us=0 logging_us=506 other_us=408842 text_calls=0 layout_calls=0 visible_calls=0
+INFO - stats: heap 1/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 8192 B, free 2088960 B, peak 18828 B; reserved 8192 / 1900544 B, peak 18832 B
+INFO - stats: heap 1/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 8192 B, free 2088960 B, peak 18828 B; reserved 8192 / 1900544 B, peak 18832 B
+INFO - cjk-sd op=stage gap_after_log_us=4299332 opens=1 reads=25 bytes=2090 open_us=189580 read_us=31216 max_read_us=2046 wall_us=221512 scalars=3 lookups=3
+INFO - cjk-sd op=prepare gap_after_log_us=174 opens=1 reads=4 bytes=138 open_us=144 read_us=6172 max_read_us=2025 wall_us=7092 scalars=3 lookups=0
+INFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 1)
+INFO - reader-sd resume step=68 state=NeedToc resumed=false retained_window=false outside_step_us=884832 outside_step_known=true previous_step_complete=true
+INFO - zip: deflate stream 703 -> 1533 bytes
+INFO - epub: TOC has 9 entries
+INFO - reader-sd step=68 outcome=pending state=NeedCache wall_us=138307 text_us=0 layout_us=0 visible_us=0 pause_us=0 logging_us=423 other_us=137884 text_calls=0 layout_calls=0 visible_calls=0
+INFO - stats: heap 15/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 8288 B, free 2088864 B, peak 18828 B; reserved 8288 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 2)
+INFO - reader-sd resume step=69 state=NeedCache resumed=false retained_window=false outside_step_us=654091 outside_step_known=true previous_step_complete=true
+INFO - epub: v3 cache hit (17 chapters)
+INFO - reader-sd step=69 outcome=pending state=NeedIndex wall_us=376827 text_us=0 layout_us=0 visible_us=0 pause_us=0 logging_us=621 other_us=376206 text_calls=0 layout_calls=0 visible_calls=0
+INFO - stats: heap 15/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 8288 B, free 2088864 B, peak 18828 B; reserved 8288 / 1900544 B, peak 18832 B
+INFO - stats: heap 15/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 8288 B, free 2088864 B, peak 18828 B; reserved 8288 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 448x24 at (8, 24) in 650 ms (partial count 3)
+INFO - reader-sd resume step=70 state=NeedIndex resumed=false retained_window=false outside_step_us=654604 outside_step_known=true previous_step_complete=true
+INFO - epub: index chapter 5/17 (3496 bytes cached text)
+INFO - chapter cache: loaded ch4 (3496 bytes) into RAM
+INFO - cjk: lookup 30/431 glyphs, about 838 ms left
+INFO - cjk-sd op=stage gap_after_log_us=2628472 opens=1 reads=66 bytes=7854 open_us=186 read_us=61370 max_read_us=2023 wall_us=63336 scalars=431 lookups=30
+INFO - reader-sd step=70 outcome=slice state=NeedIndex wall_us=217165 text_us=84 layout_us=81438 visible_us=0 pause_us=962 logging_us=1105 other_us=133576 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=71 state=NeedIndex resumed=true retained_window=false outside_step_us=198 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=8099 opens=1 reads=64 bytes=7788 open_us=93 read_us=59156 max_read_us=2064 wall_us=60226 scalars=431 lookups=30
+INFO - reader-sd step=71 outcome=slice state=NeedIndex wall_us=67608 text_us=212 layout_us=65525 visible_us=0 pause_us=223 logging_us=1393 other_us=255 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=72 state=NeedIndex resumed=true retained_window=false outside_step_us=117 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7051 opens=1 reads=76 bytes=9878 open_us=95 read_us=69551 max_read_us=3790 wall_us=70742 scalars=431 lookups=37
+INFO - reader-sd step=72 outcome=slice state=NeedIndex wall_us=78083 text_us=163 layout_us=75999 visible_us=0 pause_us=681 logging_us=1065 other_us=175 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=73 state=NeedIndex resumed=true retained_window=false outside_step_us=139 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7562 opens=1 reads=72 bytes=8426 open_us=86 read_us=60776 max_read_us=2006 wall_us=61882 scalars=431 lookups=31
+INFO - reader-sd step=73 outcome=slice state=NeedIndex wall_us=68737 text_us=176 layout_us=67127 visible_us=0 pause_us=216 logging_us=1033 other_us=185 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=74 state=NeedIndex resumed=true retained_window=false outside_step_us=110 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7115 opens=1 reads=68 bytes=8316 open_us=86 read_us=60776 max_read_us=3763 wall_us=61889 scalars=431 lookups=35
+INFO - reader-sd step=74 outcome=slice state=NeedIndex wall_us=69486 text_us=164 layout_us=67155 visible_us=0 pause_us=684 logging_us=1308 other_us=175 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=75 state=NeedIndex resumed=true retained_window=false outside_step_us=139 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7510 opens=1 reads=63 bytes=7370 open_us=88 read_us=60917 max_read_us=2038 wall_us=61961 scalars=431 lookups=28
+INFO - reader-sd step=75 outcome=slice state=NeedIndex wall_us=69029 text_us=166 layout_us=67235 visible_us=0 pause_us=211 logging_us=1230 other_us=187 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=76 state=NeedIndex resumed=true retained_window=false outside_step_us=116 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7201 opens=1 reads=62 bytes=7590 open_us=94 read_us=59601 max_read_us=2019 wall_us=60638 scalars=431 lookups=29
+INFO - reader-sd step=76 outcome=slice state=NeedIndex wall_us=68298 text_us=159 layout_us=65923 visible_us=0 pause_us=670 logging_us=1373 other_us=173 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=77 state=NeedIndex resumed=true retained_window=false outside_step_us=138 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7600 opens=1 reads=79 bytes=8426 open_us=90 read_us=67729 max_read_us=2056 wall_us=68895 scalars=431 lookups=31
+INFO - reader-sd step=77 outcome=slice state=NeedIndex wall_us=76108 text_us=170 layout_us=74156 visible_us=0 pause_us=212 logging_us=1384 other_us=186 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=78 state=NeedIndex resumed=true retained_window=false outside_step_us=116 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7264 opens=1 reads=69 bytes=6534 open_us=87 read_us=60615 max_read_us=2016 wall_us=61632 scalars=431 lookups=22
+INFO - reader-sd step=78 outcome=slice state=NeedIndex wall_us=69314 text_us=166 layout_us=66909 visible_us=0 pause_us=682 logging_us=1383 other_us=174 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=79 state=NeedIndex resumed=true retained_window=false outside_step_us=135 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7561 opens=1 reads=66 bytes=6578 open_us=93 read_us=60954 max_read_us=2057 wall_us=61989 scalars=431 lookups=25
+INFO - reader-sd step=79 outcome=slice state=NeedIndex wall_us=69172 text_us=161 layout_us=67263 visible_us=0 pause_us=216 logging_us=1346 other_us=186 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=80 state=NeedIndex resumed=true retained_window=false outside_step_us=109 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7194 opens=1 reads=81 bytes=9086 open_us=95 read_us=63376 max_read_us=2013 wall_us=64561 scalars=431 lookups=33
+INFO - reader-sd step=80 outcome=slice state=NeedIndex wall_us=72222 text_us=158 layout_us=69847 visible_us=0 pause_us=674 logging_us=1368 other_us=175 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=81 state=NeedIndex resumed=true retained_window=false outside_step_us=138 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7675 opens=1 reads=61 bytes=6556 open_us=89 read_us=59786 max_read_us=2038 wall_us=60827 scalars=431 lookups=25
+INFO - reader-sd step=81 outcome=slice state=NeedIndex wall_us=68008 text_us=172 layout_us=66093 visible_us=0 pause_us=216 logging_us=1338 other_us=189 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=82 state=NeedIndex resumed=true retained_window=false outside_step_us=109 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7230 opens=1 reads=55 bytes=5610 open_us=94 read_us=59314 max_read_us=3809 wall_us=60299 scalars=431 lookups=22
+INFO - reader-sd step=82 outcome=slice state=NeedIndex wall_us=67815 text_us=166 layout_us=65576 visible_us=0 pause_us=682 logging_us=1217 other_us=174 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=83 state=NeedIndex resumed=true retained_window=false outside_step_us=138 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7567 opens=1 reads=71 bytes=7414 open_us=89 read_us=59510 max_read_us=2065 wall_us=60609 scalars=431 lookups=28
+INFO - reader-sd step=83 outcome=slice state=NeedIndex wall_us=67668 text_us=164 layout_us=65883 visible_us=0 pause_us=216 logging_us=1212 other_us=193 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=84 state=NeedIndex resumed=true retained_window=false outside_step_us=110 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7199 opens=2 reads=63 bytes=6072 open_us=189271 read_us=60299 max_read_us=3009 wall_us=250770 scalars=431 lookups=23
+INFO - reader-sd step=84 outcome=slice state=NeedIndex wall_us=258561 text_us=158 layout_us=256058 visible_us=0 pause_us=735 logging_us=1427 other_us=183 text_calls=1 layout_calls=1 visible_calls=0
+INFO - reader-sd resume step=85 state=NeedIndex resumed=true retained_window=false outside_step_us=157 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7639 opens=1 reads=18 bytes=902 open_us=110 read_us=24271 max_read_us=2092 wall_us=24924 scalars=431 lookups=2
+INFO - cjk-sd op=bank gap_after_log_us=34 opens=1 reads=1 bytes=44 open_us=189040 read_us=1124 max_read_us=1124 wall_us=190272 scalars=0 lookups=0
+INFO - cjk-sd op=bank gap_after_log_us=48 opens=1 reads=1 bytes=44 open_us=48 read_us=1050 max_read_us=1050 wall_us=1139 scalars=0 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=6924 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=134 scalars=390 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=5707 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=344 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=5086 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=114 scalars=265 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=3925 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=209 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=3153 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=114 scalars=156 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=2355 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=71 lookups=0
+INFO - chapter pre-indexed: 7 pages
+INFO - reader-sd step=85 outcome=pending state=NeedPage wall_us=257248 text_us=517 layout_us=250534 visible_us=0 pause_us=0 logging_us=5604 other_us=593 text_calls=7 layout_calls=7 visible_calls=0
+INFO - stats: heap 33/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 11784 B, free 2085368 B, peak 18828 B; reserved 11792 / 1900544 B, peak 18832 B
+INFO - display: partial refresh 448x24 at (8, 24) in 651 ms (partial count 4)
+INFO - reader-sd resume step=86 state=NeedPage resumed=true retained_window=false outside_step_us=654531 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=662929 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=181 scalars=431 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=6558 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=113 scalars=390 lookups=0
+INFO - cjk-sd op=stage gap_after_log_us=5668 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=118 scalars=344 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3245 opens=1 reads=38 bytes=2124 open_us=196 read_us=40982 max_read_us=2211 wall_us=43250 scalars=136 lookups=0
+INFO - reader-sd step=86 outcome=slice state=NeedPage wall_us=68070 text_us=343 layout_us=19995 visible_us=44254 pause_us=137 logging_us=2972 other_us=369 text_calls=3 layout_calls=3 visible_calls=1
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - display: partial refresh 448x24 at (8, 24) in 651 ms (partial count 5)
+INFO - reader-sd resume step=87 state=NeedPage resumed=true retained_window=false outside_step_us=653948 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=659673 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=192 scalars=344 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3774 opens=1 reads=46 bytes=2945 open_us=168 read_us=55843 max_read_us=2914 wall_us=57602 scalars=136 lookups=0
+INFO - reader-sd step=87 outcome=slice state=NeedPage wall_us=67986 text_us=220 layout_us=6781 visible_us=58574 pause_us=450 logging_us=1628 other_us=333 text_calls=1 layout_calls=1 visible_calls=1
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - reader-sd resume step=88 state=NeedPage resumed=true retained_window=false outside_step_us=1941 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=7826 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=145 scalars=344 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3671 opens=1 reads=42 bytes=2634 open_us=174 read_us=54698 max_read_us=2027 wall_us=56482 scalars=136 lookups=0
+INFO - reader-sd step=88 outcome=slice state=NeedPage wall_us=67461 text_us=153 layout_us=6644 visible_us=57447 pause_us=835 logging_us=2079 other_us=303 text_calls=1 layout_calls=1 visible_calls=1
+INFO - reader-sd resume step=89 state=NeedPage resumed=true retained_window=false outside_step_us=194 outside_step_known=true previous_step_complete=true
+INFO - cjk-sd op=stage gap_after_log_us=6376 opens=0 reads=0 bytes=0 open_us=0 read_us=0 max_read_us=0 wall_us=157 scalars=344 lookups=0
+INFO - cjk-sd op=prepare gap_after_log_us=3711 opens=1 reads=14 bytes=762 open_us=156 read_us=18376 max_read_us=2035 wall_us=19584 scalars=136 lookups=0
+INFO - reader-sd step=89 outcome=ready state=Ready wall_us=29678 text_us=191 layout_us=6619 visible_us=20613 pause_us=0 logging_us=1941 other_us=314 text_calls=1 layout_calls=1 visible_calls=1
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - display: partial refresh 480x794 at (0, 6) in 840 ms (partial count 6)
+INFO - bookmarks: flushed 6 slots to SD
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 93% 4.1V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - battery: cell 4070 mV, 90% (periodic)
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 90% 4.0V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 90% 4.0V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 90% 4.0V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 90% 4.0V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 90% 4.0V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 90% 4.0V | up 0:01 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - battery: cell 4138 mV, 95% (periodic)
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 95% 4.1V | up 0:02 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 95% 4.1V | up 0:02 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 95% 4.1V | up 0:02 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 95% 4.1V | up 0:02 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 95% 4.1V | up 0:02 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
+INFO - stats: heap 36/158K peak 43K | stack free 67K hwm 17K | bat 95% 4.1V | up 0:02 | SD:ok
+INFO - heap psram: used 20076 B, free 2077076 B, peak 20076 B; reserved 20096 / 1900544 B, peak 20096 B
