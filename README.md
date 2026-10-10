@@ -88,6 +88,12 @@ task acceptance               # Full CI pipeline (multi-image build, verify, fmt
 
 ---
 
+## Acknowledgements
+
+Forked from [hansmrtn/pulp-os](https://github.com/hansmrtn/pulp-os) by Hans Martin, extending it with OnePage (ESP32-C61) board support, CJK typography rendering, and memory hierarchy optimizations.
+
+---
+
 ## License
 
 [MIT](LICENSE)
