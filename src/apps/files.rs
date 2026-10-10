@@ -10,7 +10,7 @@ use embedded_graphics::primitives::PrimitiveStyle;
 use crate::apps::{App, AppContext, AppId, Transition};
 use crate::board::action::{Action, ActionEvent};
 use crate::board::{SCREEN_H, SCREEN_W};
-use crate::drivers::dir_entry::DirEntry;
+use crate::drivers::dir_entry::{DirEntry, is_epub_name};
 use crate::drivers::strip::StripBuffer;
 use crate::error::{Error, ErrorKind};
 use crate::fonts;
@@ -21,6 +21,7 @@ use crate::ui::{
     Alignment, BitmapDynLabel, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN,
     Region, SECTION_GAP, TITLE_Y_OFFSET,
 };
+use pulp_board_logic::source_id::SourceId;
 use smol_epub::cache;
 use smol_epub::epub::{self, EpubMeta, EpubSpine};
 use smol_epub::zip::ZipIndex;
@@ -81,6 +82,9 @@ pub struct FilesApp {
     qa_buf: [QuickAction; QA_MAX],
     qa_count: usize,
     pending_delete_file: bool,
+    // ENTER went down in this list and has not come up: opening waits for the
+    // release so a long press (quick menu) does not leave the list first
+    select_down: bool,
     pending_delete_cache: bool,
 }
 
@@ -107,6 +111,7 @@ impl FilesApp {
             qa_buf: [QuickAction::trigger(0, "", ""); QA_MAX],
             qa_count: 0,
             pending_delete_file: false,
+            select_down: false,
             pending_delete_cache: false,
         }
     }
@@ -131,6 +136,7 @@ impl FilesApp {
         self.qa_count = 0;
         self.pending_delete_file = false;
         self.pending_delete_cache = false;
+        self.select_down = false;
     }
 
     // Session state accessors for RTC persistence
@@ -251,16 +257,19 @@ impl FilesApp {
         }
     }
 
+    // the quick menu took over the ENTER that is down: its release must not
+    // open the book (the manager swallows the long press, so the list never
+    // sees it)
+    pub fn cancel_select(&mut self) {
+        self.select_down = false;
+    }
+
     fn rebuild_quick_actions(&mut self) {
         let mut n = 0usize;
         let (is_file, is_epub) = if self.selected < self.count {
             let e = &self.entries[self.selected];
             let nm = &e.name[..e.name_len as usize];
-            let epub = !e.is_dir
-                && nm.len() >= 5
-                && nm[nm.len() - 5] == b'.'
-                && nm[nm.len() - 4..].eq_ignore_ascii_case(b"EPUB");
-            (!e.is_dir, epub)
+            (!e.is_dir, !e.is_dir && is_epub_name(nm))
         } else {
             (false, false)
         };
@@ -336,6 +345,7 @@ impl App<AppId> for FilesApp {
                     log::info!("files: deleting {}", name);
 
                     k.bookmark_cache_mut().remove(&nb[..nl]);
+                    purge_book_cache(k, name);
 
                     match k.delete_file(name) {
                         Ok(()) => {
@@ -363,16 +373,7 @@ impl App<AppId> for FilesApp {
                 if !entry.is_dir {
                     let nl = entry.name_len as usize;
                     let name = core::str::from_utf8(&entry.name[..nl]).unwrap_or("");
-                    let hash = cache::fnv1a(name.as_bytes());
-                    let cf = cache::cache_filename(hash);
-                    let cf_str = cache::cache_filename_str(&cf);
-                    log::info!("files: deleting cache for {} ({})", name, cf_str);
-
-                    // delete v3 flat cache file (best effort)
-                    match k.delete_cache(cf_str) {
-                        Ok(()) => log::info!("files: cache deleted for {}", name),
-                        Err(e) => log::warn!("files: cache delete failed: {}", e),
-                    }
+                    purge_book_cache(k, name);
                 }
             }
             return;
@@ -420,6 +421,13 @@ impl App<AppId> for FilesApp {
         }
     }
 
+    fn background_pending(&self) -> bool {
+        self.pending_delete_file
+            || self.pending_delete_cache
+            || self.needs_load
+            || self.title_scanning
+    }
+
     fn on_event(&mut self, event: ActionEvent, ctx: &mut AppContext) -> Transition {
         match event {
             ActionEvent::Press(Action::Back) => Transition::Pop,
@@ -454,6 +462,20 @@ impl App<AppId> for FilesApp {
             }
 
             ActionEvent::Press(Action::Select) => {
+                self.select_down = true;
+                Transition::None
+            }
+
+            // the long press belongs to the quick menu
+            ActionEvent::LongPress(Action::Select) => {
+                self.select_down = false;
+                Transition::None
+            }
+
+            ActionEvent::Release(Action::Select) => {
+                if !core::mem::take(&mut self.select_down) {
+                    return Transition::None;
+                }
                 if let Some(entry) = self.selected_entry() {
                     if entry.is_dir {
                         Transition::None
@@ -584,6 +606,38 @@ impl App<AppId> for FilesApp {
 struct TitleScanResult {
     next_idx: usize,
     resolved: bool,
+}
+
+// remove everything derived from one book: the text cache (named after the file
+// name) and the directory of its page indexes and images (named after the book's
+// content identity, which only the cache header carries). Best effort: a book that
+// was never opened has neither, and a failure is logged, not shown
+fn purge_book_cache(k: &mut KernelHandle<'_>, name: &str) {
+    let hash = cache::fnv1a(name.as_bytes());
+    let cf = cache::cache_filename(hash);
+    let cf_str = cache::cache_filename_str(&cf);
+    log::info!("files: deleting cache for {} ({})", name, cf_str);
+
+    let mut hdr = [0u8; cache::HEADER_SIZE];
+    let dir = match k.read_cache_chunk(cf_str, 0, &mut hdr) {
+        Ok(n) if n == cache::HEADER_SIZE => cache::parse_v3_header(&hdr)
+            .ok()
+            .map(|h| SourceId::from_raw(h.source_id))
+            .filter(|id| !id.is_none())
+            .map(|id| cache::dir_name_for_hash(id.dir_hash())),
+        _ => None,
+    };
+    if let Some(dir) = dir {
+        let dir = cache::dir_name_str(&dir);
+        match k.purge_app_subdir(dir) {
+            Ok(n) => log::info!("files: removed {} ({} files)", dir, n),
+            Err(e) => log::warn!("files: purge {} failed: {}", dir, e),
+        }
+    }
+    match k.delete_cache(cf_str) {
+        Ok(()) => log::info!("files: cache deleted for {}", name),
+        Err(e) => log::warn!("files: cache delete failed: {}", e),
+    }
 }
 
 fn scan_one_epub_title(k: &mut KernelHandle<'_>, from: usize) -> Option<TitleScanResult> {

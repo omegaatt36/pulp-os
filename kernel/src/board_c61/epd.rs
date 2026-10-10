@@ -23,6 +23,7 @@ use esp_hal::{
     peripherals::{GPIO8, GPIO29},
     time::Instant,
 };
+use pulp_board_logic::gray;
 use pulp_board_logic::power::DelayMs;
 use pulp_board_logic::ssd1677::{self, BusyPin, DisplayError, EpdBus, Rotation, StripSource};
 use pulp_board_logic::strip::{StripCore, draw_bringup_pattern};
@@ -108,6 +109,13 @@ pub fn full_refresh_test_pattern(epd: &mut Epd) -> Result<(), Error> {
         draw: draw_bringup_pattern,
     };
     epd.full_refresh(&mut src).map_err(display_error)
+}
+
+/// The 4-gray probe screen (`pulp_board_logic::gray`) on a controller that was
+/// just initialised with `Epd::init`. Leaves the panel in the gray state: re-init
+/// and run a full refresh to get a black-and-white panel back.
+pub fn gray_probe(epd: &mut Epd) -> Result<gray::ProbeTimes, Error> {
+    gray::run_probe(epd.port_mut()).map_err(display_error)
 }
 
 /// Feeds the driver one strip at a time from a `draw` closure.

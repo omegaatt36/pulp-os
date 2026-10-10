@@ -14,7 +14,7 @@
 //   sleep    the three hardware parts of the deep-sleep sequence
 //   display  recovery bookkeeping of a failed full refresh
 
-use pulp_board_logic::lifecycle::{BATTERY_INTERVAL_MS, DisplayHealth, Periodic};
+use pulp_board_logic::lifecycle::{BATTERY_INTERVAL_MS, DisplayHealth, FullKindPolicy, Periodic};
 use pulp_board_logic::power::PeripheralPower;
 
 use super::battery::C61Battery;
@@ -53,6 +53,7 @@ pub struct C61Hw {
     /// saved session carries this + 1.
     pub wake_count: u32,
     pub battery_due: Periodic,
+    pub full_kind: FullKindPolicy,
     pub card_due: Periodic,
 }
 
@@ -74,6 +75,7 @@ impl C61Hw {
             display: DisplayHealth::new(),
             wake_count: 0,
             battery_due: Periodic::new(BATTERY_INTERVAL_MS, now_ms),
+            full_kind: FullKindPolicy::new(),
             card_due: Periodic::new(super::sd::CD_SAMPLE_INTERVAL_MS as u64, now_ms),
         }
     }

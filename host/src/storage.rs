@@ -632,6 +632,30 @@ impl VirtualStorage {
         res
     }
 
+    // `_PULP/<dir>` and its files, like the firmware's purge_pulp_subdir:
+    // Ok(files removed), Ok(0) when the directory is absent
+    pub fn purge_pulp_subdir(&self, dir: &str) -> Result<u32> {
+        let path = format!("{PULP_DIR}/{dir}");
+        let mut st = self.state.borrow_mut();
+        if !st.fs.is_dir(&path) {
+            return Ok(0);
+        }
+        let failed = || Error::new(ErrorKind::DeleteFailed, "purge_subdir");
+        let children = st.fs.list(&path).map_err(|_| failed())?;
+        let mut removed = 0;
+        for (name, is_dir, _) in children {
+            if is_dir {
+                return Err(failed());
+            }
+            st.fs
+                .remove(&format!("{path}/{name}"))
+                .map_err(|_| failed())?;
+            removed += 1;
+        }
+        st.fs.remove_dir(&path).map_err(|_| failed())?;
+        Ok(removed)
+    }
+
     // -- _PULP/ direct file operations -------------------------------------
 
     pub fn read_chunk_in_pulp(&self, name: &str, offset: u32, buf: &mut [u8]) -> Result<usize> {

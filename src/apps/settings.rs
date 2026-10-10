@@ -438,6 +438,10 @@ impl App<AppId> for SettingsApp {
         }
     }
 
+    fn background_pending(&self) -> bool {
+        !self.loaded || self.save_needed
+    }
+
     fn prepare_render(&mut self, _ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
         let mut labels = fonts::cjk::VisibleText::new();
         labels.add("Settings", self.ui_fonts.heading, true);

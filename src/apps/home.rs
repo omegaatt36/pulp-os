@@ -357,6 +357,10 @@ impl App<AppId> for HomeApp {
         }
     }
 
+    fn background_pending(&self) -> bool {
+        self.needs_load_recent || self.needs_load_bookmarks
+    }
+
     fn on_event(&mut self, event: ActionEvent, ctx: &mut AppContext) -> Transition {
         match self.state {
             HomeState::Menu => self.on_event_menu(event, ctx),

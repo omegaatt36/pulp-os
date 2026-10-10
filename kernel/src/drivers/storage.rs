@@ -1000,6 +1000,84 @@ pub fn delete_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> crate::er
     result
 }
 
+// remove `_PULP/<dir>` with everything in it (a book's page indexes and images);
+// Ok(files removed), Ok(0) when the directory does not exist. FAT will not unlink
+// a non-empty or open directory, so the files go first, a few names per pass
+// (the listing cannot be changed while it is iterated), and no handle to the
+// directory is held when it is deleted. A subdirectory inside is not removed:
+// the final delete then fails with DeleteFailed
+pub fn purge_pulp_subdir(sd: &SdStorage, dir: &str) -> crate::error::Result<u32> {
+    const PASS: usize = 8;
+    poll_once(async {
+        let mut guard = borrow(sd)?;
+        let inner = &mut *guard;
+        release_held_in(inner, dir).await;
+        let pulp = match pulp_dir!(inner) {
+            Ok(handle) => handle,
+            Err(embedded_sdmmc::Error::NotFound) => return Ok(0),
+            Err(_) => return Err(Error::new(ErrorKind::OpenDir, "purge_subdir")),
+        };
+        let sub = match inner.mgr.open_dir(pulp, dir).await {
+            Ok(handle) => handle,
+            Err(embedded_sdmmc::Error::NotFound) => return Ok(0),
+            Err(_) => return Err(Error::new(ErrorKind::OpenDir, "purge_subdir")),
+        };
+
+        let mut removed = 0u32;
+        let mut failed = false;
+        loop {
+            let mut names = [[0u8; 13]; PASS];
+            let mut lens = [0u8; PASS];
+            let mut n = 0usize;
+            let listed = inner
+                .mgr
+                .iterate_dir(sub, |entry| {
+                    if entry.attributes.is_lfn()
+                        || entry.attributes.is_directory()
+                        || entry.attributes.is_volume()
+                    {
+                        return ControlFlow::Continue(());
+                    }
+                    if n == PASS {
+                        return ControlFlow::Break(());
+                    }
+                    lens[n] = sfn_to_bytes(&entry.name, &mut names[n]);
+                    n += 1;
+                    ControlFlow::Continue(())
+                })
+                .await;
+            if listed.is_err() {
+                failed = true;
+                break;
+            }
+            if n == 0 {
+                break;
+            }
+            let mut progress = false;
+            for i in 0..n {
+                let name = core::str::from_utf8(&names[i][..usize::from(lens[i])]).unwrap_or("");
+                if inner.mgr.delete_entry_in_dir(sub, name).await.is_ok() {
+                    removed += 1;
+                    progress = true;
+                }
+            }
+            if !progress {
+                failed = true;
+                break;
+            }
+        }
+        let _ = inner.mgr.close_dir(sub);
+        if failed {
+            inner.discard_block_cache();
+            return Err(Error::new(ErrorKind::DeleteFailed, "purge_subdir"));
+        }
+        match inner.mgr.delete_entry_in_dir(pulp, dir).await {
+            Ok(()) => Ok(removed),
+            Err(_) => Err(Error::new(ErrorKind::DeleteFailed, "purge_subdir")),
+        }
+    })
+}
+
 // _PULP/ direct file operations (cache files live directly in _PULP/)
 
 pub fn read_chunk_in_pulp(

@@ -39,13 +39,15 @@ use pulp_board_logic::lifecycle::{
 use pulp_board_logic::power::PeripheralPower;
 use pulp_board_logic::session::SessionState;
 use pulp_board_logic::sleep::BootPlan;
+use pulp_board_logic::ssd1677::{FullKind, Rotation, StripSource};
 #[cfg(feature = "partial-refresh")]
 use pulp_board_logic::ssd1677::{
     PartialResult, Snapshot, WindowSource, align_partial_region, capture_snapshot,
 };
-use pulp_board_logic::ssd1677::{Rotation, StripSource};
+use pulp_board_logic::wallpaper;
 
 use super::app::{AppLayer, Redraw};
+use super::sleep_wallpaper;
 use super::tasks;
 use crate::board_c61::epd::{Epd, FnStrips};
 use crate::board_c61::power::Gpio27Rail;
@@ -127,11 +129,12 @@ struct EpdRefresher<'a, S: StripSource> {
     epd: &'a mut Epd,
     power: &'a mut PeripheralPower<Gpio27Rail>,
     src: &'a mut S,
+    kind: FullKind,
 }
 
 impl<S: StripSource> Refresher for EpdRefresher<'_, S> {
     fn refresh(&mut self) -> bool {
-        match self.epd.full_refresh(self.src) {
+        match self.epd.full_refresh_kind(self.src, self.kind) {
             Ok(()) => true,
             Err(e) => {
                 warn!("display: full refresh failed: {}", e.as_str());
@@ -195,8 +198,17 @@ fn refresh_with_recovery<S: StripSource>(
     power: &mut PeripheralPower<Gpio27Rail>,
     health: &mut DisplayHealth,
     src: &mut S,
+    kind: FullKind,
 ) -> bool {
-    let shown = run_refresh(health, &mut EpdRefresher { epd, power, src });
+    let shown = run_refresh(
+        health,
+        &mut EpdRefresher {
+            epd,
+            power,
+            src,
+            kind,
+        },
+    );
     if !shown {
         error!("display: giving up on this frame, redraw on next input");
     }
@@ -243,7 +255,7 @@ impl super::Kernel {
             // not fatal: the first render re-initialises again
             self.hw.display.on_failure(1);
         }
-        self.render_full(app_mgr);
+        self.render_full(app_mgr, false);
         let _ = app_mgr.take_redraw();
 
         info!("ui ready.");
@@ -303,7 +315,12 @@ impl super::Kernel {
             }
             info!("display: promoted partial to full (ghosting clear)");
         }
-        self.render_full(app_mgr);
+        // a request for a clean screen, or a partial promoted by the ghost-clear
+        // count, wants the real-temperature waveform; any other full redraw
+        // (first frame, app change) only paints
+        let needs_clean =
+            app_mgr.ctx_mut().take_clean_refresh() || matches!(redraw, Redraw::Partial(_));
+        self.render_full(app_mgr, needs_clean);
         self.partial_refreshes = 0;
         // the refresh blocked the executor: let the input / housekeeping tasks
         // run before the loop continues
@@ -316,7 +333,7 @@ impl super::Kernel {
     #[cfg(feature = "partial-refresh")]
     async fn render_partial<A: AppLayer>(&mut self, app: &mut A, region: Region) {
         if self.epd.needs_initial_refresh() {
-            self.render_full(app);
+            self.render_full(app, true);
             self.partial_refreshes = 0;
             return;
         }
@@ -339,14 +356,14 @@ impl super::Kernel {
                 };
                 if let Err(e) = capture_snapshot(&mut src, self.epd.rotation(), &rs, &mut buf) {
                     warn!("display: capture snapshot failed: {}", e.as_str());
-                    self.render_full(app);
+                    self.render_full(app, true);
                     self.partial_refreshes = 0;
                     return;
                 }
                 let mut snapshot = match Snapshot::new(&buf, &rs) {
                     Some(s) => s,
                     None => {
-                        self.render_full(app);
+                        self.render_full(app, true);
                         self.partial_refreshes = 0;
                         return;
                     }
@@ -455,6 +472,7 @@ impl super::Kernel {
                                         epd: &mut self.epd,
                                         power: &mut self.hw.power,
                                         src: &mut src,
+                                        kind: FullKind::Clean,
                                     },
                                 ) {
                                     error!(
@@ -514,18 +532,47 @@ impl super::Kernel {
         }
     }
 
-    fn render_full<A: AppLayer>(&mut self, app: &mut A) {
+    // `needs_clean`: the refresh exists to clear ghosting. Otherwise it only
+    // paints and may run the quick waveform (`fast-full-refresh`; see FullKindPolicy)
+    fn render_full<A: AppLayer>(&mut self, app: &mut A, needs_clean: bool) {
+        let kind = self
+            .hw
+            .full_kind
+            .next(needs_clean || !cfg!(feature = "fast-full-refresh"));
         app.prepare_render(&mut self.handle());
+        let started = now_ms();
         let mut src = AppStrips {
             strip: &mut *self.strip,
             app,
         };
-        let _ = refresh_with_recovery(
+        let shown = refresh_with_recovery(
             &mut self.epd,
             &mut self.hw.power,
             &mut self.hw.display,
             &mut src,
+            kind,
         );
+        info!(
+            "display: full refresh kind {:?} {} in {} ms",
+            kind,
+            if shown { "ok" } else { "FAILED" },
+            now_ms() - started
+        );
+    }
+
+    // earliest time `poll_card` / `poll_battery` have something to do. A
+    // settled card-detect switch is looked at every CD_IDLE_POLL_MS; once the
+    // pin disagrees with the settled state the debounce runs at its own
+    // CD_SAMPLE_INTERVAL_MS cadence
+    pub(super) fn c61_poll_deadline(&self) -> Instant {
+        let settled = self.hw.card.pin.state() == self.hw.card.detect.state();
+        let card_ms = if settled {
+            now_ms() + u64::from(sd::CD_IDLE_POLL_MS)
+        } else {
+            self.hw.card_due.next_ms()
+        };
+        let next_ms = card_ms.min(self.hw.battery_due.next_ms());
+        Instant::from_millis(next_ms)
     }
 
     // card detect and the 30 s battery measurement; called every loop
@@ -596,6 +643,35 @@ impl super::Kernel {
         }
     }
 
+    // the 4 gray wallpaper through the gray waveform (~4 s). A fresh controller
+    // init first, so nothing of the last black-and-white frame is assumed; false
+    // when anything failed, and the caller draws the text screen instead (its
+    // full refresh reloads the black-and-white waveform from OTP)
+    #[cfg(feature = "gray-wallpaper")]
+    fn show_gray_wallpaper(&mut self, image: &sleep_wallpaper::GrayWallpaper) -> bool {
+        if !reinit_display(&mut self.epd, &mut self.hw.power) {
+            return false;
+        }
+        let rotation = self.epd.rotation();
+        let mut src = sleep_wallpaper::GrayStrips {
+            strip: &mut *self.strip,
+            image,
+        };
+        match pulp_board_logic::gray::show_planes(self.epd.port_mut(), rotation, &mut src) {
+            Ok(t) => {
+                info!(
+                    "sleep: 4 gray wallpaper shown (planes {} ms, update {} ms)",
+                    t.write_ms, t.update_ms
+                );
+                true
+            }
+            Err(e) => {
+                warn!("sleep: gray wallpaper failed: {}", e.as_str());
+                false
+            }
+        }
+    }
+
     // flush, sleep screen, then the deep-sleep sequence. Returns only when the
     // sequence aborted before anything irreversible (wake key still held, rail
     // not in a shutdown-able state): the device is then fully usable, so the
@@ -619,19 +695,44 @@ impl super::Kernel {
         app_mgr.collect_session(&mut state);
         state.wake_count = self.hw.wake_count.wrapping_add(1);
 
+        // wallpaper (SLEEP.BMP) decoded now, while the SD card is still idle
+        // and before the panel starts; None draws the text screen
+        #[cfg(not(feature = "gray-wallpaper"))]
+        let wallpaper = sleep_wallpaper::load(&self.sd);
+        #[cfg(feature = "gray-wallpaper")]
+        let gray_wallpaper = sleep_wallpaper::load_gray(&self.sd);
+        #[cfg(feature = "gray-wallpaper")]
+        let gray_shown = gray_wallpaper
+            .as_ref()
+            .is_some_and(|w| self.show_gray_wallpaper(w));
+        #[cfg(not(feature = "gray-wallpaper"))]
+        let gray_shown = false;
+
         // sleep screen (best effort; a failed refresh must not block sleeping)
-        {
+        if !gray_shown {
+            #[cfg(not(feature = "gray-wallpaper"))]
+            let image = wallpaper.as_ref().map(|w| w.image());
+            #[cfg(feature = "gray-wallpaper")]
+            let image: Option<&[u8]> = None;
             let mut src = FnStrips {
                 strip: &mut *self.strip,
-                draw: draw_sleep_screen,
+                draw: |strip: &mut StripBuffer| match image {
+                    Some(img) => wallpaper::draw_strip(strip, img),
+                    None => draw_sleep_screen(strip),
+                },
             };
             let _ = refresh_with_recovery(
                 &mut self.epd,
                 &mut self.hw.power,
                 &mut self.hw.display,
                 &mut src,
+                FullKind::Clean,
             );
         }
+        #[cfg(not(feature = "gray-wallpaper"))]
+        drop(wallpaper);
+        #[cfg(feature = "gray-wallpaper")]
+        drop(gray_wallpaper);
 
         let mut store = SdSessionStore::new(&self.sd);
         let hw = &mut self.hw;

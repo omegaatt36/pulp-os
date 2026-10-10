@@ -38,7 +38,7 @@ use crate::kernel::bigbuf::{BufClass, DecoderScratch};
 use crate::kernel::config::WifiConfig;
 use crate::kernel::tasks;
 use crate::ui::{
-    Alignment, BitmapLabel, ButtonFeedback, CONTENT_TOP, LARGE_MARGIN, Region, stack_fmt,
+    Alignment, BitmapLabel, ButtonFeedback, CONTENT_TOP, LARGE_MARGIN, QrSymbol, Region, stack_fmt,
 };
 
 const HEADING_X: u16 = LARGE_MARGIN;
@@ -48,6 +48,11 @@ const BODY_X: u16 = 24;
 const BODY_W: u16 = SCREEN_W - BODY_X * 2;
 const BODY_LINE_GAP: u16 = 10;
 const FOOTER_Y: u16 = SCREEN_H - 60;
+
+// gap between the connection lines and the QR code, and the largest square
+// the code may take (a version 2 symbol then draws at 8 px per module)
+const QR_GAP: u16 = 24;
+const QR_MAX_SIDE: u16 = 280;
 
 // HTTP timing
 const HTTP_TIMEOUT_SECS: u64 = 30;
@@ -168,7 +173,19 @@ pub async fn run_upload_mode(
             let _ = write!(w, "Connecting to '{}'...", ssid);
         });
         let msg = core::str::from_utf8(&msg_buf[..msg_len]).unwrap_or("Connecting...");
-        render_screen(epd, strip, delay, heading, body, &[msg], None, bumps, true).await;
+        render_screen(
+            epd,
+            strip,
+            delay,
+            heading,
+            body,
+            &[msg],
+            None,
+            None,
+            bumps,
+            true,
+        )
+        .await;
     }
 
     let net_config = embassy_net::Config::dhcpv4(Default::default());
@@ -247,6 +264,15 @@ pub async fn run_upload_mode(
 
             info!("upload: serving at http://pulp.local/  {}", ip_str);
 
+            // the QR carries the IP URL: mDNS is unreliable on phones
+            let [a, b, c, d] = ip_octets;
+            let mut url_buf = [0u8; 32];
+            let url_len = stack_fmt(&mut url_buf, |w| {
+                let _ = write!(w, "http://{}.{}.{}.{}/", a, b, c, d);
+            });
+            let url = core::str::from_utf8(&url_buf[..url_len]).unwrap_or("");
+            let qr = QrSymbol::encode(url);
+
             render_screen(
                 epd,
                 strip,
@@ -255,6 +281,7 @@ pub async fn run_upload_mode(
                 body,
                 &["http://pulp.local/", ip_str],
                 Some("Press BACK to exit"),
+                qr.as_ref(),
                 bumps,
                 false,
             )
@@ -429,6 +456,7 @@ async fn show_error(
         body,
         error.lines(),
         Some("Press BACK to exit"),
+        None,
         bumps,
         false,
     )
@@ -458,6 +486,7 @@ async fn render_screen(
     body: &'static BitmapFont,
     lines: &[&str],
     footer: Option<&str>,
+    qr: Option<&QrSymbol>,
     bumps: &ButtonFeedback,
     full_refresh: bool,
 ) {
@@ -475,7 +504,21 @@ async fn render_screen(
     } else {
         (lines.len() as u16 - 1) * body_stride + body_h
     };
-    let body_start_y = body_area_top + body_area_h.saturating_sub(total_body_h) / 2;
+    // with a QR code the lines move to the top of the area and the code
+    // takes the space below them
+    let body_start_y = if qr.is_some() {
+        body_area_top
+    } else {
+        body_area_top + body_area_h.saturating_sub(total_body_h) / 2
+    };
+    let qr_top = body_start_y + total_body_h + QR_GAP;
+    // `draw` centres the code in the region
+    let qr_region = Region::new(
+        BODY_X,
+        qr_top,
+        BODY_W,
+        body_area_bottom.saturating_sub(qr_top).min(QR_MAX_SIDE),
+    );
 
     let footer_region = Region::new(BODY_X, FOOTER_Y, BODY_W, body_h);
 
@@ -495,6 +538,10 @@ async fn render_screen(
                 .alignment(Alignment::Center)
                 .draw(s)
                 .unwrap();
+        }
+
+        if let Some(qr) = qr {
+            qr.draw(s, qr_region);
         }
 
         if let Some(text) = footer {

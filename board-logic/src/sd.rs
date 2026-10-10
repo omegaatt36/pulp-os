@@ -24,6 +24,9 @@ pub const CD_DEBOUNCE_SAMPLES: u8 = 3;
 /// Polling period for `CardDetect::sample` (debounce window = N x this).
 /// Not in the BSP; chosen so a switch bounce (a few ms) is filtered.
 pub const CD_SAMPLE_INTERVAL_MS: u32 = 20;
+/// How often a parked scheduler looks at GPIO28 while the switch agrees with
+/// the settled state. Once it disagrees the 20 ms debounce cadence applies.
+pub const CD_IDLE_POLL_MS: u32 = 250;
 /// SD init attempts and spacing: same policy as the X4 `SdStorage::init_card`
 /// (5 attempts, 50 ms apart).
 pub const SD_INIT_ATTEMPTS: u8 = 5;

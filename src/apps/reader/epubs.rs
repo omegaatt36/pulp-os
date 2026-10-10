@@ -377,7 +377,11 @@ impl EpubState {
     // private to the job until every byte arrived; a job whose window moved
     // (navigation, new book, memory pressure) is dropped, never published
     pub(super) fn warm_step(&mut self, k: &mut KernelHandle<'_>) {
+        // `warm_idle` tells the scheduler it may stop calling this; it is
+        // only true when a call ended with nothing in flight and nothing to start
+        self.warm_idle = false;
         if self.warm_blocked || !self.chapters_cached || self.source.is_none() {
+            self.warm_idle = true;
             return;
         }
         let Some(mut warm) = self.warm.take() else {
@@ -386,6 +390,7 @@ impl EpubState {
                 .ring
                 .next_warm(count, |ch| self.chapter_key(usize::from(ch)))
             else {
+                self.warm_idle = true;
                 return;
             };
             match BigBuf::zeroed(BufClass::ChapterText, job.key().size as usize) {
@@ -393,6 +398,7 @@ impl EpubState {
                 Err(_) => {
                     log::info!("warm: no memory for ch{}", job.key().chapter);
                     self.warm_blocked = true;
+                    self.warm_idle = true;
                 }
             }
             return;
@@ -426,6 +432,7 @@ impl EpubState {
             Err(e) => {
                 log::info!("warm: ch{} read failed: {:?}", warm.job.key().chapter, e);
                 self.warm_blocked = true;
+                self.warm_idle = true;
             }
         }
     }

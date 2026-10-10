@@ -23,6 +23,50 @@
 
 use crate::action::{Action, ActionEvent};
 use crate::session::{APP_ID_MAX, SessionState};
+use crate::ssd1677::FullKind;
+
+// ---------------------------------------------------------------------------
+// full refresh kind
+// ---------------------------------------------------------------------------
+
+/// Consecutive `FullKind::Fast` refreshes allowed before a `Clean` one is forced.
+/// The quick waveform is under-driven at room temperature and its haze is only
+/// reset by a real-temperature one.
+pub const FAST_FULL_MAX: u8 = 3;
+
+/// Picks the waveform of each full refresh: Fast only for a refresh that just
+/// paints, never more than `FAST_FULL_MAX` in a row.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct FullKindPolicy {
+    fast_run: u8,
+}
+
+impl FullKindPolicy {
+    pub const fn new() -> Self {
+        // a fresh controller has never been cleaned: start with a Clean one
+        Self {
+            fast_run: FAST_FULL_MAX,
+        }
+    }
+
+    /// `needs_clean`: the refresh exists to clear ghosting (periodic promotion,
+    /// the user's request) or must leave a defined panel (sleep screen).
+    pub fn next(&mut self, needs_clean: bool) -> FullKind {
+        if needs_clean || self.fast_run >= FAST_FULL_MAX {
+            self.fast_run = 0;
+            FullKind::Clean
+        } else {
+            self.fast_run += 1;
+            FullKind::Fast
+        }
+    }
+}
+
+impl Default for FullKindPolicy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 // ---------------------------------------------------------------------------
 // periodic work
@@ -57,6 +101,12 @@ impl Periodic {
 
     pub fn interval_ms(&self) -> u64 {
         self.interval_ms
+    }
+
+    /// Earliest `now_ms` at which `due` fires again (what a parked loop
+    /// sleeps until).
+    pub fn next_ms(&self) -> u64 {
+        self.next_ms
     }
 }
 
@@ -130,6 +180,10 @@ pub fn post_restore(applied: bool) -> PostRestore {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct MenuKeyContext {
     pub reader_active: bool,
+    /// The Files app is active: its Delete File / Delete Cache live only in the
+    /// quick menu. Files opens a book on the *release* of ENTER, so the press
+    /// that precedes a long press does not leave the screen.
+    pub files_active: bool,
     pub quick_menu_open: bool,
     /// The reader is showing its table of contents (ENTER selects there).
     pub reader_showing_toc: bool,
@@ -140,16 +194,17 @@ pub struct MenuKeyContext {
 /// route: refresh is always a full refresh on the C61, Back long press goes
 /// Home), the reader's Book Font (also in Settings), Prev/Next Chapter (also
 /// LEFT/RIGHT) and **Contents** (no other route), and Files' Delete File /
-/// Delete Cache (destructive, deliberately NOT mapped). So the minimal mapping
-/// is: a long press of ENTER (`Action::Select`) inside the reader opens the menu.
+/// Delete Cache (destructive: the menu needs a second press on the item, but it
+/// has no other route either). So the mapping is: a long press of ENTER
+/// (`Action::Select`) inside the reader or the Files list opens the menu.
 /// ENTER does nothing in a reader page (Select is unhandled there), so the short
 /// press that precedes the long press is harmless; it is excluded in the TOC,
-/// where ENTER selects an entry.
+/// where ENTER selects an entry. Files acts on the release instead of the press
+/// (see `files_active`).
 pub fn opens_quick_menu(ev: ActionEvent, ctx: MenuKeyContext) -> bool {
     matches!(ev, ActionEvent::LongPress(Action::Select))
-        && ctx.reader_active
         && !ctx.quick_menu_open
-        && !ctx.reader_showing_toc
+        && ((ctx.reader_active && !ctx.reader_showing_toc) || ctx.files_active)
 }
 
 // ---------------------------------------------------------------------------
@@ -276,7 +331,41 @@ mod tests {
         s
     }
 
+    // ---- FullKindPolicy ----
+
+    #[test]
+    fn full_kind_policy_starts_clean_then_allows_a_bounded_fast_run() {
+        let mut p = FullKindPolicy::new();
+        assert_eq!(p.next(false), FullKind::Clean);
+        for _ in 0..FAST_FULL_MAX {
+            assert_eq!(p.next(false), FullKind::Fast);
+        }
+        assert_eq!(p.next(false), FullKind::Clean, "forced after the run");
+        assert_eq!(p.next(false), FullKind::Fast, "run starts over");
+    }
+
+    #[test]
+    fn full_kind_policy_clean_request_resets_the_run() {
+        let mut p = FullKindPolicy::new();
+        assert_eq!(p.next(true), FullKind::Clean);
+        assert_eq!(p.next(false), FullKind::Fast);
+        assert_eq!(p.next(false), FullKind::Fast);
+        assert_eq!(p.next(true), FullKind::Clean);
+        for _ in 0..FAST_FULL_MAX {
+            assert_eq!(p.next(false), FullKind::Fast);
+        }
+    }
+
     // ---- Periodic ----
+
+    #[test]
+    fn periodic_next_ms_is_the_deadline_due_checks() {
+        let mut p = Periodic::new(100, 1_000);
+        assert_eq!(p.next_ms(), 1_100);
+        assert!(!p.due(1_099));
+        assert!(p.due(1_100));
+        assert_eq!(p.next_ms(), 1_200);
+    }
 
     #[test]
     fn periodic_first_fires_one_interval_after_creation() {
@@ -403,6 +492,7 @@ mod tests {
     fn menu_ctx() -> MenuKeyContext {
         MenuKeyContext {
             reader_active: true,
+            files_active: false,
             quick_menu_open: false,
             reader_showing_toc: false,
         }
@@ -432,8 +522,8 @@ mod tests {
     }
 
     #[test]
-    fn menu_never_opens_outside_the_reader() {
-        // Files/Home/Settings: ENTER already acted on the press (open item)
+    fn menu_never_opens_in_home_or_settings() {
+        // ENTER already acted on the press (open item)
         let ctx = MenuKeyContext {
             reader_active: false,
             ..menu_ctx()
@@ -442,6 +532,27 @@ mod tests {
             ActionEvent::LongPress(Action::Select),
             ctx
         ));
+    }
+
+    #[test]
+    fn menu_opens_from_the_files_list() {
+        let ctx = MenuKeyContext {
+            reader_active: false,
+            files_active: true,
+            ..menu_ctx()
+        };
+        assert!(opens_quick_menu(
+            ActionEvent::LongPress(Action::Select),
+            ctx
+        ));
+        assert!(!opens_quick_menu(
+            ActionEvent::LongPress(Action::Select),
+            MenuKeyContext {
+                quick_menu_open: true,
+                ..ctx
+            }
+        ));
+        assert!(!opens_quick_menu(ActionEvent::Press(Action::Select), ctx));
     }
 
     #[test]

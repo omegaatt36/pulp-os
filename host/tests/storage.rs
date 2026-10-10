@@ -1207,3 +1207,31 @@ fn injections_of_one_op_class_do_not_fire_for_other_classes_on_the_same_path() {
         assert_eq!(sd.read_count(), 2);
     });
 }
+
+
+#[test]
+fn purge_pulp_subdir_removes_the_files_then_the_directory() {
+    let sd = VirtualStorage::memory();
+    sd.ensure_pulp_dir().unwrap();
+    sd.ensure_pulp_subdir("_ABC1234").unwrap();
+    sd.write_in_pulp_subdir("_ABC1234", "PG000.IDX", &[1, 2, 3]).unwrap();
+    sd.write_in_pulp_subdir("_ABC1234", "IMG0.BIN", &[4; 10]).unwrap();
+    sd.ensure_pulp_subdir("_KEEP000").unwrap();
+    sd.write_in_pulp_subdir("_KEEP000", "PG000.IDX", &[9]).unwrap();
+
+    assert_eq!(sd.purge_pulp_subdir("_ABC1234").unwrap(), 2);
+    assert!(sd.file_size_in_pulp_subdir("_ABC1234", "PG000.IDX").is_err());
+    assert!(sd.file_size_in_pulp_subdir("_ABC1234", "IMG0.BIN").is_err());
+    // another book's directory is untouched
+    assert_eq!(sd.file_size_in_pulp_subdir("_KEEP000", "PG000.IDX").unwrap(), 1);
+}
+
+#[test]
+fn purge_pulp_subdir_of_a_missing_directory_is_ok_and_idempotent() {
+    let sd = VirtualStorage::memory();
+    assert_eq!(sd.purge_pulp_subdir("_NOPE000").unwrap(), 0);
+    sd.ensure_pulp_dir().unwrap();
+    sd.ensure_pulp_subdir("_ABC1234").unwrap();
+    assert_eq!(sd.purge_pulp_subdir("_ABC1234").unwrap(), 0);
+    assert_eq!(sd.purge_pulp_subdir("_ABC1234").unwrap(), 0);
+}

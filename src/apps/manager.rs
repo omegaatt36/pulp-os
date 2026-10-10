@@ -414,6 +414,9 @@ impl AppManager {
             let actions: &[_] = with_app!(active, self, |app| app.quick_actions());
             self.quick_menu.show(actions);
             self.launcher.ctx.mark_dirty(self.quick_menu.region());
+            if active == AppId::Files {
+                self.files.cancel_select();
+            }
             return Transition::None;
         }
 
@@ -433,6 +436,7 @@ impl AppManager {
             use crate::board::lifecycle::{MenuKeyContext, opens_quick_menu};
             let ctx = MenuKeyContext {
                 reader_active: self.launcher.active() == AppId::Reader,
+                files_active: self.launcher.active() == AppId::Files,
                 quick_menu_open: self.quick_menu.open,
                 reader_showing_toc: self.reader.showing_toc(),
             };
@@ -473,7 +477,7 @@ impl AppManager {
 
             QuickMenuResult::RefreshScreen => {
                 self.sync_quick_menu();
-                self.launcher.ctx.request_full_redraw();
+                self.launcher.ctx.request_clean_refresh();
                 Transition::None
             }
 
@@ -557,6 +561,21 @@ impl AppManager {
 
         // sync button configuration from settings (may have changed)
         self.sync_button_config();
+    }
+
+    // whether run_background has anything left to do: the active app's own
+    // answer, and for suspended apps what they would actually run
+    pub fn background_pending(&self) -> bool {
+        let active = self.launcher.active();
+        if with_app_ref!(active, self, |app| app.background_pending()) {
+            return true;
+        }
+        for &id in &[AppId::Home, AppId::Files, AppId::Reader, AppId::Settings] {
+            if id != active && with_app_ref!(id, self, |app| app.has_background_when_suspended()) {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn prepare_render(&mut self, k: &mut KernelHandle<'_>) {
@@ -698,6 +717,10 @@ impl AppLayer for AppManager {
 
     async fn run_background(&mut self, k: &mut KernelHandle<'_>) {
         AppManager::run_background(self, k).await;
+    }
+
+    fn background_pending(&self) -> bool {
+        AppManager::background_pending(self)
     }
 
     fn prefetch(&mut self, k: &mut KernelHandle<'_>) {

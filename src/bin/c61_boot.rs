@@ -218,6 +218,9 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
         Err(e) => error!("epd: display reset refused: {:?}", e),
     }
 
+    #[cfg(feature = "gray-probe")]
+    gray_probe_and_restore(&mut epd, &mut pins.power).await;
+
     // Deep-sleep sequence parts, consumed by the (default-off) idle-sleep demo
     let mut sleep_parts = Some((
         C61Lines::new(spi_board.control.clone(), pins.mic_pdm_clk),
@@ -311,6 +314,59 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
         }
         if ticks % (250 * CD_EVERY_TICKS) == 0 {
             info!("pulp-os c61 boot: alive");
+        }
+    }
+}
+
+/// Seconds the gray probe screen stays up before the panel is restored.
+#[cfg(feature = "gray-probe")]
+const GRAY_PROBE_HOLD_SECS: u64 = 45;
+
+/// 4-gray LUT probe (`cargo run-c61-gray`). The panel shows, in stream rows:
+/// 240 rows of four bands carrying the raw `{RED, BW}` indexes 0, 1, 2, 3, then a
+/// dithered black-to-white gradient drawn with the vendor's mapping (index =
+/// 3 - level). Read off which band is which gray and where the black end of the
+/// gradient is, then the screen is restored with a Clean full refresh.
+#[cfg(feature = "gray-probe")]
+async fn gray_probe_and_restore(epd: &mut epd::Epd, power: &mut PeripheralPower<Gpio27Rail>) {
+    fn reinit(epd: &mut epd::Epd, power: &mut PeripheralPower<Gpio27Rail>) -> bool {
+        match power.display_reset() {
+            Ok(reset) => match epd.init(reset) {
+                Ok(()) => true,
+                Err(e) => {
+                    error!("gray probe: init failed: {}", epd::display_error(e));
+                    false
+                }
+            },
+            Err(e) => {
+                error!("gray probe: display reset refused: {:?}", e);
+                false
+            }
+        }
+    }
+
+    info!("gray probe: start (vendor 4-gray waveform, bands = raw indexes 0,1,2,3)");
+    if !reinit(epd, power) {
+        return;
+    }
+    match epd::gray_probe(epd) {
+        Ok(t) => info!(
+            "gray probe: table and planes written in {} ms, gray update took {} ms (vendor example: ~4000)",
+            t.write_ms, t.update_ms
+        ),
+        Err(e) => error!("gray probe: failed: {}", e),
+    }
+    info!(
+        "gray probe: holding the screen for {} s, read the bands now",
+        GRAY_PROBE_HOLD_SECS
+    );
+    embassy_time::Timer::after(embassy_time::Duration::from_secs(GRAY_PROBE_HOLD_SECS)).await;
+
+    // back to black and white: a fresh init, then a Clean full refresh
+    if reinit(epd, power) {
+        match epd::full_refresh_test_pattern(epd) {
+            Ok(()) => info!("gray probe: panel restored (full refresh)"),
+            Err(e) => error!("gray probe: restore failed: {}", e),
         }
     }
 }

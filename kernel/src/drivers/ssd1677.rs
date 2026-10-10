@@ -396,7 +396,7 @@ where
     }
 
     pub fn start_full_update(&mut self) {
-        let _ = shared::start_full_update(self);
+        let _ = shared::start_full_update(self, shared::FullKind::Clean);
     }
 
     pub fn finish_full_update(&mut self) {
@@ -523,7 +523,7 @@ where
     }
 
     async fn update_full_async(&mut self) {
-        let _ = shared::start_full_update(self);
+        let _ = shared::start_full_update(self, shared::FullKind::Clean);
         self.wait_busy_async().await;
 
         self.power_is_on = false;

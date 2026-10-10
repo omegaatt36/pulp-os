@@ -22,6 +22,8 @@ pub(super) trait Fs {
     // overwrite from `offset` (<= current length) in an existing file
     fn write_at(&mut self, path: &str, offset: u32, data: &[u8]) -> io::Result<()>;
     fn remove(&mut self, path: &str) -> io::Result<()>;
+    // remove an empty directory
+    fn remove_dir(&mut self, path: &str) -> io::Result<()>;
     // direct children of a directory: (name, is_dir, size)
     fn list(&self, dir: &str) -> io::Result<Vec<(String, bool, u32)>>;
 }
@@ -123,6 +125,20 @@ impl Fs for MemFs {
         self.files.remove(path).map(|_| ()).ok_or_else(not_found)
     }
 
+    fn remove_dir(&mut self, path: &str) -> io::Result<()> {
+        let prefix = format!("{path}/");
+        let has_children = self.files.keys().any(|p| p.starts_with(&prefix))
+            || self.dirs.iter().any(|d| d.starts_with(&prefix));
+        if has_children {
+            return Err(io::ErrorKind::DirectoryNotEmpty.into());
+        }
+        if self.dirs.remove(path) {
+            Ok(())
+        } else {
+            Err(not_found())
+        }
+    }
+
     fn list(&self, dir: &str) -> io::Result<Vec<(String, bool, u32)>> {
         if !self.is_dir(dir) {
             return Err(not_found());
@@ -218,6 +234,10 @@ impl Fs for HostFs {
 
     fn remove(&mut self, path: &str) -> io::Result<()> {
         std::fs::remove_file(self.full(path))
+    }
+
+    fn remove_dir(&mut self, path: &str) -> io::Result<()> {
+        std::fs::remove_dir(self.full(path))
     }
 
     fn list(&self, dir: &str) -> io::Result<Vec<(String, bool, u32)>> {

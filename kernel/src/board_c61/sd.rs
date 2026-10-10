@@ -26,7 +26,9 @@ use pulp_board_logic::{
 };
 
 // re-exported so binaries do not need a direct dependency on the logic crate
-pub use pulp_board_logic::sd::{CD_SAMPLE_INTERVAL_MS, CardDetect, CardEvent, StorageHealth};
+pub use pulp_board_logic::sd::{
+    CD_IDLE_POLL_MS, CD_SAMPLE_INTERVAL_MS, CardDetect, CardEvent, StorageHealth,
+};
 
 use super::{
     power::{Gpio27Rail, HalDelay},

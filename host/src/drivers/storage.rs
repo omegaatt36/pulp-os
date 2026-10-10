@@ -195,6 +195,10 @@ pub fn file_size_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> R<u32>
     borrow(sd)?.file_size_in_pulp_subdir(dir, name)
 }
 
+pub fn purge_pulp_subdir(sd: &SdStorage, dir: &str) -> R<u32> {
+    borrow(sd)?.purge_pulp_subdir(dir)
+}
+
 pub fn delete_in_pulp_subdir(sd: &SdStorage, dir: &str, name: &str) -> R<()> {
     borrow(sd)?.delete_in_pulp_subdir(dir, name)
 }

@@ -406,6 +406,8 @@ pub(super) struct EpubState {
     // no neighbor reads until the chapter changes (an allocation was refused,
     // a read failed, or memory pressure released the ring)
     pub(super) warm_blocked: bool,
+    // the last warm_step found nothing left to read; false until it says so
+    pub(super) warm_idle: bool,
     // decoded images shown on recent pages
     pub(super) images: ImageLru<DecodedImage>,
 
@@ -450,6 +452,7 @@ impl EpubState {
             ring: ChapterRing::new(RingConfig::SMALL),
             warm: None,
             warm_blocked: false,
+            warm_idle: false,
             images: ImageLru::new(LruConfig::OFF),
             bg_cache: BgCacheState::Idle,
             work_gen: 0,
@@ -1653,6 +1656,16 @@ impl App<AppId> for ReaderApp {
         if profiling {
             self.profile.finish(self.state);
         }
+    }
+
+    // idle only when the page is settled and neither chapter caching nor the
+    // neighbour-chapter warm-up has a step left; every other state advances
+    // one background step per call
+    fn background_pending(&self) -> bool {
+        let settled = matches!(self.state, State::Ready | State::ShowToc | State::Error);
+        !(settled
+            && self.epub.bg_cache == BgCacheState::Idle
+            && (!self.is_epub || self.epub.warm_idle))
     }
 
     fn on_event(&mut self, event: ActionEvent, ctx: &mut AppContext) -> Transition {

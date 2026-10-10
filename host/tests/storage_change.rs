@@ -183,9 +183,14 @@ fn swap_cancels_pending_delete_and_settings_write_and_reloads_files() {
     assert_eq!(apps.files.total(), 2);
     apps.files
         .on_event(ActionEvent::Press(Action::Next), &mut apps.launcher.ctx);
-    let transition = apps
+    // Files opens a book when ENTER comes up, not when it goes down
+    let pressed = apps
         .files
         .on_event(ActionEvent::Press(Action::Select), &mut apps.launcher.ctx);
+    assert_eq!(pressed, Transition::None);
+    let transition = apps
+        .files
+        .on_event(ActionEvent::Release(Action::Select), &mut apps.launcher.ctx);
     assert_eq!(transition, Transition::Push(AppId::Reader));
     assert_eq!(apps.ctx().message(), b"NEW.TXT");
 }
@@ -223,4 +228,55 @@ fn swap_cancels_queued_epub_work_and_loads_the_new_recent_book() {
         .on_event(ActionEvent::Press(Action::Select), &mut apps.launcher.ctx);
     assert_eq!(transition, Transition::Push(AppId::Reader));
     assert_eq!(apps.ctx().message(), b"B.TXT");
+}
+
+#[test]
+fn files_enter_long_press_opens_nothing_and_a_stray_release_neither() {
+    let _guard = READER_LOCK.lock().unwrap();
+    let mut k = Kernel::new(card("A.TXT", 111));
+    k.bookmarks_load();
+    let mut apps = apps(&mut k);
+    apps.launcher.ctx.take_redraw();
+    let files = &mut apps.files;
+    let ctx = &mut apps.launcher.ctx;
+    // a release that did not start in the list (ENTER went down in Home)
+    assert_eq!(
+        files.on_event(ActionEvent::Release(Action::Select), ctx),
+        Transition::None
+    );
+    // press, hold into the long press (the quick menu takes over), release
+    assert_eq!(
+        files.on_event(ActionEvent::Press(Action::Select), ctx),
+        Transition::None
+    );
+    assert_eq!(
+        files.on_event(ActionEvent::LongPress(Action::Select), ctx),
+        Transition::None
+    );
+    assert_eq!(
+        files.on_event(ActionEvent::Release(Action::Select), ctx),
+        Transition::None
+    );
+}
+
+#[test]
+fn files_cancelled_select_does_not_open_a_book_on_its_release() {
+    // the quick menu opened on the long press and the manager swallowed it; the
+    // ENTER that activates a menu item comes up after the menu closed
+    let _guard = READER_LOCK.lock().unwrap();
+    let mut k = Kernel::new(card("A.TXT", 111));
+    k.bookmarks_load();
+    let mut apps = apps(&mut k);
+    apps.launcher.ctx.take_redraw();
+    let ctx = &mut apps.launcher.ctx;
+    assert_eq!(
+        apps.files.on_event(ActionEvent::Press(Action::Select), ctx),
+        Transition::None
+    );
+    apps.files.cancel_select();
+    assert_eq!(
+        apps.files
+            .on_event(ActionEvent::Release(Action::Select), ctx),
+        Transition::None
+    );
 }

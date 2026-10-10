@@ -91,6 +91,12 @@ fn ext_eq(name: &[u8], target: &[u8]) -> bool {
     ext.len() == target.len() && ext.eq_ignore_ascii_case(target)
 }
 
+// an EPUB file name: a FAT short name cannot hold four extension letters, so a
+// book with a long name is listed as "NAME~1.EPU"
+pub fn is_epub_name(name: &[u8]) -> bool {
+    ext_eq(name, b"EPUB") || ext_eq(name, b"EPU")
+}
+
 fn has_supported_ext(name: &[u8]) -> bool {
     ext_eq(name, b"TXT") || ext_eq(name, b"EPUB") || ext_eq(name, b"EPU") || ext_eq(name, b"MD")
 }
@@ -123,4 +129,20 @@ pub fn title_line(filename: &str, title: &str, line: &mut [u8; 128]) -> Option<u
         .copy_from_slice(&title_bytes[..title_len]);
     line[name_bytes.len() + 1 + title_len] = b'\n';
     Some(line_len)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_epub_name;
+
+    #[test]
+    fn epub_names_include_the_short_name_extension() {
+        assert!(is_epub_name(b"BOOK.EPUB"));
+        assert!(is_epub_name(b"book.epub"));
+        assert!(is_epub_name(b"LONGNA~1.EPU"));
+        assert!(!is_epub_name(b"NOTES.TXT"));
+        assert!(!is_epub_name(b"EPUB"));
+        assert!(!is_epub_name(b"BOOK.EPUBX"));
+        assert!(!is_epub_name(b"BOOK.EP"));
+    }
 }

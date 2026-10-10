@@ -5,8 +5,13 @@
 // may become runtime-configurable in the future
 
 // main scheduler tick interval (ms)
-// controls how often the event loop wakes to check for work
+// how often the event loop wakes while the app layer reports background
+// work pending; with nothing pending it parks until input or a deadline
 pub const TICK_MS: u64 = 10;
+
+// longest a parked loop sleeps without a deadline of its own (s); the status
+// tick wakes it anyway, this only bounds a lost wake-up
+pub const PARK_MAX_SECS: u64 = STATUS_INTERVAL_SECS;
 
 // input task poll intervals (ms)
 // fast rate used during active input; slow rate when idle to save power

@@ -14,10 +14,10 @@
 // sd_card_sleep sends cmd0 before deep sleep to reduce sd card
 // idle current from ~150 uA to ~10 uA
 
-use embassy_futures::select::{Either, select};
+use embassy_futures::select::{Either, Either3, select, select3};
 #[cfg(feature = "board-x4")]
 use embassy_time::with_timeout;
-use embassy_time::{Duration, Ticker};
+use embassy_time::{Duration, Instant, Ticker, Timer};
 use log::info;
 
 #[cfg(feature = "board-x4")]
@@ -121,11 +121,15 @@ impl super::Kernel {
     // event-driven main loop; never returns
     //
     // two genuine async suspension points in steady state:
-    //   1. select(INPUT_EVENTS.receive(), work_ticker.next())
+    //   1. the wait at the top of the loop: a TICK_MS ticker while the app
+    //      layer has background work pending, otherwise a park until input,
+    //      a task wake-up or the next deadline (see `deadline`)
     //   2. EPD busy pin wait inside render()
     // everything between them is synchronous function calls
     pub async fn run<A: AppLayer>(&mut self, app_mgr: &mut A) -> ! {
-        let mut work_ticker = Ticker::every(Duration::from_millis(timing::TICK_MS));
+        // Some only while polling; a ticker left over from before a park
+        // would fire for every period it missed
+        let mut work_ticker: Option<Ticker> = None;
 
         loop {
             if app_mgr.needs_special_mode() {
@@ -133,10 +137,27 @@ impl super::Kernel {
                 continue;
             }
 
-            // async point 1: wait for input or tick
-            let hw_event = match select(tasks::INPUT_EVENTS.receive(), work_ticker.next()).await {
-                Either::First(ev) => Some(ev),
-                Either::Second(_) => None,
+            // async point 1: wait for input, tick or deadline
+            let hw_event = if app_mgr.background_pending() || app_mgr.ctx_mut().render_ready() {
+                let ticker = work_ticker
+                    .get_or_insert_with(|| Ticker::every(Duration::from_millis(timing::TICK_MS)));
+                match select(tasks::INPUT_EVENTS.receive(), ticker.next()).await {
+                    Either::First(ev) => Some(ev),
+                    Either::Second(_) => None,
+                }
+            } else {
+                work_ticker = None;
+                let at = self.deadline(app_mgr);
+                match select3(
+                    tasks::INPUT_EVENTS.receive(),
+                    tasks::LOOP_WAKE.wait(),
+                    Timer::at(at),
+                )
+                .await
+                {
+                    Either3::First(ev) => Some(ev),
+                    Either3::Second(()) | Either3::Third(()) => None,
+                }
             };
 
             if let Some(ev) = hw_event {
@@ -230,6 +251,21 @@ impl super::Kernel {
                 }
             }
         }
+    }
+
+    // when a parked loop must run again without input or a task wake-up: the
+    // end of a redraw coalescing window, and on the C61 the card-detect and
+    // battery polls (those are owned by this loop, see scheduler_c61.rs)
+    fn deadline<A: AppLayer>(&mut self, app_mgr: &mut A) -> Instant {
+        let mut at = Instant::now() + Duration::from_secs(timing::PARK_MAX_SECS);
+        if let Some(t) = app_mgr.ctx_mut().render_deadline() {
+            at = at.min(t);
+        }
+        #[cfg(feature = "board-onepage-c61")]
+        {
+            at = at.min(self.c61_poll_deadline());
+        }
+        at
     }
 
     // delegate to app layer for modes that bypass normal dispatch

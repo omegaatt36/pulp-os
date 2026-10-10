@@ -50,6 +50,13 @@ wifi              = []
 # OnePage C61: differential partial refresh for `Redraw::Partial` (off: every
 # refresh is full).
 partial-refresh   = []
+# OnePage C61: a full refresh that only paints (first frame, app change) runs the
+# short faked-90 C waveform; ghosting clears and the sleep screen stay on the real
+# temperature one. Off: every full refresh uses the real temperature.
+fast-full-refresh = []
+# OnePage C61: the sleep wallpaper (SLEEP.BMP) is shown in 4 gray levels (anti-aliased
+# look, ~4 s refresh in the sleep path) instead of dithered black and white.
+gray-wallpaper    = []
 # CJK pack read counters and one log line per preparation (forwarded by the root
 # `sd-metrics` feature). Off: no counters, no clock reads, no log lines.
 sd-metrics        = []

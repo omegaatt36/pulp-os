@@ -19,6 +19,8 @@ pub mod rtc_session;
 pub mod scheduler;
 #[cfg(feature = "board-onepage-c61")]
 pub(crate) mod scheduler_c61;
+#[cfg(feature = "board-onepage-c61")]
+pub(crate) mod sleep_wallpaper;
 pub mod storage_change;
 pub mod tasks;
 pub mod timing;

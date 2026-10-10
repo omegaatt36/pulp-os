@@ -119,6 +119,9 @@ pub struct AppContext {
     redraw: Redraw,
     coalesce_until: Option<Instant>,
     immediate: bool,
+    // the full redraw is a ghosting clear: run the cleaning waveform, not the
+    // quick one (see `FullKind`)
+    clean_refresh: bool,
 
     // loading indicator; kernel-level so any app can use it.
     // drawn by the app manager after app content, before overlays.
@@ -145,6 +148,7 @@ impl AppContext {
             redraw: Redraw::None,
             coalesce_until: None,
             immediate: false,
+            clean_refresh: false,
             loading_buf: [0u8; LOADING_BUF_SIZE],
             loading_len: 0,
             loading_pct: 0,
@@ -173,6 +177,18 @@ impl AppContext {
 
     pub fn request_full_redraw(&mut self) {
         self.redraw = Redraw::Full;
+    }
+
+    // a full redraw whose point is to clear ghosting, so it must run the
+    // cleaning waveform (the user asked, or the screen looks hazy)
+    pub fn request_clean_refresh(&mut self) {
+        self.redraw = Redraw::Full;
+        self.clean_refresh = true;
+    }
+
+    // true once per request_clean_refresh; the scheduler takes it with the redraw
+    pub fn take_clean_refresh(&mut self) -> bool {
+        core::mem::take(&mut self.clean_refresh)
     }
 
     pub fn request_partial_redraw(&mut self, region: Region) {
@@ -219,6 +235,15 @@ impl AppContext {
             Redraw::Partial(_) => {
                 self.immediate || self.coalesce_until.is_none_or(|t| Instant::now() >= t)
             }
+        }
+    }
+
+    // when a pending, still coalescing redraw becomes ready; None when no
+    // timer gates it (nothing pending, or ready now)
+    pub fn render_deadline(&self) -> Option<Instant> {
+        match self.redraw {
+            Redraw::Partial(_) if !self.immediate => self.coalesce_until,
+            _ => None,
         }
     }
 
@@ -310,6 +335,16 @@ pub trait App<Id> {
     fn draw(&self, strip: &mut StripBuffer);
 
     async fn background(&mut self, _ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {}
+
+    // true while `background` still has steps to run; false lets the
+    // scheduler sleep until the next input or deadline instead of calling
+    // `background` every tick. Default true: an app that does not say
+    // so keeps the polling behaviour. Must be accurate after any
+    // `background` call: a false while work remains stalls that work until
+    // the next input
+    fn background_pending(&self) -> bool {
+        true
+    }
 
     fn pending_setting(&self) -> Option<PendingSetting> {
         None
@@ -463,6 +498,11 @@ pub trait AppLayer {
 
     // background work (SD I/O, caching); async for epub streaming
     async fn run_background(&mut self, k: &mut KernelHandle<'_>);
+
+    // true while run_background has more to do (see App::background_pending)
+    fn background_pending(&self) -> bool {
+        true
+    }
 
     // dedicated bounded prefetch hook during BUSY; safe to run while
     // SPI is free because it does not mutate visible state or launch long decodes

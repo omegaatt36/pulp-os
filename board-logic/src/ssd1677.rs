@@ -391,13 +391,60 @@ pub fn write_full_frame<P: EpdBus + DelayMs, S: StripSource>(
     Ok(())
 }
 
-/// Full-refresh update: waveform from OTP/LUT (0xF7), power down at the end.
-pub fn start_full_update<B: EpdBus>(b: &mut B) -> Result<(), DisplayError> {
+/// Which OTP full-clear waveform a full refresh runs.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum FullKind {
+    /// The waveform for the panel's real temperature (sensor loaded by the
+    /// update itself): the one that resets the pigment, ~1.6 s.
+    Clean,
+    /// The short high-temperature waveform: the temperature register is faked
+    /// at 90 C and the update does not re-read the sensor, so the controller's
+    /// OTP search picks the quickest full clear. Under-driven at room
+    /// temperature: it paints, but a haze it leaves is not cleaned by another
+    /// Fast refresh, so something has to run `Clean` now and then. Leaves the
+    /// temperature register faked; `Epd` reloads the real one afterwards.
+    Fast,
+}
+
+/// 0x22 value of a full update: clock + analog on, load temperature, load LUT,
+/// display mode 1, display, analog + clock off.
+pub const FULL_UPDATE_SEQ: u8 = 0xF7;
+/// LOAD_TEMP (bit 5) of register 0x22.
+const LOAD_TEMP: u8 = 0x20;
+/// `FULL_UPDATE_SEQ` without LOAD_TEMP, so the faked temperature survives into
+/// the LUT pick.
+pub const FULL_FAST_UPDATE_SEQ: u8 = FULL_UPDATE_SEQ & !LOAD_TEMP;
+/// Written to the temperature register (0x1A) by `FullKind::Fast`: 90 C. The
+/// register is 12 bits, two's complement, 1/16 C: A[11:4] then A[3:0] << 4
+/// (SSD1677 datasheet p.26), so 90 C = 0x5A0.
+pub const FAKED_TEMP: [u8; 2] = [0x5A, 0x00];
+/// Clock on, load temperature, load LUT, clock off; nothing is driven. Puts
+/// the real temperature back after `FullKind::Fast`.
+pub const LOAD_TEMP_SEQ: u8 = 0xB1;
+
+/// Full-refresh update: waveform from OTP/LUT, power down at the end.
+pub fn start_full_update<B: EpdBus>(b: &mut B, kind: FullKind) -> Result<(), DisplayError> {
     b.command(cmd::DISPLAY_UPDATE_CONTROL_1)?;
     b.data(&[0x40, 0x00])?;
 
+    let seq = match kind {
+        FullKind::Clean => FULL_UPDATE_SEQ,
+        FullKind::Fast => {
+            b.command(cmd::WRITE_TEMP_REGISTER)?;
+            b.data(&FAKED_TEMP)?;
+            FULL_FAST_UPDATE_SEQ
+        }
+    };
     b.command(cmd::DISPLAY_UPDATE_CONTROL_2)?;
-    b.data(&[0xF7])?;
+    b.data(&[seq])?;
+
+    b.command(cmd::MASTER_ACTIVATION)
+}
+
+/// Reload the real panel temperature (and LUT) without driving the panel.
+pub fn start_load_temperature<B: EpdBus>(b: &mut B) -> Result<(), DisplayError> {
+    b.command(cmd::DISPLAY_UPDATE_CONTROL_2)?;
+    b.data(&[LOAD_TEMP_SEQ])?;
 
     b.command(cmd::MASTER_ACTIVATION)
 }
@@ -543,6 +590,9 @@ pub struct Epd<P> {
     initial_refresh: bool,
     busy_timeout_ms: u32,
     pending: Option<PendingRefresh>,
+    // the temperature register holds `FAKED_TEMP` (a Fast full refresh ran and
+    // the real temperature is not back yet)
+    temp_faked: bool,
 }
 
 impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
@@ -555,6 +605,7 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
             initial_refresh: true,
             busy_timeout_ms: BUSY_TIMEOUT_MS,
             pending: None,
+            temp_faked: false,
         }
     }
 
@@ -643,6 +694,7 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
         }
         self.pending = None;
         self.init_done = false;
+        self.temp_faked = false;
         // the soft reset drops the loaded temperature and a failure may have
         // left RAM and panel apart: the next frame is a full refresh again
         self.initial_refresh = true;
@@ -659,6 +711,14 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
     }
 
     pub fn begin_full_refresh<S: StripSource>(&mut self, src: &mut S) -> Result<(), DisplayError> {
+        self.begin_full_refresh_kind(src, FullKind::Clean)
+    }
+
+    pub fn begin_full_refresh_kind<S: StripSource>(
+        &mut self,
+        src: &mut S,
+        kind: FullKind,
+    ) -> Result<(), DisplayError> {
         if !self.init_done || self.pending.is_some() {
             self.init_done = false;
             self.pending = None;
@@ -666,8 +726,12 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
         }
         let r = (|| -> Result<(), DisplayError> {
             write_full_frame(&mut self.port, self.rotation, src)?;
-            start_full_update(&mut self.port)
+            start_full_update(&mut self.port, kind)
         })();
+        if kind == FullKind::Fast {
+            // the register write may have gone out even when a later one failed
+            self.temp_faked = true;
+        }
         if r.is_err() {
             self.init_done = false;
             self.pending = None;
@@ -694,6 +758,18 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
             return Err(DisplayError::BusyTimeout);
         }
         self.pending = None;
+        if self.temp_faked {
+            // a partial update does not load the temperature, it keeps whatever
+            // the last full one left: put the real one back before it can run
+            let r = start_load_temperature(&mut self.port)
+                .and_then(|()| wait_busy_bounded(&mut self.port, self.busy_timeout_ms));
+            if let Err(e) = r {
+                self.init_done = false;
+                self.initial_refresh = true;
+                return Err(e);
+            }
+            self.temp_faked = false;
+        }
         self.initial_refresh = false;
         Ok(())
     }
@@ -711,7 +787,15 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
     /// Render all strips into both RAMs, run the full update and wait (bounded)
     /// for BUSY. On any error the controller is considered uninitialised.
     pub fn full_refresh<S: StripSource>(&mut self, src: &mut S) -> Result<(), DisplayError> {
-        self.begin_full_refresh(src)?;
+        self.full_refresh_kind(src, FullKind::Clean)
+    }
+
+    pub fn full_refresh_kind<S: StripSource>(
+        &mut self,
+        src: &mut S,
+        kind: FullKind,
+    ) -> Result<(), DisplayError> {
+        self.begin_full_refresh_kind(src, kind)?;
         self.wait_busy()?;
         self.finish_full_refresh()
     }
@@ -1109,7 +1193,7 @@ mod tests {
     #[test]
     fn x4_full_update_sequence_is_unchanged_golden() {
         let mut f = Fake::new(None);
-        start_full_update(&mut f).unwrap();
+        start_full_update(&mut f, FullKind::Clean).unwrap();
         assert_eq!(
             f.log,
             vec![
@@ -1282,6 +1366,86 @@ mod tests {
         assert_eq!(wait.first().map(|s| s.as_str()), Some("B1"));
         assert_eq!(wait.last().map(|s| s.as_str()), Some("B0"));
         assert_eq!(wait.iter().filter(|s| s.as_str() == "T1").count(), 1600);
+    }
+
+    /// Control commands (everything that is not a RAM write or window setup) a
+    /// full refresh of `kind` sends after init, as `C..`/`D..` tokens.
+    fn full_refresh_control_trace(kind: FullKind, busy_ms: u64) -> (Vec<String>, bool) {
+        let mut epd = Epd::new(Fake::new(Some(busy_ms)));
+        epd.init(DisplayReset::Software).unwrap();
+        epd.port_mut().mark = epd.port_mut().log.len();
+        let mut core = StripCore::new();
+        let mut src = CoreStrips {
+            core: &mut core,
+            draw: |_: &mut StripCore| {},
+        };
+        epd.full_refresh_kind(&mut src, kind).unwrap();
+        let faked = epd.temp_faked;
+        let port = epd.port_mut();
+        let trace: Vec<String> = port.log[port.mark..]
+            .iter()
+            .filter_map(|e| match e {
+                Ev::Cmd(c) if matches!(*c, 0x1A | 0x20 | 0x21 | 0x22) => {
+                    Some(std::format!("C{:02X}", c))
+                }
+                Ev::Data(d) if d.len() <= 2 && matches!(d[0], 0x40 | 0x5A | 0xB1 | 0xD7 | 0xF7) => {
+                    Some(std::format!("D{:02X?}", d))
+                }
+                _ => None,
+            })
+            .collect();
+        (trace, faked)
+    }
+
+    #[test]
+    fn full_refresh_clean_is_the_unchanged_f7_update_and_never_touches_the_temperature() {
+        let (t, faked) = full_refresh_control_trace(FullKind::Clean, 1600);
+        assert_eq!(t, ["C21", "D[40, 00]", "C22", "D[F7]", "C20"]);
+        assert!(!faked);
+    }
+
+    #[test]
+    fn full_refresh_fast_fakes_90c_without_load_temp_then_puts_the_real_one_back() {
+        let (t, faked) = full_refresh_control_trace(FullKind::Fast, 1000);
+        assert_eq!(
+            t,
+            [
+                "C21",
+                "D[40, 00]", // update control 1
+                "C1A",
+                "D[5A, 00]", // temperature register <- 90 C (12 bit)
+                "C22",
+                "D[D7]",
+                "C20", // F7 without LOAD_TEMP
+                "C22",
+                "D[B1]",
+                "C20", // real temperature + LUT, no drive
+            ]
+        );
+        assert!(!faked, "restored once the refresh finished");
+    }
+
+    #[test]
+    fn full_refresh_fast_restore_failure_demands_a_new_init_and_full_refresh() {
+        let mut epd = Epd::new(Fake::new(Some(10)));
+        epd.init(DisplayReset::Software).unwrap();
+        let mut core = StripCore::new();
+        let mut src = CoreStrips {
+            core: &mut core,
+            draw: |_: &mut StripCore| {},
+        };
+        epd.begin_full_refresh_kind(&mut src, FullKind::Fast)
+            .unwrap();
+        epd.wait_busy().unwrap();
+        // the bus dies before the temperature reload
+        epd.port_mut().fail_after_writes = Some(epd.port_mut().writes);
+        assert_eq!(epd.finish_full_refresh(), Err(DisplayError::Bus));
+        assert!(!epd.is_initialized());
+        assert!(epd.needs_initial_refresh());
+        assert!(epd.temp_faked, "still faked until an init resets it");
+        epd.port_mut().fail_after_writes = None;
+        epd.init(DisplayReset::Software).unwrap();
+        assert!(!epd.temp_faked);
     }
 
     #[test]

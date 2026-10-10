@@ -5,6 +5,7 @@
 // live in the distro's apps::widgets module
 
 pub mod layout;
+pub mod qr;
 pub mod stack_fmt;
 pub mod statusbar;
 mod widget;
@@ -12,6 +13,7 @@ mod widget;
 pub use layout::{
     CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN, SECTION_GAP, TITLE_Y, TITLE_Y_OFFSET,
 };
+pub use qr::QrSymbol;
 pub use stack_fmt::{StackFmt, stack_fmt};
 pub use statusbar::{
     BAR_HEIGHT, BATTERY_REGION, BatteryStatus, free_stack_bytes, paint_stack, stack_high_water_mark,

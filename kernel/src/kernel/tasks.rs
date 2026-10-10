@@ -25,6 +25,11 @@ pub fn request_hold_reset() {
     RESET_HOLD.signal(());
 }
 
+// wakes a parked scheduler loop (scheduler.rs `park`): signalled by the tasks
+// below whenever they publish something the loop polls for. Input needs no
+// signal, the loop already waits on INPUT_EVENTS
+pub static LOOP_WAKE: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+
 pub static BATTERY_MV: Signal<CriticalSectionRawMutex, u16> = Signal::new();
 
 #[cfg(feature = "board-x4")]
@@ -125,6 +130,7 @@ pub async fn input_task(
         if sleep_hold.update(input.wake_held_us()) {
             log::info!("input: WAKE held and released, sleep requested");
             SLEEP_REQUESTED.signal(());
+            LOOP_WAKE.signal(());
         }
 
         if let Some(ev) = usb.poll() {
@@ -156,11 +162,14 @@ pub async fn housekeeping_task() -> ! {
             Either3::Second(_) => SD_CHECK_DUE.signal(()),
             Either3::Third(_) => BOOKMARK_FLUSH_DUE.signal(()),
         }
+        LOOP_WAKE.signal(());
     }
 }
 
 pub static IDLE_TIMEOUT_MINS: Signal<CriticalSectionRawMutex, u16> = Signal::new();
 pub static IDLE_RESET: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+// the idle sleep is not signalled to LOOP_WAKE: the 5 s status tick above
+// wakes the loop at least that often, which is plenty for a minutes-long timeout
 pub static IDLE_SLEEP_DUE: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
 #[inline]

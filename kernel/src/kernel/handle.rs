@@ -198,6 +198,11 @@ impl<'k> KernelHandle<'k> {
         storage::delete_in_pulp(&self.kernel.sd, name)
     }
 
+    // remove a book's cache directory (`_PULP/<dir>`) and its files; Ok(0) if absent
+    pub fn purge_app_subdir(&mut self, dir: &str) -> Result<u32> {
+        storage::purge_pulp_subdir(&self.kernel.sd, dir)
+    }
+
     #[inline]
     pub fn cache_file_size(&mut self, name: &str) -> Result<u32> {
         storage::file_size_in_pulp(&self.kernel.sd, name)
