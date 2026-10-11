@@ -85,6 +85,18 @@ All variants accept `max_w` / `max_h` and integer-downscale to fit.
 Output is a `DecodedImage`: packed 1-bit MSB-first, row-major, where
 a set bit means black (ink).
 
+The JPEG decoder handles baseline files. Progressive files need the
+`progressive-jpeg` feature (off by default); without it they fail with
+`jpeg: progressive support not built`. With the feature, a progressive
+file cannot be decoded in one pass without every coefficient of the
+image, so the decoder keeps a band of Y coefficients (up to 48 KB) and
+re-reads the file once per band. Time and I/O grow with the number of
+bands, which is `ceil(mcu_rows / band_rows)`; a 1200×1800 4:2:0 image
+needs one band row per pass. When one band covers the image the result
+equals the baseline decode; otherwise the last bits of AC precision are
+dropped (AC refinement scans cannot be parsed without every block's
+coefficients).
+
 ## Memory
 
 Typical peak heap on an embedded target:
@@ -94,6 +106,7 @@ Typical peak heap on an embedded target:
 - PNG streaming decode: ~90 KB
 - JPEG streaming decode: ~30 KB
 - JPEG DEFLATE streaming decode: ~79 KB
+- progressive JPEG: the above plus the coefficient band (≤ 48 KB)
 
 Large internal structs (e.g. `DecompressorOxide` at ~11 KB) are always
 heap-allocated. Stack usage is kept low throughout.

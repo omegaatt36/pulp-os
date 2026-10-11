@@ -88,7 +88,6 @@ fn all_routes_write_dirty_borrowed_storage_without_replacing_it() {
                             read_at(&compressed),
                             0,
                             compressed.len() as u32,
-                            bytes.len() as u32,
                             bounds.0,
                             bounds.1,
                             allocate,
@@ -160,7 +159,6 @@ fn refusal_wrong_lengths_and_zero_bounds_are_errors() {
                 read_at(&compressed),
                 0,
                 compressed.len() as u32,
-                bytes.len() as u32,
                 bounds.0,
                 bounds.1,
                 allocate
@@ -186,7 +184,6 @@ fn streaming_routes_propagate_destination_errors_and_keep_legacy_pixels() {
         read_at(&deflated_file),
         37,
         compressed.len() as u32,
-        bytes.len() as u32,
         13,
         8,
     )
@@ -211,7 +208,6 @@ fn streaming_routes_propagate_destination_errors_and_keep_legacy_pixels() {
             read_at(&deflated_file),
             37,
             compressed.len() as u32,
-            bytes.len() as u32,
             13,
             8,
             refusal
@@ -237,7 +233,6 @@ fn streaming_routes_propagate_destination_errors_and_keep_legacy_pixels() {
                 read_at(&deflated_file),
                 37,
                 compressed.len() as u32,
-                bytes.len() as u32,
                 13,
                 8,
                 wrong

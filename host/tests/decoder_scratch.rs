@@ -167,7 +167,6 @@ fn jpeg_outer_inflate_uses_injected_scratch_and_rejects_without_leaks() {
             |off, dst| read(&compressed, off, dst),
             0,
             compressed.len() as u32,
-            data.len() as u32,
             19,
             11,
             |n| Ok(vec![0; n]),

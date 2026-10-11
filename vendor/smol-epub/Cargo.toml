@@ -18,4 +18,7 @@ log = "0.4"
 [features]
 default = ["images"]
 images = []
+# Progressive (SOF2) JPEG decoding: band of Y coefficients plus one pass over the
+# file per band. Off by default; without it a progressive JPEG fails to decode.
+progressive-jpeg = ["images"]
 async = []

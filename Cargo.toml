@@ -97,6 +97,11 @@ gray-wallpaper = ["pulp-kernel/gray-wallpaper"]
 # the 4-gray probe screen (vendor waveform), hold it, then restore the panel.
 gray-probe = []
 
+# Progressive JPEG decoding in the reader. Off by default: it needs the file re-read
+# once per band (~70 passes for a 793x1123 page), tens of seconds per image, and
+# gains nothing on the panel. Enable only for EPUBs that ship progressive JPEGs.
+progressive-jpeg = ["smol-epub/progressive-jpeg"]
+
 # CJK pack read measurement (count, bytes, time, distinct scalars; one log line per
 # preparation). Off by default; the default image carries none of it.
 # Build with `cargo build-c61-sd-metrics`.

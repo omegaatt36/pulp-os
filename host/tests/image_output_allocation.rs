@@ -134,7 +134,6 @@ fn caller_storage_eliminates_the_full_bitmap_heap_allocation() {
                     read_at(&compressed),
                     0,
                     compressed.len() as u32,
-                    source.len() as u32,
                     800,
                     480,
                     allocate,

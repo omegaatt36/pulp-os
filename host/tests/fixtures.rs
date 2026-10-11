@@ -2197,7 +2197,7 @@ fn decode_from_zip(bytes: &[u8], zip: &ZipIndex, name: &str, k: ImageKind, mw: u
         (false, METHOD_STORED) => png::decode_png_streaming(read_at(bytes), off, e.comp_size, mw, mh),
         (false, METHOD_DEFLATE) => png::decode_png_deflate_streaming(read_at(bytes), off, e.comp_size, mw, mh),
         (true, METHOD_STORED) => jpeg::decode_jpeg_streaming(read_at(bytes), off, e.comp_size, mw, mh),
-        (true, METHOD_DEFLATE) => jpeg::decode_jpeg_deflate_streaming(read_at(bytes), off, e.comp_size, e.uncomp_size, mw, mh),
+        (true, METHOD_DEFLATE) => jpeg::decode_jpeg_deflate_streaming(read_at(bytes), off, e.comp_size, mw, mh),
         (_, m) => panic!("method {m}"),
     }
 }

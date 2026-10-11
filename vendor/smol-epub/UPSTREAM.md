@@ -47,6 +47,18 @@ Guarded by `host/tests/smol_malformed.rs`, `smol_entity.rs`, `smol_toc.rs`,
   decoder reports it as soon as the output buffer is full, while the last
   input bytes (end of the final block) are still unread, which failed entries
   whose compressed size is 4096 k + 1 or + 2. (D4)
+- `src/jpeg.rs`: progressive JPEG (SOF2) decodes fully instead of the first
+  scan only. A band of Y coefficients is held and the file is re-read from the
+  start once per band (`JpegRead::rewind`; DEFLATE entries re-inflate). Chroma
+  scans are skimmed. Y AC refinement scans are skipped unless one band covers
+  the image. The design follows `timcki/smol-epub` (`jpeg: scaffold progressive
+  band-pass decoder` and the commits after it); the code is written against
+  this tree, and AC refinement follows IJG `jdphuff.c`. Marker parsing now reads
+  segments off the stream (the 32 KB header buffer is gone), so every pass
+  replays the Huffman and quantization tables the way the encoder redefined
+  them. The `uncomp_size` argument of the DEFLATE entry points and the
+  `decode_jpeg_sd` / `decode_jpeg_deflate_sd` aliases are removed. Guarded by
+  `host/tests/jpeg_progressive.rs`.
 - `src/cache.rs`: comment on `strip_html_buf`'s reservation (output can be
   longer than the input).
 

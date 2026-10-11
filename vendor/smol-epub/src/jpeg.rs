@@ -1,11 +1,19 @@
-//! Minimal baseline JPEG decoder producing 1-bit Floyd–Steinberg dithered bitmaps.
+//! Minimal JPEG decoder producing 1-bit Floyd–Steinberg dithered bitmaps.
 //!
-//! Streams MCU-row-by-row via 4 KB chunked reads; peak RAM ≈ 30 KB.
-//! Luminance (Y) channel only — chrominance is Huffman-decoded to
+//! Baseline (SOF0) streams MCU-row-by-row via 4 KB chunked reads; peak RAM
+//! ≈ 30 KB. Luminance (Y) channel only — chrominance is Huffman-decoded to
 //! advance the bitstream, then discarded.
 //!
-//! Progressive JPEG (SOF2) is partially supported: first scan only
-//! (DC + low-frequency AC).
+//! Progressive (SOF2) needs the `progressive-jpeg` feature, off by default;
+//! without it such a file is refused. It cannot be decoded in one pass without
+//! holding every coefficient of the image, which does not fit the heap. Instead
+//! a band of `K` MCU rows of Y coefficients is held at a time and the whole bitstream
+//! is re-read from the start once per band (`JpegRead::rewind`). A band
+//! budget of [`MAX_BAND_BYTES`] shrinks to whatever the heap allows. When
+//! one band covers the image the decode is exact. Otherwise Y AC refinement
+//! scans are skipped, because parsing them needs the nonzero map of blocks
+//! outside the band; the last bit(s) of AC precision is lost, which is
+//! invisible after 1-bit dithering. Chroma scans are never decoded.
 //!
 //! Output is packed 1-bit MSB-first, row-major — see [`DecodedImage`](crate::DecodedImage).
 
@@ -21,6 +29,7 @@ use crate::DecodedImage;
 const M_SOF0: u8 = 0xC0;
 const M_SOF2: u8 = 0xC2;
 const M_DHT: u8 = 0xC4;
+const M_TEM: u8 = 0x01;
 const M_SOI: u8 = 0xD8;
 const M_EOI: u8 = 0xD9;
 const M_SOS: u8 = 0xDA;
@@ -108,16 +117,16 @@ struct JpegState {
     dc_ok: [bool; 4],
     ac_ok: [bool; 4],
     restart_interval: u16,
-    // byte offset of entropy data (relative to start of JPEG data)
-    scan_start: usize,
     scan_num_comp: u8,
     scan_order: [u8; MAX_COMP],
     progressive: bool,
-    // first-scan spectral selection start (0 = DC)
+    // current-scan spectral selection start (0 = DC)
     scan_ss: u8,
-    // first-scan spectral selection end (0 = DC only, 63 = all AC)
+    // current-scan spectral selection end (0 = DC only, 63 = all AC)
     scan_se: u8,
-    // first-scan successive approximation low bit (point transform)
+    // current-scan successive approximation high bit (0 = first scan of the band)
+    scan_ah: u8,
+    // current-scan successive approximation low bit (point transform)
     scan_al: u8,
 }
 
@@ -144,6 +153,9 @@ impl JpegState {
 trait JpegRead {
     fn read_byte(&mut self) -> Result<u8, &'static str>;
     fn is_eof(&self) -> bool;
+    // seek back to the first byte of the JPEG (the SOI marker)
+    #[cfg_attr(not(feature = "progressive-jpeg"), allow(dead_code))]
+    fn rewind(&mut self) -> Result<(), &'static str>;
 }
 
 // reads from an in-memory slice
@@ -153,8 +165,8 @@ struct SliceReader<'a> {
 }
 
 impl<'a> SliceReader<'a> {
-    fn new(data: &'a [u8], start: usize) -> Self {
-        Self { data, pos: start }
+    fn new(data: &'a [u8]) -> Self {
+        Self { data, pos: 0 }
     }
 }
 
@@ -173,11 +185,18 @@ impl JpegRead for SliceReader<'_> {
     fn is_eof(&self) -> bool {
         self.pos >= self.data.len()
     }
+
+    fn rewind(&mut self) -> Result<(), &'static str> {
+        self.pos = 0;
+        Ok(())
+    }
 }
 
 // reads from SD via closure, buffering 4KB chunks
 struct ChunkReader<F> {
     read_fn: F,
+    #[cfg_attr(not(feature = "progressive-jpeg"), allow(dead_code))]
+    start: u32, // absolute offset of the first JPEG byte (for rewind)
     offset: u32, // absolute offset of next byte to fetch
     end: u32,    // end-of-data offset (exclusive)
     buf: [u8; CHUNK_SIZE],
@@ -189,6 +208,7 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> ChunkReader<F> {
     fn new(read_fn: F, start: u32, end: u32) -> Self {
         Self {
             read_fn,
+            start,
             offset: start,
             end,
             buf: [0u8; CHUNK_SIZE],
@@ -231,12 +251,23 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> JpegRead for Chunk
     fn is_eof(&self) -> bool {
         self.pos >= self.len && self.offset >= self.end
     }
+
+    fn rewind(&mut self) -> Result<(), &'static str> {
+        self.offset = self.start;
+        self.pos = 0;
+        self.len = 0;
+        Ok(())
+    }
 }
 
 // streaming DEFLATE-from-SD reader; 4KB chunks in, one decompressed byte at a time out.
 // peak heap: ~47KB (11KB decompressor + 32KB window + 4KB read buf).
 struct DeflateReader<F, S: crate::scratch::ScratchStorage> {
     read_fn: F,
+    #[cfg_attr(not(feature = "progressive-jpeg"), allow(dead_code))]
+    data_offset: u32, // absolute offset of the entry (for rewind)
+    #[cfg_attr(not(feature = "progressive-jpeg"), allow(dead_code))]
+    comp_size: usize, // compressed size of the entry (for rewind)
     file_pos: u32,                           // absolute offset of next compressed byte
     comp_left: usize,                        // compressed bytes remaining in ZIP entry
     rbuf: Vec<u8>,                           // compressed-data read buffer
@@ -273,6 +304,8 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>, S: crate::scratch:
 
         Ok(Self {
             read_fn,
+            data_offset,
+            comp_size: comp_size as usize,
             file_pos: data_offset,
             comp_left: comp_size as usize,
             rbuf,
@@ -348,30 +381,6 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>, S: crate::scratch:
 
         Ok(())
     }
-
-    // read up to buf.len() decompressed bytes into buf; return count read
-    fn read_bytes(&mut self, buf: &mut [u8]) -> Result<usize, &'static str> {
-        let mut total = 0usize;
-        while total < buf.len() {
-            if self.avail == 0 {
-                if self.done {
-                    break;
-                }
-                self.pump()?;
-                if self.avail == 0 {
-                    break;
-                }
-            }
-            let rp = self.read_pos & (DEFLATE_WINDOW - 1);
-            let contiguous = (DEFLATE_WINDOW - rp).min(self.avail);
-            let n = contiguous.min(buf.len() - total);
-            buf[total..total + n].copy_from_slice(&self.window[rp..rp + n]);
-            self.read_pos += n;
-            self.avail -= n;
-            total += n;
-        }
-        Ok(total)
-    }
 }
 
 impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>, S: crate::scratch::ScratchStorage>
@@ -396,6 +405,20 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>, S: crate::scratch:
 
     fn is_eof(&self) -> bool {
         self.avail == 0 && self.done
+    }
+
+    // DEFLATE cannot seek: restart the inflater at the first compressed byte.
+    // The window holds stale bytes, which miniz overwrites before they are read.
+    fn rewind(&mut self) -> Result<(), &'static str> {
+        self.decomp.init();
+        self.file_pos = self.data_offset;
+        self.comp_left = self.comp_size;
+        self.in_avail = 0;
+        self.dict_pos = 0;
+        self.read_pos = 0;
+        self.avail = 0;
+        self.done = false;
+        Ok(())
     }
 }
 
@@ -476,6 +499,78 @@ impl<R: JpegRead> BitReader<R> {
         Ok(val)
     }
 
+    // drop buffered bits and any stashed marker (after the source was rewound)
+    #[cfg_attr(not(feature = "progressive-jpeg"), allow(dead_code))]
+    fn reset(&mut self) {
+        self.buf = 0;
+        self.avail = 0;
+        self.marker = 0;
+    }
+
+    // Advance to the next real marker (neither RSTn nor FF00 stuffing) and
+    // return its code. Whatever entropy-coded bytes remain are skipped, so
+    // this ends a scan decoded to its last block, skims a scan that is not
+    // needed, and finds the next segment between scans. End of data counts
+    // as EOI, since the decoder never needs the bytes after the last scan.
+    fn next_marker(&mut self) -> Result<u8, &'static str> {
+        self.buf = 0;
+        self.avail = 0;
+        let stashed = core::mem::take(&mut self.marker);
+        if stashed != 0 && !(M_RST0..=M_RST7).contains(&stashed) {
+            return Ok(stashed);
+        }
+        loop {
+            if self.source.is_eof() {
+                return Ok(M_EOI);
+            }
+            if self.source.read_byte()? != 0xFF {
+                continue;
+            }
+            loop {
+                if self.source.is_eof() {
+                    return Ok(M_EOI);
+                }
+                match self.source.read_byte()? {
+                    0xFF => continue,
+                    0x00 | M_RST0..=M_RST7 => break,
+                    m => return Ok(m),
+                }
+            }
+        }
+    }
+
+    // Read one marker segment. The buffer keeps the 2-byte length at the
+    // front, so the slice parsers below run on it unchanged.
+    fn read_segment(&mut self) -> Result<Vec<u8>, &'static str> {
+        let hi = self.source.read_byte()?;
+        let lo = self.source.read_byte()?;
+        let seg = u16::from_be_bytes([hi, lo]) as usize;
+        if seg < 2 {
+            return Err("jpeg: bad marker length");
+        }
+        let mut data = Vec::new();
+        data.try_reserve_exact(seg)
+            .map_err(|_| "jpeg: OOM for marker segment")?;
+        data.extend_from_slice(&[hi, lo]);
+        for _ in 2..seg {
+            data.push(self.source.read_byte()?);
+        }
+        Ok(data)
+    }
+
+    fn skip_segment(&mut self) -> Result<(), &'static str> {
+        let hi = self.source.read_byte()?;
+        let lo = self.source.read_byte()?;
+        let seg = u16::from_be_bytes([hi, lo]) as usize;
+        if seg < 2 {
+            return Err("jpeg: bad marker length");
+        }
+        for _ in 2..seg {
+            self.source.read_byte()?;
+        }
+        Ok(())
+    }
+
     // discard remaining bits, advance past the next restart marker
     fn consume_restart(&mut self) -> Result<(), &'static str> {
         self.buf = 0;
@@ -519,8 +614,30 @@ impl<R: JpegRead> BitReader<R> {
 
 // public API
 
-// decode a baseline JPEG from an in-memory buffer
-/// Decode a JPEG from an in-memory buffer to a 1-bit dithered bitmap.
+// parse the header, then decode with the strategy the frame type needs
+fn decode_jpeg_from<R, B, A>(
+    reader: R,
+    max_w: u16,
+    max_h: u16,
+    allocate: A,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    R: JpegRead,
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
+    let mut bit = BitReader::new(reader);
+    let st = parse_header(&mut bit)?;
+    if st.progressive {
+        decode_progressive(st, bit, max_w, max_h, allocate)
+    } else {
+        validate_tables(&st)?;
+        decode_baseline(&st, bit, max_w, max_h, allocate)
+    }
+}
+
+/// Decode a JPEG (baseline or progressive) from an in-memory buffer to a
+/// 1-bit dithered bitmap.
 ///
 /// The image is integer-downscaled so the result fits within
 /// `max_w` × `max_h` pixels.
@@ -544,20 +661,15 @@ where
     B: AsMut<[u8]>,
     A: FnOnce(usize) -> Result<B, &'static str>,
 {
-    let st = parse_markers(data)?;
-
-    validate_tables(&st)?;
-
-    let reader = SliceReader::new(data, st.scan_start);
-    decode_baseline(&st, BitReader::new(reader), max_w, max_h, allocate)
+    decode_jpeg_from(SliceReader::new(data), max_w, max_h, allocate)
 }
 
 /// Decode a JPEG from a **stored** (uncompressed) ZIP entry by streaming
 /// 4 KB chunks through `read_fn`.
 ///
 /// `read_fn(offset, buf)` reads bytes at the given absolute offset and
-/// returns the number of bytes actually read. Progressive JPEGs are
-/// decoded using the first scan only.
+/// returns the number of bytes actually read. A progressive JPEG is read
+/// once per coefficient band, see the module docs.
 pub fn decode_jpeg_streaming<F>(
     read_fn: F,
     data_offset: u32,
@@ -575,7 +687,7 @@ where
 
 /// Stream a stored JPEG into caller-owned storage; see [`decode_jpeg_fit_with_buffer`].
 pub fn decode_jpeg_streaming_with_buffer<F, B, A>(
-    mut read_fn: F,
+    read_fn: F,
     data_offset: u32,
     data_size: u32,
     max_w: u16,
@@ -587,53 +699,22 @@ where
     B: AsMut<[u8]>,
     A: FnOnce(usize) -> Result<B, &'static str>,
 {
-    // read the first portion of the JPEG for marker parsing
-    let hdr_size = HEADER_READ.min(data_size as usize);
-    let mut hdr = Vec::new();
-    hdr.try_reserve_exact(hdr_size)
-        .map_err(|_| "jpeg: OOM for header")?;
-    hdr.resize(hdr_size, 0);
-    let n = read_fn(data_offset, &mut hdr)?;
-    hdr.truncate(n);
-
-    let st = parse_markers(&hdr)?;
-
-    validate_tables(&st)?;
-
-    // free header; marker data is now in JpegState
-    drop(hdr);
-
-    let scan_abs = data_offset + st.scan_start as u32;
-    let end_abs = data_offset + data_size;
-    let reader = ChunkReader::new(read_fn, scan_abs, end_abs);
-
-    decode_baseline(&st, BitReader::new(reader), max_w, max_h, allocate)
-}
-
-/// Backward-compatible alias for [`decode_jpeg_streaming`].
-pub fn decode_jpeg_sd<F>(
-    read_fn: F,
-    data_offset: u32,
-    data_size: u32,
-    max_w: u16,
-    max_h: u16,
-) -> Result<DecodedImage, &'static str>
-where
-    F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
-{
-    decode_jpeg_streaming(read_fn, data_offset, data_size, max_w, max_h)
+    let end = data_offset + data_size;
+    let reader = ChunkReader::new(read_fn, data_offset, end);
+    decode_jpeg_from(reader, max_w, max_h, allocate)
 }
 
 /// Decode a JPEG from a **DEFLATE-compressed** ZIP entry by streaming
 /// reads through `read_fn`.
 ///
 /// Both ZIP decompression and MCU decode are streamed concurrently,
-/// so the full entry is never held in memory. Peak heap ≈ 79 KB.
+/// so the full entry is never held in memory. Peak heap ≈ 79 KB for
+/// baseline; a progressive JPEG adds its coefficient band and inflates the
+/// entry again for every band.
 pub fn decode_jpeg_deflate_streaming<F>(
     read_fn: F,
     data_offset: u32,
     comp_size: u32,
-    uncomp_size: u32,
     max_w: u16,
     max_h: u16,
 ) -> Result<DecodedImage, &'static str>
@@ -644,7 +725,6 @@ where
         read_fn,
         data_offset,
         comp_size,
-        uncomp_size,
         max_w,
         max_h,
         |len| crate::image_buffer(len).map_err(|_| "jpeg: OOM for output"),
@@ -656,7 +736,6 @@ pub fn decode_jpeg_deflate_streaming_with_buffer<F, B, A>(
     read_fn: F,
     data_offset: u32,
     comp_size: u32,
-    uncomp_size: u32,
     max_w: u16,
     max_h: u16,
     allocate: A,
@@ -670,7 +749,6 @@ where
         read_fn,
         data_offset,
         comp_size,
-        uncomp_size,
         max_w,
         max_h,
         allocate,
@@ -683,7 +761,6 @@ pub fn decode_jpeg_deflate_streaming_with_scratch<F, B, A, S, C>(
     read_fn: F,
     data_offset: u32,
     comp_size: u32,
-    uncomp_size: u32,
     max_w: u16,
     max_h: u16,
     allocate: A,
@@ -696,63 +773,8 @@ where
     B: AsMut<[u8]>,
     A: FnOnce(usize) -> Result<B, &'static str>,
 {
-    let mut deflate = DeflateReader::new(read_fn, data_offset, comp_size, &mut scratch)?;
-
-    // decompress enough for marker parsing
-    let hdr_size = HEADER_READ.min(uncomp_size as usize);
-    let mut hdr = Vec::new();
-    hdr.try_reserve_exact(hdr_size)
-        .map_err(|_| "jpeg: OOM for header")?;
-    hdr.resize(hdr_size, 0);
-    let n = deflate.read_bytes(&mut hdr)?;
-    hdr.truncate(n);
-
-    let st = parse_markers(&hdr)?;
-
-    validate_tables(&st)?;
-
-    // advance past header bytes already decompressed beyond scan_start;
-    // if scan_start > n skip forward; if <= n rewind read cursor
-    let scan_start = st.scan_start;
-    if scan_start > n {
-        // rare: headers larger than HEADER_READ; skip forward
-        let skip = scan_start - n;
-        let mut trash = [0u8; 256];
-        let mut left = skip;
-        while left > 0 {
-            let chunk = left.min(trash.len());
-            let got = deflate.read_bytes(&mut trash[..chunk])?;
-            if got == 0 {
-                return Err("jpeg: truncated DEFLATE before scan data");
-            }
-            left -= got;
-        }
-    } else {
-        // bytes from scan_start..n already in window; rewind read cursor
-        let rewind = n - scan_start;
-        deflate.read_pos -= rewind;
-        deflate.avail += rewind;
-    }
-
-    // free header; marker data is in JpegState
-    drop(hdr);
-
-    decode_baseline(&st, BitReader::new(deflate), max_w, max_h, allocate)
-}
-
-/// Backward-compatible alias for [`decode_jpeg_deflate_streaming`].
-pub fn decode_jpeg_deflate_sd<F>(
-    read_fn: F,
-    data_offset: u32,
-    comp_size: u32,
-    uncomp_size: u32,
-    max_w: u16,
-    max_h: u16,
-) -> Result<DecodedImage, &'static str>
-where
-    F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>,
-{
-    decode_jpeg_deflate_streaming(read_fn, data_offset, comp_size, uncomp_size, max_w, max_h)
+    let deflate = DeflateReader::new(read_fn, data_offset, comp_size, &mut scratch)?;
+    decode_jpeg_from(deflate, max_w, max_h, allocate)
 }
 
 // ── dimension peek (no decode) ─────────────────────────────────────
@@ -852,16 +874,17 @@ fn scan_sof_dimensions(data: &[u8]) -> Result<(u16, u16), &'static str> {
     }
 }
 
-// ── baseline decode core (generic over byte source) ────────────────
+// ── decode core (generic over byte source) ─────────────────────────
 
+// tables the current scan reads: DC for a DC scan, AC for an AC scan
 fn validate_tables(st: &JpegState) -> Result<(), &'static str> {
     for sci in 0..st.scan_num_comp as usize {
         let ci = st.scan_order[sci] as usize;
         let c = &st.comp[ci];
-        if !st.qt_ok[c.qt_idx as usize] {
+        if c.qt_idx > 3 || !st.qt_ok[c.qt_idx as usize] {
             return Err("jpeg: missing quant table");
         }
-        if !st.dc_ok[c.dc_tbl as usize] {
+        if st.scan_ss == 0 && !st.dc_ok[c.dc_tbl as usize] {
             return Err("jpeg: missing DC Huffman table");
         }
         if st.scan_se > 0 && !st.ac_ok[c.ac_tbl as usize] {
@@ -869,6 +892,131 @@ fn validate_tables(st: &JpegState) -> Result<(), &'static str> {
         }
     }
     Ok(())
+}
+
+// output geometry shared by the baseline and progressive decoders
+struct Plan {
+    w: usize,
+    h: usize,
+    scale: usize,
+    out_w: usize,
+    out_h: usize,
+    out_stride: usize,
+    mcu_w: usize,
+    mcu_h: usize,
+    mcus_x: usize,
+    mcus_y: usize,
+    row_w: usize,
+}
+
+impl Plan {
+    fn new(st: &JpegState, max_w: u16, max_h: u16) -> Result<Self, &'static str> {
+        if max_w == 0 || max_h == 0 {
+            return Err("jpeg: zero output bounds");
+        }
+        let w = st.width as usize;
+        let h = st.height as usize;
+        if w == 0 || h == 0 {
+            return Err("jpeg: zero dimensions");
+        }
+        if (w as u32).saturating_mul(h as u32) > MAX_PIXELS {
+            return Err("jpeg: exceeds pixel limit");
+        }
+
+        let sw = w.div_ceil(max_w as usize);
+        let sh = h.div_ceil(max_h as usize);
+        let scale = sw.max(sh).max(1);
+        let out_w = (w / scale).max(1);
+        let out_h = (h / scale).max(1);
+
+        let mcu_w = st.max_h as usize * 8;
+        let mcu_h = st.max_v as usize * 8;
+        let mcus_x = w.div_ceil(mcu_w);
+        let mcus_y = h.div_ceil(mcu_h);
+        Ok(Self {
+            w,
+            h,
+            scale,
+            out_w,
+            out_h,
+            out_stride: out_w.div_ceil(8),
+            mcu_w,
+            mcu_h,
+            mcus_x,
+            mcus_y,
+            row_w: mcus_x * mcu_w,
+        })
+    }
+}
+
+// One MCU row of luma awaiting dither, and the 1-bit output it feeds.
+// Rows must be flushed top to bottom: the error diffusion carries over.
+struct Canvas<'a> {
+    y_row: Vec<u8>,
+    err_cur: Vec<i16>,
+    err_nxt: Vec<i16>,
+    pixels: &'a mut [u8],
+    out_y: usize,
+}
+
+impl<'a> Canvas<'a> {
+    fn new(plan: &Plan, pixels: &'a mut [u8]) -> Result<Self, &'static str> {
+        if pixels.len() != plan.out_stride * plan.out_h {
+            return Err("jpeg: output buffer size mismatch");
+        }
+        pixels.fill(0);
+
+        let mut y_row = Vec::new();
+        y_row
+            .try_reserve_exact(plan.row_w * plan.mcu_h)
+            .map_err(|_| "jpeg: OOM for y_row")?;
+        y_row.resize(plan.row_w * plan.mcu_h, 128u8);
+        let mut err_cur = Vec::new();
+        err_cur
+            .try_reserve_exact(plan.out_w + 2)
+            .map_err(|_| "jpeg: OOM for dither")?;
+        err_cur.resize(plan.out_w + 2, 0i16);
+        let mut err_nxt = Vec::new();
+        err_nxt
+            .try_reserve_exact(plan.out_w + 2)
+            .map_err(|_| "jpeg: OOM for dither")?;
+        err_nxt.resize(plan.out_w + 2, 0i16);
+
+        Ok(Self {
+            y_row,
+            err_cur,
+            err_nxt,
+            pixels,
+            out_y: 0,
+        })
+    }
+
+    // dither the output rows that MCU row `mcu_row` of `y_row` contains
+    fn flush(&mut self, plan: &Plan, mcu_row: usize) {
+        for py in 0..plan.mcu_h {
+            let src_y = mcu_row * plan.mcu_h + py;
+            if src_y >= plan.h || self.out_y >= plan.out_h {
+                break;
+            }
+            if src_y % plan.scale != 0 {
+                continue;
+            }
+            let row_off = py * plan.row_w;
+            let out_row =
+                &mut self.pixels[self.out_y * plan.out_stride..(self.out_y + 1) * plan.out_stride];
+            dither_row_grey(
+                &self.y_row[row_off..],
+                plan.scale,
+                plan.out_w,
+                &mut self.err_cur,
+                &mut self.err_nxt,
+                out_row,
+            );
+            self.out_y += 1;
+            core::mem::swap(&mut self.err_cur, &mut self.err_nxt);
+            self.err_nxt.fill(0);
+        }
+    }
 }
 
 fn decode_baseline<R: JpegRead, B, A>(
@@ -882,93 +1030,31 @@ where
     B: AsMut<[u8]>,
     A: FnOnce(usize) -> Result<B, &'static str>,
 {
-    if max_w == 0 || max_h == 0 {
-        return Err("jpeg: zero output bounds");
-    }
-    let w = st.width as usize;
-    let h = st.height as usize;
-    if w == 0 || h == 0 {
-        return Err("jpeg: zero dimensions");
-    }
-    if (w as u32).saturating_mul(h as u32) > MAX_PIXELS {
-        return Err("jpeg: exceeds pixel limit");
-    }
+    let plan = Plan::new(st, max_w, max_h)?;
+    log::info!(
+        "jpeg: baseline {}x{} → {}x{} (scale {})",
+        plan.w,
+        plan.h,
+        plan.out_w,
+        plan.out_h,
+        plan.scale
+    );
 
-    let scale = {
-        let sw = (w + max_w as usize - 1) / max_w as usize;
-        let sh = (h + max_h as usize - 1) / max_h as usize;
-        sw.max(sh).max(1)
-    };
-    let out_w = (w / scale).max(1);
-    let out_h = (h / scale).max(1);
-    let out_stride = (out_w + 7) / 8;
-
-    let mcu_w = st.max_h as usize * 8;
-    let mcu_h = st.max_v as usize * 8;
-    let mcus_x = (w + mcu_w - 1) / mcu_w;
-    let mcus_y = (h + mcu_h - 1) / mcu_h;
-    let row_w = mcus_x * mcu_w;
-
-    if st.progressive {
-        log::warn!(
-            "jpeg: progressive {}x{} -> {}x{} (scale {}, first scan Ss={} Se={} Al={})",
-            w,
-            h,
-            out_w,
-            out_h,
-            scale,
-            st.scan_ss,
-            st.scan_se,
-            st.scan_al
-        );
-    } else {
-        log::info!(
-            "jpeg: baseline {}x{} → {}x{} (scale {})",
-            w,
-            h,
-            out_w,
-            out_h,
-            scale
-        );
-    }
-
-    // allocate buffers
-
-    let mut y_row = Vec::new();
-    y_row
-        .try_reserve_exact(row_w * mcu_h)
-        .map_err(|_| "jpeg: OOM for y_row")?;
-    y_row.resize(row_w * mcu_h, 128u8);
-    let mut output = allocate(out_stride * out_h)?;
-    let pixels = output.as_mut();
-    if pixels.len() != out_stride * out_h {
-        return Err("jpeg: output buffer size mismatch");
-    }
-    pixels.fill(0);
-    let mut err_cur = Vec::new();
-    err_cur
-        .try_reserve_exact(out_w + 2)
-        .map_err(|_| "jpeg: OOM for dither")?;
-    err_cur.resize(out_w + 2, 0i16);
-    let mut err_nxt = Vec::new();
-    err_nxt
-        .try_reserve_exact(out_w + 2)
-        .map_err(|_| "jpeg: OOM for dither")?;
-    err_nxt.resize(out_w + 2, 0i16);
+    let mut output = allocate(plan.out_stride * plan.out_h)?;
+    let mut canvas = Canvas::new(&plan, output.as_mut())?;
 
     let mut dc_pred = [0i32; MAX_COMP];
     let mut block = [0i32; 64];
     let mut pix = [0u8; 64];
     let mut mcu_cnt: u32 = 0;
-    let total_mcus = (mcus_x * mcus_y) as u32;
-    let mut out_y: usize = 0;
+    let total_mcus = (plan.mcus_x * plan.mcus_y) as u32;
 
     // MCU decode loop
 
-    for mcu_row in 0..mcus_y {
-        y_row.fill(128);
+    for mcu_row in 0..plan.mcus_y {
+        canvas.y_row.fill(128);
 
-        for mcu_col in 0..mcus_x {
+        for mcu_col in 0..plan.mcus_x {
             for sci in 0..st.scan_num_comp as usize {
                 let ci = st.scan_order[sci] as usize;
                 let c = &st.comp[ci];
@@ -988,12 +1074,7 @@ where
                                 st.scan_al,
                             )?;
                             idct(&block, &mut pix);
-                            let bx = mcu_col * mcu_w + bh * 8;
-                            let by = bv * 8;
-                            for r in 0..8 {
-                                let dst = (by + r) * row_w + bx;
-                                y_row[dst..dst + 8].copy_from_slice(&pix[r * 8..r * 8 + 8]);
-                            }
+                            put_block(&mut canvas.y_row, &plan, mcu_col, bh, bv, &pix);
                         } else {
                             skip_block(
                                 &mut reader,
@@ -1018,89 +1099,529 @@ where
             }
         }
 
-        // dither this MCU row
-        for py in 0..mcu_h {
-            let src_y = mcu_row * mcu_h + py;
-            if src_y >= h || out_y >= out_h {
-                break;
-            }
-            if src_y % scale != 0 {
-                continue;
-            }
-            let row_off = py * row_w;
-            let out_row = &mut pixels[out_y * out_stride..(out_y + 1) * out_stride];
-            dither_row_grey(
-                &y_row[row_off..],
-                scale,
-                out_w,
-                &mut err_cur,
-                &mut err_nxt,
-                out_row,
-            );
-            out_y += 1;
-            core::mem::swap(&mut err_cur, &mut err_nxt);
-            err_nxt.fill(0);
-        }
+        canvas.flush(&plan, mcu_row);
     }
 
+    let out_y = canvas.out_y;
+    drop(canvas);
     Ok(DecodedImage {
-        width: out_w as u16,
+        width: plan.out_w as u16,
         height: out_y as u16,
         data: output,
-        stride: out_stride,
+        stride: plan.out_stride,
     })
 }
 
-// marker parsing (operates on &[u8] header buffer)
-
-fn parse_markers(data: &[u8]) -> Result<Box<JpegState>, &'static str> {
-    if data.len() < 2 || data[0] != 0xFF || data[1] != M_SOI {
-        return Err("jpeg: invalid signature");
+// copy one IDCT'd luma block into the MCU row buffer
+#[inline]
+fn put_block(y_row: &mut [u8], plan: &Plan, mcu_col: usize, bh: usize, bv: usize, pix: &[u8; 64]) {
+    let bx = mcu_col * plan.mcu_w + bh * 8;
+    for r in 0..8 {
+        let dst = (bv * 8 + r) * plan.row_w + bx;
+        y_row[dst..dst + 8].copy_from_slice(&pix[r * 8..r * 8 + 8]);
     }
-    let mut st = JpegState::heap_new()?;
-    let mut pos = 2usize;
-    let len = data.len();
+}
 
-    loop {
-        while pos < len && data[pos] != 0xFF {
-            pos += 1;
-        }
-        while pos < len && data[pos] == 0xFF {
-            pos += 1;
-        }
-        if pos >= len {
-            return Err("jpeg: truncated");
-        }
-        let marker = data[pos];
-        pos += 1;
+#[cfg(feature = "progressive-jpeg")]
+mod progressive {
+    use super::*;
 
-        match marker {
-            0x00 | M_RST0..=M_RST7 => continue,
+    // ── progressive decode ─────────────────────────────────────────────
 
-            M_SOF0 => parse_sof(data, &mut pos, &mut st, false)?,
-            M_SOF2 => parse_sof(data, &mut pos, &mut st, true)?,
-            0xC1 | 0xC3 | 0xC5..=0xCB | 0xCD..=0xCF => {
-                return Err("jpeg: unsupported SOF variant");
+    // Budget for the band of Y coefficients (i16, quantized). It is a target:
+    // decode_progressive halves the band height until the reservation fits. A
+    // bigger band means fewer passes over the entropy stream.
+    const MAX_BAND_BYTES: usize = 48 * 1024;
+
+    // offset of a Y block inside the band, in i16 units
+    #[inline]
+    fn band_block_offset(
+        my: usize,
+        mx: usize,
+        bidx: usize,
+        mcus_x: usize,
+        y_blocks_per_mcu: usize,
+    ) -> usize {
+        (((my * mcus_x) + mx) * y_blocks_per_mcu + bidx) * 64
+    }
+
+    // DC first scan: DC differential, scaled by Al, stored at coefficient 0
+    fn pdc_first<R: JpegRead>(
+        r: &mut BitReader<R>,
+        dc_ht: &HuffTable,
+        dc_pred: &mut i32,
+        al: u8,
+        blk: &mut [i16],
+    ) -> Result<(), &'static str> {
+        let dc_size = huff_decode(r, dc_ht)?;
+        if dc_size > 0 {
+            if dc_size > 11 {
+                return Err("jpeg: DC size > 11");
             }
-            M_DHT => parse_dht(data, &mut pos, &mut st)?,
-            M_DQT => parse_dqt(data, &mut pos, &mut st)?,
-            M_DRI => parse_dri(data, &mut pos, &mut st)?,
+            let bits = r.read_bits(dc_size)?;
+            *dc_pred += extend(bits, dc_size);
+        }
+        blk[0] = (*dc_pred << al) as i16;
+        Ok(())
+    }
+
+    // DC refinement: one bit per block, OR'd in at bit Al whatever the block holds
+    fn pdc_refine<R: JpegRead>(
+        r: &mut BitReader<R>,
+        al: u8,
+        blk: &mut [i16],
+    ) -> Result<(), &'static str> {
+        if r.read_bits(1)? != 0 {
+            blk[0] |= 1i16 << al;
+        }
+        Ok(())
+    }
+
+    // read the EOBn run length that follows an EOB symbol with `run` extra bits
+    fn read_eobrun<R: JpegRead>(r: &mut BitReader<R>, run: u8) -> Result<u16, &'static str> {
+        Ok(((1u32 << run) + r.read_bits(run)?) as u16)
+    }
+
+    // AC first scan: run/size symbols over [ss..=se], scaled by Al; an EOBn
+    // symbol ends this block and the next n-1 blocks of the scan
+    fn pac_first<R: JpegRead>(
+        r: &mut BitReader<R>,
+        ac_ht: &HuffTable,
+        ss: usize,
+        se: usize,
+        al: u8,
+        eobrun: &mut u16,
+        blk: &mut [i16],
+    ) -> Result<(), &'static str> {
+        if *eobrun > 0 {
+            *eobrun -= 1;
+            return Ok(());
+        }
+        let mut k = ss;
+        while k <= se {
+            let sym = huff_decode(r, ac_ht)?;
+            let run = sym >> 4;
+            let size = sym & 0x0F;
+            if size != 0 {
+                k += run as usize;
+                if k > se {
+                    return Err("jpeg: AC index overflow");
+                }
+                let bits = r.read_bits(size)?;
+                blk[ZZ[k]] = (extend(bits, size) << al) as i16;
+                k += 1;
+            } else if run == 15 {
+                k += 16;
+            } else {
+                *eobrun = read_eobrun(r, run)? - 1;
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    // append the correction bit to an already-nonzero coefficient
+    #[inline]
+    fn refine_bit<R: JpegRead>(
+        r: &mut BitReader<R>,
+        coef: &mut i16,
+        p1: i16,
+        m1: i16,
+    ) -> Result<(), &'static str> {
+        if r.read_bits(1)? != 0 && *coef & p1 == 0 {
+            *coef += if *coef >= 0 { p1 } else { m1 };
+        }
+        Ok(())
+    }
+
+    // AC refinement scan. Every already-nonzero coefficient in [ss..=se] costs
+    // one correction bit, so parsing needs the exact coefficients of earlier
+    // scans for this block (IJG jdphuff.c decode_mcu_AC_refine).
+    fn pac_refine<R: JpegRead>(
+        r: &mut BitReader<R>,
+        ac_ht: &HuffTable,
+        ss: usize,
+        se: usize,
+        al: u8,
+        eobrun: &mut u16,
+        blk: &mut [i16],
+    ) -> Result<(), &'static str> {
+        let p1: i16 = 1 << al;
+        let m1: i16 = -1 << al;
+        let mut k = ss;
+
+        if *eobrun == 0 {
+            while k <= se {
+                let sym = huff_decode(r, ac_ht)?;
+                let mut run = sym >> 4;
+                let size = sym & 0x0F;
+                let mut new_val = 0i16;
+                if size != 0 {
+                    if size != 1 {
+                        return Err("jpeg: bad refinement size");
+                    }
+                    new_val = if r.read_bits(1)? != 0 { p1 } else { m1 };
+                } else if run != 15 {
+                    *eobrun = read_eobrun(r, run)?;
+                    break;
+                }
+                // pass `run` zero coefficients (refining the nonzero ones on
+                // the way); the next zero takes `new_val`. ZRL places nothing.
+                while k <= se {
+                    let coef = &mut blk[ZZ[k]];
+                    if *coef != 0 {
+                        refine_bit(r, coef, p1, m1)?;
+                    } else if run == 0 {
+                        break;
+                    } else {
+                        run -= 1;
+                    }
+                    k += 1;
+                }
+                if new_val != 0 {
+                    if k > se {
+                        return Err("jpeg: AC refinement overflow");
+                    }
+                    blk[ZZ[k]] = new_val;
+                }
+                k += 1;
+            }
+        }
+
+        if *eobrun > 0 {
+            // the rest of this block only gets correction bits
+            while k <= se {
+                let coef = &mut blk[ZZ[k]];
+                if *coef != 0 {
+                    refine_bit(r, coef, p1, m1)?;
+                }
+                k += 1;
+            }
+            *eobrun -= 1;
+        }
+        Ok(())
+    }
+
+    // decode one block of the current scan into `blk`
+    fn scan_block<R: JpegRead>(
+        r: &mut BitReader<R>,
+        st: &JpegState,
+        ci: usize,
+        dc_pred: &mut i32,
+        eobrun: &mut u16,
+        blk: &mut [i16],
+    ) -> Result<(), &'static str> {
+        let c = &st.comp[ci];
+        let (ss, se) = (st.scan_ss as usize, st.scan_se as usize);
+        let (ah, al) = (st.scan_ah, st.scan_al);
+        if ss == 0 {
+            if ah == 0 {
+                pdc_first(r, &st.dc_huff[c.dc_tbl as usize], dc_pred, al, blk)
+            } else {
+                pdc_refine(r, al, blk)
+            }
+        } else {
+            let ac_ht = &st.ac_huff[c.ac_tbl as usize];
+            if ah == 0 {
+                pac_first(r, ac_ht, ss, se, al, eobrun, blk)
+            } else {
+                pac_refine(r, ac_ht, ss, se, al, eobrun, blk)
+            }
+        }
+    }
+
+    // Decode the scan whose header was just parsed, keeping the Y blocks of MCU
+    // rows top..bottom in `band`. Blocks outside the band, and chroma blocks of
+    // an interleaved scan, are parsed into a scratch block to stay in sync.
+    // Stops after the band's last row; the caller skims the remainder.
+    fn walk_scan<R: JpegRead>(
+        st: &JpegState,
+        bit: &mut BitReader<R>,
+        plan: &Plan,
+        band: &mut [i16],
+        top: usize,
+        bottom: usize,
+        whole: bool,
+    ) -> Result<(), &'static str> {
+        let n = st.scan_num_comp as usize;
+        let (ss, se) = (st.scan_ss as usize, st.scan_se as usize);
+        if ss > se || (ss == 0 && se != 0) || (ss > 0 && n != 1) || st.scan_al > 13 {
+            return Err("jpeg: bad progressive scan");
+        }
+        if !st.scan_order[..n].contains(&0) {
+            return Ok(()); // chroma only
+        }
+        // The nonzero map of every block is needed to parse a refinement scan
+        // and only the band's blocks are kept, so these are skipped.
+        if st.scan_ah > 0 && ss > 0 && !whole {
+            return Ok(());
+        }
+        validate_tables(st)?;
+
+        let y = st.comp[0];
+        let (yh, yv) = (y.h_samp as usize, y.v_samp as usize);
+        let y_bpm = yh * yv;
+        let restart = st.restart_interval as u32;
+        let mut dc_pred = [0i32; MAX_COMP];
+        let mut eobrun: u16 = 0;
+        let mut scratch = [0i16; 64];
+        let mut unit: u32 = 0;
+
+        if n > 1 {
+            // interleaved: MCUs in raster order, every component's blocks in each
+            let total = (plan.mcus_x * plan.mcus_y) as u32;
+            for my in 0..bottom {
+                for mx in 0..plan.mcus_x {
+                    for sci in 0..n {
+                        let ci = st.scan_order[sci] as usize;
+                        let c = &st.comp[ci];
+                        for bv in 0..c.v_samp as usize {
+                            for bh in 0..c.h_samp as usize {
+                                let blk = if ci == 0 && my >= top {
+                                    let off = band_block_offset(
+                                        my - top,
+                                        mx,
+                                        bv * yh + bh,
+                                        plan.mcus_x,
+                                        y_bpm,
+                                    );
+                                    &mut band[off..off + 64]
+                                } else {
+                                    &mut scratch[..]
+                                };
+                                scan_block(bit, st, ci, &mut dc_pred[ci], &mut eobrun, blk)?;
+                            }
+                        }
+                    }
+                    unit += 1;
+                    if restart > 0 && unit % restart == 0 && unit < total {
+                        bit.consume_restart()?;
+                        dc_pred.fill(0);
+                        eobrun = 0;
+                    }
+                }
+            }
+            return Ok(());
+        }
+
+        // Non-interleaved: blocks of the one component in raster order over its
+        // own ceil(samples / 8) grid, not the MCU-padded one (JPEG A.2.2).
+        let comp_w = (plan.w * yh).div_ceil(st.max_h as usize);
+        let comp_h = (plan.h * yv).div_ceil(st.max_v as usize);
+        let (blocks_x, blocks_y) = (comp_w.div_ceil(8), comp_h.div_ceil(8));
+        let total = (blocks_x * blocks_y) as u32;
+        for cy in 0..blocks_y {
+            let my = cy / yv;
+            if my >= bottom {
+                break;
+            }
+            for cx in 0..blocks_x {
+                let blk = if my >= top {
+                    let off = band_block_offset(
+                        my - top,
+                        cx / yh,
+                        (cy % yv) * yh + cx % yh,
+                        plan.mcus_x,
+                        y_bpm,
+                    );
+                    &mut band[off..off + 64]
+                } else {
+                    &mut scratch[..]
+                };
+                scan_block(bit, st, 0, &mut dc_pred[0], &mut eobrun, blk)?;
+                unit += 1;
+                if restart > 0 && unit % restart == 0 && unit < total {
+                    bit.consume_restart()?;
+                    dc_pred[0] = 0;
+                    eobrun = 0;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    // One walk through the file, collecting the Y coefficients of MCU rows
+    // top..bottom. Tables are re-read from the start, so each pass sees the
+    // Huffman and quantization tables exactly as the encoder redefined them.
+    fn run_pass<R: JpegRead>(
+        st: &mut JpegState,
+        bit: &mut BitReader<R>,
+        plan: &Plan,
+        band: &mut [i16],
+        top: usize,
+        bottom: usize,
+        whole: bool,
+    ) -> Result<(), &'static str> {
+        bit.source.rewind()?;
+        bit.reset();
+        read_soi(bit)?;
+        loop {
+            match bit.next_marker()? {
+                M_SOS => {
+                    parse_sos(&bit.read_segment()?, &mut 0, st)?;
+                    walk_scan(st, bit, plan, band, top, bottom, whole)?;
+                }
+                M_EOI => return Ok(()),
+                m => parse_segment(bit, st, m)?,
+            }
+        }
+    }
+
+    // An 8-bit block's coefficients stay within ±1024 (11 bits) before
+    // quantization; the IDCT's sums only fit i32 for inputs near that range.
+    const COEF_LIMIT: i32 = 4096;
+
+    // dequantize one stored block and run the IDCT
+    fn dequant_idct(blk: &[i16], qt: &[u16; 64], out: &mut [u8; 64]) {
+        let mut deq = [0i32; 64];
+        for k in 0..64 {
+            // i16 * u16 always fits i32; damaged data is clamped, not wrapped
+            deq[ZZ[k]] = (blk[ZZ[k]] as i32 * qt[k] as i32).clamp(-COEF_LIMIT, COEF_LIMIT);
+        }
+        idct(&deq, out);
+    }
+
+    pub(super) fn decode_progressive<R: JpegRead, B, A>(
+        mut st: Box<JpegState>,
+        mut bit: BitReader<R>,
+        max_w: u16,
+        max_h: u16,
+        allocate: A,
+    ) -> Result<DecodedImage<B>, &'static str>
+    where
+        B: AsMut<[u8]>,
+        A: FnOnce(usize) -> Result<B, &'static str>,
+    {
+        let plan = Plan::new(&st, max_w, max_h)?;
+        let y = st.comp[0];
+        let (yh, yv) = (y.h_samp as usize, y.v_samp as usize);
+        let y_bpm = yh * yv;
+        let row_bytes = plan.mcus_x * y_bpm * 64 * 2;
+
+        let mut output = allocate(plan.out_stride * plan.out_h)?;
+        let mut canvas = Canvas::new(&plan, output.as_mut())?;
+
+        // the band takes whatever heap is left, so it is reserved last
+        let mut rows = (MAX_BAND_BYTES / row_bytes).clamp(1, plan.mcus_y);
+        let mut band: Vec<i16> = Vec::new();
+        loop {
+            match band.try_reserve_exact(rows * row_bytes / 2) {
+                Ok(()) => break,
+                Err(_) if rows > 1 => rows /= 2,
+                Err(_) => return Err("jpeg: OOM for coefficient band"),
+            }
+        }
+        band.resize(rows * row_bytes / 2, 0);
+        let whole = rows >= plan.mcus_y;
+
+        log::info!(
+            "jpeg: progressive {}x{} → {}x{} (scale {}, {} pass(es) of {} MCU rows)",
+            plan.w,
+            plan.h,
+            plan.out_w,
+            plan.out_h,
+            plan.scale,
+            plan.mcus_y.div_ceil(rows),
+            rows
+        );
+
+        let mut pix = [0u8; 64];
+        for top in (0..plan.mcus_y).step_by(rows) {
+            let bottom = (top + rows).min(plan.mcus_y);
+            band.fill(0);
+            run_pass(&mut st, &mut bit, &plan, &mut band, top, bottom, whole)?;
+
+            let qt = &st.qt[y.qt_idx as usize & 3];
+            for my in top..bottom {
+                canvas.y_row.fill(128);
+                for mx in 0..plan.mcus_x {
+                    for bv in 0..yv {
+                        for bh in 0..yh {
+                            let off =
+                                band_block_offset(my - top, mx, bv * yh + bh, plan.mcus_x, y_bpm);
+                            dequant_idct(&band[off..off + 64], qt, &mut pix);
+                            put_block(&mut canvas.y_row, &plan, mx, bh, bv, &pix);
+                        }
+                    }
+                }
+                canvas.flush(&plan, my);
+            }
+        }
+
+        let out_y = canvas.out_y;
+        drop(canvas);
+        Ok(DecodedImage {
+            width: plan.out_w as u16,
+            height: out_y as u16,
+            data: output,
+            stride: plan.out_stride,
+        })
+    }
+}
+
+#[cfg(feature = "progressive-jpeg")]
+use progressive::decode_progressive;
+
+// without the feature a progressive frame is refused instead of decoded wrongly
+#[cfg(not(feature = "progressive-jpeg"))]
+fn decode_progressive<R: JpegRead, B, A>(
+    _st: Box<JpegState>,
+    _bit: BitReader<R>,
+    _max_w: u16,
+    _max_h: u16,
+    _allocate: A,
+) -> Result<DecodedImage<B>, &'static str>
+where
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+{
+    Err("jpeg: progressive support not built (feature progressive-jpeg)")
+}
+
+// marker parsing. Segments are read off the stream into a small buffer and
+// handed to the slice parsers, so the same code serves the first look at the
+// header and every later pass over a progressive file.
+
+fn read_soi<R: JpegRead>(r: &mut BitReader<R>) -> Result<(), &'static str> {
+    if r.source.read_byte().ok() == Some(0xFF) && r.source.read_byte().ok() == Some(M_SOI) {
+        Ok(())
+    } else {
+        Err("jpeg: invalid signature")
+    }
+}
+
+// parse the segment that follows `marker`; unknown ones are skipped
+fn parse_segment<R: JpegRead>(
+    r: &mut BitReader<R>,
+    st: &mut JpegState,
+    marker: u8,
+) -> Result<(), &'static str> {
+    match marker {
+        M_SOF0 => parse_sof(&r.read_segment()?, &mut 0, st, false),
+        M_SOF2 => parse_sof(&r.read_segment()?, &mut 0, st, true),
+        0xC1 | 0xC3 | 0xC5..=0xCB | 0xCD..=0xCF => Err("jpeg: unsupported SOF variant"),
+        M_DHT => parse_dht(&r.read_segment()?, &mut 0, st),
+        M_DQT => parse_dqt(&r.read_segment()?, &mut 0, st),
+        M_DRI => parse_dri(&r.read_segment()?, &mut 0, st),
+        // markers without a length field
+        M_SOI | M_TEM => Ok(()),
+        _ => r.skip_segment(),
+    }
+}
+
+// Parse up to and including the first SOS header; the reader is left at the
+// start of that scan's entropy-coded data.
+fn parse_header<R: JpegRead>(r: &mut BitReader<R>) -> Result<Box<JpegState>, &'static str> {
+    read_soi(r)?;
+    let mut st = JpegState::heap_new()?;
+    loop {
+        match r.next_marker()? {
             M_SOS => {
-                parse_sos(data, &mut pos, &mut st)?;
-                st.scan_start = pos;
+                parse_sos(&r.read_segment()?, &mut 0, &mut st)?;
                 return Ok(st);
             }
             M_EOI => return Err("jpeg: EOI before SOS"),
-            _ => {
-                if pos + 2 > len {
-                    return Err("jpeg: truncated marker");
-                }
-                let seg = be_u16(data, pos) as usize;
-                if seg < 2 || pos + seg > len {
-                    return Err("jpeg: bad marker length");
-                }
-                pos += seg;
-            }
+            m => parse_segment(r, &mut st, m)?,
         }
     }
 }
@@ -1116,7 +1637,7 @@ fn parse_sof(
     }
     let seg = be_u16(data, *pos) as usize;
     *pos += 2;
-    if *pos + seg - 2 > data.len() {
+    if seg < 8 || *pos + seg - 2 > data.len() {
         return Err("jpeg: SOF truncated");
     }
     let p = *pos;
@@ -1245,7 +1766,7 @@ fn parse_dri(data: &[u8], pos: &mut usize, st: &mut JpegState) -> Result<(), &'s
 }
 
 fn parse_sos(data: &[u8], pos: &mut usize, st: &mut JpegState) -> Result<(), &'static str> {
-    if *pos + 2 > data.len() {
+    if *pos + 3 > data.len() {
         return Err("jpeg: SOS truncated");
     }
     let seg = be_u16(data, *pos) as usize;
@@ -1258,10 +1779,16 @@ fn parse_sos(data: &[u8], pos: &mut usize, st: &mut JpegState) -> Result<(), &'s
     if st.scan_num_comp == 0 || st.scan_num_comp > st.num_comp {
         return Err("jpeg: bad SOS component count");
     }
+    if *pos + 2 * st.scan_num_comp as usize + 3 > data.len() {
+        return Err("jpeg: SOS truncated");
+    }
     for sci in 0..st.scan_num_comp as usize {
         let cs = data[*pos];
         let td_ta = data[*pos + 1];
         *pos += 2;
+        if td_ta >> 4 >= 4 || td_ta & 0x0F >= 4 {
+            return Err("jpeg: SOS table id out of range");
+        }
         let mut found = false;
         for j in 0..st.num_comp as usize {
             if st.comp[j].id == cs {
@@ -1279,6 +1806,7 @@ fn parse_sos(data: &[u8], pos: &mut usize, st: &mut JpegState) -> Result<(), &'s
     st.scan_ss = data[*pos].min(63);
     st.scan_se = data[*pos + 1].min(63);
     let ah_al = data[*pos + 2];
+    st.scan_ah = ah_al >> 4;
     st.scan_al = ah_al & 0x0F;
     *pos += 3;
     Ok(())

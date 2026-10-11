@@ -28,7 +28,7 @@ sd-metrics = []
 [dependencies]
 pulp-fontpack = { path = "../fontpack" }
 pulp-board-logic = { path = "../board-logic" }
-smol-epub.workspace = true
+smol-epub = { workspace = true, features = ["progressive-jpeg"] }
 embassy-time = { workspace = true, features = ["std", "generic-queue-8"] }
 embassy-sync.workspace = true
 embassy-executor.workspace = true
