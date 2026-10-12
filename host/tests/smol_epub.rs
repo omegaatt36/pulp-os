@@ -13,6 +13,8 @@ mod malformed;
 mod rig;
 #[path = "smol_epub/stream.rs"]
 mod stream;
+#[path = "smol_epub/svg_image.rs"]
+mod svg_image;
 #[path = "smol_epub/toc.rs"]
 mod toc;
 #[path = "smol_epub/zip_limit.rs"]

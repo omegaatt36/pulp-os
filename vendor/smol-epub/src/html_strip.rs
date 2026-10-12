@@ -323,7 +323,7 @@ impl HtmlStripStream {
                 Phase::ImgAttrName => {
                     if b == b'=' {
                         let name = &self.tag_buf[..self.tag_len as usize];
-                        self.img_is_src = name == b"src";
+                        self.img_is_src = self.is_img_source(name);
                         self.phase = Phase::ImgValStart;
                     } else if b == b'>' {
                         self.finish_img_tag();
@@ -338,7 +338,7 @@ impl HtmlStripStream {
                 Phase::ImgAttrGap => {
                     if b == b'=' {
                         let name = &self.tag_buf[..self.tag_len as usize];
-                        self.img_is_src = name == b"src";
+                        self.img_is_src = self.is_img_source(name);
                         self.phase = Phase::ImgValStart;
                     } else if b == b'>' {
                         self.finish_img_tag();
@@ -794,8 +794,8 @@ impl HtmlStripStream {
             self.push_deferred_marker(BREAK);
         }
 
-        // <img>: enter image-src capture mode
-        if name == b"img" && !is_close {
+        // <img>, and the <image> of an SVG page: enter image-src capture mode
+        if (name == b"img" || name == b"image") && !is_close {
             self.capture_img = true;
             self.img_w = 3; // reserve [0..3] for marker header
             self.img_is_src = false;
@@ -810,6 +810,12 @@ impl HtmlStripStream {
         } else {
             self.phase = Phase::Text;
         }
+    }
+
+    // `src` of <img>, `href` / `xlink:href` of an SVG <image>; the first one
+    // wins, so a tag carrying both does not splice two paths
+    fn is_img_source(&self, name: &[u8]) -> bool {
+        self.img_w == 3 && matches!(name, b"src" | b"href" | b"xlink:href")
     }
 
     // finish <img> tag; emit image-ref marker if src was captured
