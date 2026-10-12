@@ -247,7 +247,27 @@ pub fn build_zip(entries: &[RawEntry]) -> Vec<u8> {
     zip::write(&entries)
 }
 
+// What the package declares about the writing of the book.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Writing<'a> {
+    // dc:language
+    pub language: &'a str,
+    // <spine page-progression-direction>, written as given
+    pub page_progression: Option<&'a str>,
+}
+
+impl Writing<'_> {
+    pub const LATIN: Writing<'static> = Writing {
+        language: "en",
+        page_progression: None,
+    };
+}
+
 pub fn build_epub(spec: &EpubSpec) -> Result<Vec<u8>, SpecError> {
+    build_epub_writing(spec, &Writing::LATIN)
+}
+
+pub fn build_epub_writing(spec: &EpubSpec, writing: &Writing<'_>) -> Result<Vec<u8>, SpecError> {
     check(spec)?;
 
     let toc = match spec.version {
@@ -260,7 +280,10 @@ pub fn build_epub(spec: &EpubSpec) -> Result<Vec<u8>, SpecError> {
             "META-INF/container.xml".into(),
             markup::container().into_bytes(),
         ),
-        ("OEBPS/content.opf".into(), markup::opf(spec).into_bytes()),
+        (
+            "OEBPS/content.opf".into(),
+            markup::opf(spec, writing).into_bytes(),
+        ),
         (toc.0.into(), toc.1.into_bytes()),
     ];
     for (i, ch) in spec.chapters.iter().enumerate() {

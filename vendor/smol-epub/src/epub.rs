@@ -29,6 +29,11 @@ pub struct EpubMeta {
     pub author: [u8; AUTHOR_CAP],
     /// Number of valid bytes in [`author`](Self::author).
     pub author_len: u8,
+    /// The book is set in vertical columns: its spine reads right to left
+    /// (`page-progression-direction="rtl"`) and its language is Chinese,
+    /// Japanese or Korean. Arabic and Hebrew also read right to left, but in
+    /// horizontal lines.
+    pub vertical: bool,
 }
 
 impl Default for EpubMeta {
@@ -45,6 +50,7 @@ impl EpubMeta {
             title_len: 0,
             author: [0u8; AUTHOR_CAP],
             author_len: 0,
+            vertical: false,
         }
     }
 
@@ -274,6 +280,26 @@ pub fn find_opf_in_zip(
     Err("epub: no .opf file found in archive")
 }
 
+/// `<spine page-progression-direction="rtl">`. `ltr` and `default` (and no
+/// attribute) leave the direction to the language, which for the books this
+/// reader sets in columns is left to right.
+fn spine_reads_rtl(opf: &[u8]) -> bool {
+    let mut rtl = false;
+    xml::for_each_tag(opf, b"spine", |tag_bytes| {
+        rtl |= xml::get_attr(tag_bytes, b"page-progression-direction") == Some(b"rtl");
+    });
+    rtl
+}
+
+/// A BCP 47 tag whose primary language is Chinese, Japanese or Korean.
+fn is_cjk_language(tag: &[u8]) -> bool {
+    let tag = tag.trim_ascii();
+    let primary = tag.split(|&b| b == b'-' || b == b'_').next().unwrap_or(tag);
+    ["zh", "ja", "ko"]
+        .iter()
+        .any(|lang| primary.eq_ignore_ascii_case(lang.as_bytes()))
+}
+
 /// Parse an OPF document: extract metadata and build the reading-order spine.
 ///
 /// Two-pass, zero heap: phase 1 collects `idref` byte offsets
@@ -295,6 +321,8 @@ pub fn parse_opf(
     if let Some(author) = xml::tag_text(opf, b"creator") {
         meta.set_author(author);
     }
+    meta.vertical =
+        spine_reads_rtl(opf) && xml::tag_text(opf, b"language").is_some_and(is_cjk_language);
 
     // phase 1: collect idref byte offsets; get_attr returns subslices so
     // pointer subtraction gives the offset; (start,len) = 4B each = 1KB total

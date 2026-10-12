@@ -6,7 +6,9 @@
 
 use std::fmt::Write;
 
-use super::{Block, Chapter, EpubSpec, EpubVersion, ImageKind, MODIFIED, RIGHTS, Run, TocItem};
+use super::{
+    Block, Chapter, EpubSpec, EpubVersion, ImageKind, MODIFIED, RIGHTS, Run, TocItem, Writing,
+};
 
 const XML_DECL: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
 const XHTML_NS: &str = "http://www.w3.org/1999/xhtml";
@@ -56,7 +58,7 @@ fn media_type(kind: ImageKind) -> &'static str {
     }
 }
 
-pub(super) fn opf(spec: &EpubSpec) -> String {
+pub(super) fn opf(spec: &EpubSpec, writing: &Writing) -> String {
     let v3 = spec.version == EpubVersion::V3;
     let mut x = String::from(XML_DECL);
     let _ = write!(
@@ -65,12 +67,13 @@ pub(super) fn opf(spec: &EpubSpec) -> String {
          <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n\
          <dc:title>{}</dc:title>\n\
          <dc:creator>{}</dc:creator>\n\
-         <dc:language>en</dc:language>\n\
+         <dc:language>{}</dc:language>\n\
          <dc:identifier id=\"bookid\">{}</dc:identifier>\n\
          <dc:rights>{}</dc:rights>\n",
         if v3 { "3.0" } else { "2.0" },
         esc(&spec.title),
         esc(&spec.author),
+        esc(writing.language),
         esc(&spec.identifier),
         esc(RIGHTS),
     );
@@ -107,10 +110,14 @@ pub(super) fn opf(spec: &EpubSpec) -> String {
         );
     }
     x.push_str("</manifest>\n");
+    let direction = writing
+        .page_progression
+        .map(|d| format!(" page-progression-direction=\"{}\"", esc(d)))
+        .unwrap_or_default();
     if v3 {
-        x.push_str("<spine>\n");
+        let _ = writeln!(x, "<spine{direction}>");
     } else {
-        x.push_str("<spine toc=\"ncx\">\n");
+        let _ = writeln!(x, "<spine toc=\"ncx\"{direction}>");
     }
     for i in 0..spec.chapters.len() {
         let _ = writeln!(x, "<itemref idref=\"ch{}\"/>", i + 1);
