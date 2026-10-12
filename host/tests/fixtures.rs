@@ -191,8 +191,8 @@ use std::collections::BTreeSet;
 
 use miniz_oxide::inflate::{decompress_to_vec, decompress_to_vec_zlib};
 use pulp_host::fixtures::{
-    self, Block, Chapter, Compression, EpubSpec, EpubVersion, Fixture, ImageKind, ImageSpec, Newline, Pattern, Run, Spec, SpecError,
-    TocItem, TxtSpec, build_epub, build_txt,
+    self, Block, Chapter, Compression, EpubSpec, EpubVersion, Fixture, ImageKind, ImageSpec,
+    Newline, Pattern, Run, Spec, SpecError, TocItem, TxtSpec, build_epub, build_txt,
 };
 use pulp_host::reader::{Action, Phase, Rig};
 use pulp_host::storage::DirEntry;
@@ -275,7 +275,11 @@ fn crc32(data: &[u8]) -> u32 {
     for &b in data {
         c ^= b as u32;
         for _ in 0..8 {
-            c = if c & 1 != 0 { (c >> 1) ^ 0xEDB8_8320 } else { c >> 1 };
+            c = if c & 1 != 0 {
+                (c >> 1) ^ 0xEDB8_8320
+            } else {
+                c >> 1
+            };
         }
     }
     !c
@@ -315,13 +319,26 @@ fn para(runs: Vec<Run>) -> Block {
     Block::Paragraph(runs)
 }
 fn chapter(title: &str, blocks: Vec<Block>) -> Chapter {
-    Chapter { title: s(title), blocks }
+    Chapter {
+        title: s(title),
+        blocks,
+    }
 }
 fn toc(title: &str, chapter: usize, children: Vec<TocItem>) -> TocItem {
-    TocItem { title: s(title), chapter, children }
+    TocItem {
+        title: s(title),
+        chapter,
+        children,
+    }
 }
 fn image(path: &str, kind: ImageKind, width: u16, height: u16, pattern: Pattern) -> ImageSpec {
-    ImageSpec { path: s(path), kind, width, height, pattern }
+    ImageSpec {
+        path: s(path),
+        kind,
+        width,
+        height,
+        pattern,
+    }
 }
 
 // a small hand-written book: 3 chapters, nested TOC, no images
@@ -333,10 +350,19 @@ fn mini_spec(version: EpubVersion, compression: Compression) -> EpubSpec {
         identifier: s("urn:pulp-os:fixture:mini"),
         chapters: vec![
             chapter("One", vec![para(vec![text("First paragraph.")])]),
-            chapter("Two", vec![para(vec![text("Second paragraph.")]), para(vec![text("Third.")])]),
+            chapter(
+                "Two",
+                vec![
+                    para(vec![text("Second paragraph.")]),
+                    para(vec![text("Third.")]),
+                ],
+            ),
             chapter("Three", vec![para(vec![text("Last paragraph.")])]),
         ],
-        toc: vec![toc("One", 0, vec![]), toc("Two", 1, vec![toc("Three", 2, vec![])])],
+        toc: vec![
+            toc("One", 0, vec![]),
+            toc("Two", 1, vec![toc("Three", 2, vec![])]),
+        ],
         images: vec![],
         cover: None,
         compression,
@@ -423,7 +449,8 @@ fn check_zip(b: &[u8]) -> Result<Vec<ZEntry>, ZipFault> {
         if xlen != 0 || clen != 0 {
             return Err(ExtraField(i));
         }
-        let name = String::from_utf8(b[c + 46..c + 46 + nlen].to_vec()).map_err(|_| BadCentralHeader(i))?;
+        let name = String::from_utf8(b[c + 46..c + 46 + nlen].to_vec())
+            .map_err(|_| BadCentralHeader(i))?;
         c += 46 + nlen;
 
         // local header
@@ -477,7 +504,15 @@ fn check_zip(b: &[u8]) -> Result<Vec<ZEntry>, ZipFault> {
         if crc32(&data) != crc {
             return Err(CrcMismatch(i));
         }
-        out.push(ZEntry { name, method, crc, comp_size: comp, size, local_offset: loff as u32, data });
+        out.push(ZEntry {
+            name,
+            method,
+            crc,
+            comp_size: comp,
+            size,
+            local_offset: loff as u32,
+            data,
+        });
     }
     if c != e {
         return Err(CentralDirectoryBounds);
@@ -523,7 +558,11 @@ fn write_zip(entries: &[(&str, &[u8], u16)]) -> Vec<u8> {
     let mut out = Vec::new();
     let mut cd = Vec::new();
     for (name, data, method) in entries {
-        let body = if *method == 8 { miniz_oxide::deflate::compress_to_vec(data, 6) } else { data.to_vec() };
+        let body = if *method == 8 {
+            miniz_oxide::deflate::compress_to_vec(data, 6)
+        } else {
+            data.to_vec()
+        };
         let off = out.len() as u32;
         let mut l = vec![0u8; 30];
         put32(&mut l, 0, 0x0403_4b50);
@@ -581,12 +620,23 @@ fn header_offsets(b: &[u8], i: usize) -> (usize, usize) {
 
 fn entity_len(s: &str, i: usize) -> Result<usize, String> {
     let rest = &s[i..];
-    let semi = rest.find(';').filter(|&p| p <= 12).ok_or_else(|| format!("bare '&' at byte {i}"))?;
+    let semi = rest
+        .find(';')
+        .filter(|&p| p <= 12)
+        .ok_or_else(|| format!("bare '&' at byte {i}"))?;
     let body = &rest[1..semi];
     let ok = matches!(body, "amp" | "lt" | "gt" | "quot" | "apos")
-        || body.strip_prefix("#x").is_some_and(|h| !h.is_empty() && h.bytes().all(|c| c.is_ascii_hexdigit()))
-        || body.strip_prefix('#').is_some_and(|d| !d.is_empty() && d.bytes().all(|c| c.is_ascii_digit()));
-    if ok { Ok(semi + 1) } else { Err(format!("unknown entity '&{body};' at byte {i}")) }
+        || body
+            .strip_prefix("#x")
+            .is_some_and(|h| !h.is_empty() && h.bytes().all(|c| c.is_ascii_hexdigit()))
+        || body
+            .strip_prefix('#')
+            .is_some_and(|d| !d.is_empty() && d.bytes().all(|c| c.is_ascii_digit()));
+    if ok {
+        Ok(semi + 1)
+    } else {
+        Err(format!("unknown entity '&{body};' at byte {i}"))
+    }
 }
 
 fn is_name_byte(c: u8) -> bool {
@@ -707,7 +757,10 @@ fn check_xml(src: &[u8]) -> Result<(), String> {
                 i += entity_len(s, i)?;
             }
             c => {
-                if stack.is_empty() && !c.is_ascii_whitespace() && !(i == 0 && s.starts_with('\u{feff}')) {
+                if stack.is_empty()
+                    && !c.is_ascii_whitespace()
+                    && !(i == 0 && s.starts_with('\u{feff}'))
+                {
                     return Err(format!("text outside the root element at byte {i}"));
                 }
                 i += 1;
@@ -736,7 +789,9 @@ fn xml_unescape(s: &str) -> String {
                 "gt" => '>',
                 "quot" => '"',
                 "apos" => '\'',
-                b if b.starts_with("#x") => char::from_u32(u32::from_str_radix(&b[2..], 16).unwrap()).unwrap(),
+                b if b.starts_with("#x") => {
+                    char::from_u32(u32::from_str_radix(&b[2..], 16).unwrap()).unwrap()
+                }
                 b => char::from_u32(b[1..].parse().unwrap()).unwrap(),
             });
             i += n;
@@ -798,7 +853,10 @@ fn check_png(b: &[u8], im: &ImageSpec) -> Result<(), String> {
         let kind: [u8; 4] = b[i + 4..i + 8].try_into().unwrap();
         let body = &b[i + 8..i + 8 + len];
         if crc32(&b[i + 4..i + 8 + len]) != be32(b, i + 8 + len) {
-            return Err(format!("bad CRC in chunk {}", String::from_utf8_lossy(&kind)));
+            return Err(format!(
+                "bad CRC in chunk {}",
+                String::from_utf8_lossy(&kind)
+            ));
         }
         match &kind {
             b"IHDR" => {
@@ -806,10 +864,22 @@ fn check_png(b: &[u8], im: &ImageSpec) -> Result<(), String> {
                     return Err("IHDR not first / wrong length".into());
                 }
                 if be32(body, 0) as usize != w || be32(body, 4) as usize != h {
-                    return Err(format!("IHDR size {}x{}, spec {w}x{h}", be32(body, 0), be32(body, 4)));
+                    return Err(format!(
+                        "IHDR size {}x{}, spec {w}x{h}",
+                        be32(body, 0),
+                        be32(body, 4)
+                    ));
                 }
-                if body[8] != depth || body[9] != ctype || body[10] != 0 || body[11] != 0 || body[12] != 0 {
-                    return Err(format!("IHDR depth/type/comp/filter/interlace = {:?}", &body[8..13]));
+                if body[8] != depth
+                    || body[9] != ctype
+                    || body[10] != 0
+                    || body[11] != 0
+                    || body[12] != 0
+                {
+                    return Err(format!(
+                        "IHDR depth/type/comp/filter/interlace = {:?}",
+                        &body[8..13]
+                    ));
                 }
             }
             b"PLTE" => plte = Some(body.to_vec()),
@@ -837,7 +907,11 @@ fn check_png(b: &[u8], im: &ImageSpec) -> Result<(), String> {
         _ => w,
     };
     if raw.len() != h * (1 + row_bytes) {
-        return Err(format!("IDAT inflates to {} bytes, expected {}", raw.len(), h * (1 + row_bytes)));
+        return Err(format!(
+            "IDAT inflates to {} bytes, expected {}",
+            raw.len(),
+            h * (1 + row_bytes)
+        ));
     }
     for y in 0..h {
         let row = &raw[y * (1 + row_bytes)..(y + 1) * (1 + row_bytes)];
@@ -898,7 +972,9 @@ fn check_jpeg(b: &[u8], im: &ImageSpec) -> Result<(), String> {
             }
             0xDA => {
                 if !sof || dqt == 0 || dc == 0 || ac == 0 {
-                    return Err(format!("SOS before SOF/DQT/DHT (sof {sof}, dqt {dqt}, dc {dc}, ac {ac})"));
+                    return Err(format!(
+                        "SOS before SOF/DQT/DHT (sof {sof}, dqt {dqt}, dc {dc}, ac {ac})"
+                    ));
                 }
                 let scan = &b[i + 2 + len..b.len() - 2];
                 if scan.is_empty() {
@@ -911,7 +987,9 @@ fn check_jpeg(b: &[u8], im: &ImageSpec) -> Result<(), String> {
                 }
                 return Ok(());
             }
-            0xC1..=0xC3 | 0xC5..=0xCF | 0xDD | 0xD0..=0xD7 => return Err(format!("marker FF{m:02X} not allowed")),
+            0xC1..=0xC3 | 0xC5..=0xCF | 0xDD | 0xD0..=0xD7 => {
+                return Err(format!("marker FF{m:02X} not allowed"));
+            }
             _ => {}
         }
         i += 2 + len;
@@ -936,16 +1014,21 @@ fn read_at(bytes: &[u8]) -> impl FnMut(u32, &mut [u8]) -> Result<usize, &'static
 
 fn open_zip(bytes: &[u8]) -> ZipIndex {
     let tail = bytes.len().saturating_sub(65557);
-    let (cd_off, cd_size) = ZipIndex::parse_eocd(&bytes[tail..], bytes.len() as u32).expect("production EOCD parse");
+    let (cd_off, cd_size) =
+        ZipIndex::parse_eocd(&bytes[tail..], bytes.len() as u32).expect("production EOCD parse");
     let mut zip = ZipIndex::new();
-    zip.parse_central_directory(&bytes[cd_off as usize..(cd_off + cd_size) as usize]).expect("production central directory parse");
+    zip.parse_central_directory(&bytes[cd_off as usize..(cd_off + cd_size) as usize])
+        .expect("production central directory parse");
     zip
 }
 
 fn entry_bytes(bytes: &[u8], zip: &ZipIndex, name: &str) -> Vec<u8> {
-    let i = zip.find(name).unwrap_or_else(|| panic!("{name} not found by production ZipIndex::find"));
+    let i = zip
+        .find(name)
+        .unwrap_or_else(|| panic!("{name} not found by production ZipIndex::find"));
     let e = zip.entry(i);
-    extract_entry(e, e.local_offset, read_at(bytes)).unwrap_or_else(|err| panic!("extract_entry({name}): {err}"))
+    extract_entry(e, e.local_offset, read_at(bytes))
+        .unwrap_or_else(|err| panic!("extract_entry({name}): {err}"))
 }
 
 fn dir_of(path: &str) -> &str {
@@ -971,7 +1054,8 @@ fn parse_book(bytes: &[u8]) -> Parsed {
     let opf = entry_bytes(bytes, &zip, &opf_path);
     let mut meta = EpubMeta::new();
     let mut spine = EpubSpine::new();
-    epub::parse_opf(&opf, dir_of(&opf_path), &zip, &mut meta, &mut spine).expect("production parse_opf");
+    epub::parse_opf(&opf, dir_of(&opf_path), &zip, &mut meta, &mut spine)
+        .expect("production parse_opf");
     let toc_source = epub::find_toc_source(&opf, dir_of(&opf_path), &zip);
     let mut toc = EpubToc::new();
     if let Some(src) = toc_source {
@@ -979,7 +1063,15 @@ fn parse_book(bytes: &[u8]) -> Parsed {
         let data = entry_bytes(bytes, &zip, &toc_name);
         epub::parse_toc(src, &data, dir_of(&toc_name), &spine, &zip, &mut toc);
     }
-    Parsed { zip, opf_path, opf, meta, spine, toc_source, toc }
+    Parsed {
+        zip,
+        opf_path,
+        opf,
+        meta,
+        spine,
+        toc_source,
+        toc,
+    }
 }
 
 fn chapter_entry_name(i: usize) -> String {
@@ -987,8 +1079,16 @@ fn chapter_entry_name(i: usize) -> String {
 }
 
 fn expected_entry_names(spec: &EpubSpec) -> Vec<String> {
-    let mut v = vec![s("mimetype"), s("META-INF/container.xml"), s("OEBPS/content.opf")];
-    v.push(s(if spec.version == EpubVersion::V2 { "OEBPS/toc.ncx" } else { "OEBPS/nav.xhtml" }));
+    let mut v = vec![
+        s("mimetype"),
+        s("META-INF/container.xml"),
+        s("OEBPS/content.opf"),
+    ];
+    v.push(s(if spec.version == EpubVersion::V2 {
+        "OEBPS/toc.ncx"
+    } else {
+        "OEBPS/nav.xhtml"
+    }));
     for i in 0..spec.chapters.len() {
         v.push(chapter_entry_name(i));
     }
@@ -1085,7 +1185,11 @@ fn plain_of(runs: &[Run]) -> String {
 // ---------------------------------------------------------------------------
 
 fn txt(lines: &[&str], newline: Newline, trailing: bool) -> Vec<u8> {
-    build_txt(&TxtSpec { lines: lines.iter().map(|l| s(l)).collect(), newline, trailing_newline: trailing })
+    build_txt(&TxtSpec {
+        lines: lines.iter().map(|l| s(l)).collect(),
+        newline,
+        trailing_newline: trailing,
+    })
 }
 
 #[test]
@@ -1117,7 +1221,14 @@ fn build_txt_matches_hand_written_bytes() {
     want.extend_from_slice(b" wait");
     want.extend_from_slice(&[0xE2, 0x80, 0xA6]);
     want.push(b'\n');
-    assert_eq!(txt(&["caf\u{e9}", "it\u{2019}s \u{2014} wait\u{2026}"], Newline::Lf, true), want);
+    assert_eq!(
+        txt(
+            &["caf\u{e9}", "it\u{2019}s \u{2014} wait\u{2026}"],
+            Newline::Lf,
+            true
+        ),
+        want
+    );
 }
 
 #[test]
@@ -1126,10 +1237,17 @@ fn standard_txt_bytes_equal_the_spec_and_obey_newline_rules() {
     for (name, spec, bytes) in txt_fixtures() {
         seen += 1;
         // independent derivation of the bytes from the spec
-        let eol: &str = if spec.newline == Newline::CrLf { "\r\n" } else { "\n" };
+        let eol: &str = if spec.newline == Newline::CrLf {
+            "\r\n"
+        } else {
+            "\n"
+        };
         let mut want = String::new();
         for (i, l) in spec.lines.iter().enumerate() {
-            assert!(!l.contains('\n') && !l.contains('\r'), "{name}: line {i} contains a line break");
+            assert!(
+                !l.contains('\n') && !l.contains('\r'),
+                "{name}: line {i} contains a line break"
+            );
             if i > 0 {
                 want.push_str(eol);
             }
@@ -1146,7 +1264,10 @@ fn standard_txt_bytes_equal_the_spec_and_obey_newline_rules() {
             Newline::Lf => assert_eq!(cr, 0, "{name}: LF file contains CR"),
             Newline::CrLf => {
                 assert_eq!(cr, lf, "{name}: every LF must be preceded by CR");
-                assert!(bytes.windows(2).filter(|w| w == b"\r\n").count() == lf, "{name}: lone CR or LF");
+                assert!(
+                    bytes.windows(2).filter(|w| w == b"\r\n").count() == lf,
+                    "{name}: lone CR or LF"
+                );
             }
         }
         std::str::from_utf8(&bytes).unwrap_or_else(|e| panic!("{name}: not UTF-8: {e}"));
@@ -1157,7 +1278,11 @@ fn standard_txt_bytes_equal_the_spec_and_obey_newline_rules() {
 #[test]
 fn standard_txt_set_covers_every_text_shape_r8_names() {
     let t = txt_fixtures();
-    let by = |n: &str| t.iter().find(|(name, _, _)| name == n).unwrap_or_else(|| panic!("{n} missing"));
+    let by = |n: &str| {
+        t.iter()
+            .find(|(name, _, _)| name == n)
+            .unwrap_or_else(|| panic!("{n} missing"))
+    };
     let (_, lf, _) = by("PLAINLF.TXT");
     assert_eq!((lf.newline, lf.trailing_newline), (Newline::Lf, true));
     let (_, cr, _) = by("PLAINCR.TXT");
@@ -1165,20 +1290,51 @@ fn standard_txt_set_covers_every_text_shape_r8_names() {
     let (_, no, nob) = by("NOEOL.TXT");
     assert_eq!((no.newline, no.trailing_newline), (Newline::Lf, false));
     // the FILE really ends without a line break: the last line is not blank
-    assert!(no.lines.last().is_some_and(|l| !l.is_empty()), "NOEOL.TXT: last line must be non-empty");
-    assert!(!nob.ends_with(b"\n") && !nob.ends_with(b"\r"), "NOEOL.TXT ends without a line break");
-    assert!(by("PLAINLF.TXT").2.ends_with(b"\n") && !by("PLAINLF.TXT").2.ends_with(b"\r\n"), "PLAINLF.TXT ends with a bare LF");
-    assert!(by("PLAINCR.TXT").2.ends_with(b"\r\n"), "PLAINCR.TXT ends with CRLF");
+    assert!(
+        no.lines.last().is_some_and(|l| !l.is_empty()),
+        "NOEOL.TXT: last line must be non-empty"
+    );
+    assert!(
+        !nob.ends_with(b"\n") && !nob.ends_with(b"\r"),
+        "NOEOL.TXT ends without a line break"
+    );
+    assert!(
+        by("PLAINLF.TXT").2.ends_with(b"\n") && !by("PLAINLF.TXT").2.ends_with(b"\r\n"),
+        "PLAINLF.TXT ends with a bare LF"
+    );
+    assert!(
+        by("PLAINCR.TXT").2.ends_with(b"\r\n"),
+        "PLAINCR.TXT ends with CRLF"
+    );
     let (_, u8s, u8b) = by("UTF8.TXT");
-    assert!(u8s.lines.iter().any(|l| l.chars().any(|c| (c as u32) > 0xFF)), "UTF8.TXT needs a 3-byte character");
-    assert!(u8s.lines.iter().any(|l| l.chars().any(|c| (0x80..=0x7FF).contains(&(c as u32)))), "UTF8.TXT needs a 2-byte character");
-    assert!(u8b.len() > u8s.lines.len(), "multi-byte file is longer than its char count");
+    assert!(
+        u8s.lines
+            .iter()
+            .any(|l| l.chars().any(|c| (c as u32) > 0xFF)),
+        "UTF8.TXT needs a 3-byte character"
+    );
+    assert!(
+        u8s.lines
+            .iter()
+            .any(|l| l.chars().any(|c| (0x80..=0x7FF).contains(&(c as u32)))),
+        "UTF8.TXT needs a 2-byte character"
+    );
+    assert!(
+        u8b.len() > u8s.lines.len(),
+        "multi-byte file is longer than its char count"
+    );
     let (_, _, tiny) = by("TINY.TXT");
-    assert!(tiny.len() < 100, "TINY.TXT is a one-screen file ({} bytes)", tiny.len());
+    assert!(
+        tiny.len() < 100,
+        "TINY.TXT is a one-screen file ({} bytes)",
+        tiny.len()
+    );
 
     for (name, spec, bytes) in &t {
         assert!(
-            spec.lines.first().is_some_and(|l| l.starts_with(TXT_PROVENANCE_PREFIX)),
+            spec.lines
+                .first()
+                .is_some_and(|l| l.starts_with(TXT_PROVENANCE_PREFIX)),
             "{name}: first line must start with {TXT_PROVENANCE_PREFIX:?}"
         );
         if name == "TINY.TXT" {
@@ -1186,10 +1342,25 @@ fn standard_txt_set_covers_every_text_shape_r8_names() {
         }
         // text longer than one page, blank lines and a line far longer than the 480 px text area
         assert!(bytes.len() >= 6000, "{name}: only {} bytes", bytes.len());
-        let blanks: Vec<usize> = spec.lines.iter().enumerate().filter(|(_, l)| l.is_empty()).map(|(i, _)| i).collect();
-        assert!(blanks.len() >= 3 && blanks.iter().any(|&i| i > 5), "{name}: needs blank lines inside the body, not only after the header ({blanks:?})");
-        assert!(spec.lines.iter().any(|l| l.len() >= 400), "{name}: needs a line of >= 400 bytes (must wrap)");
-        assert!(spec.lines.iter().any(|l| l.len() >= 1 && l.len() <= 60), "{name}: needs short lines too");
+        let blanks: Vec<usize> = spec
+            .lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.is_empty())
+            .map(|(i, _)| i)
+            .collect();
+        assert!(
+            blanks.len() >= 3 && blanks.iter().any(|&i| i > 5),
+            "{name}: needs blank lines inside the body, not only after the header ({blanks:?})"
+        );
+        assert!(
+            spec.lines.iter().any(|l| l.len() >= 400),
+            "{name}: needs a line of >= 400 bytes (must wrap)"
+        );
+        assert!(
+            spec.lines.iter().any(|l| l.len() >= 1 && l.len() <= 60),
+            "{name}: needs short lines too"
+        );
     }
 }
 
@@ -1207,7 +1378,12 @@ fn standard_txt_is_longer_than_one_page_in_the_production_reader_except_tiny() {
         assert_eq!(rig.phase(), Phase::Ready, "{}: opens", f.name);
         assert_eq!(rig.page(), 0, "{}: opens on page 0", f.name);
         rig.press(Action::Next);
-        assert_eq!(rig.phase(), Phase::Ready, "{}: still ready after Next", f.name);
+        assert_eq!(
+            rig.phase(),
+            Phase::Ready,
+            "{}: still ready after Next",
+            f.name
+        );
         if f.name == "TINY.TXT" {
             assert_eq!(rig.page(), 0, "TINY.TXT is a single page");
         } else {
@@ -1228,7 +1404,12 @@ fn standard_lists_the_pinned_names_in_the_pinned_order() {
     assert_eq!(names, STANDARD_NAMES);
     // kinds line up with the names
     for (i, f) in all_fixtures().iter().enumerate() {
-        assert_eq!(matches!(f.spec, Spec::Epub(_)), i >= FIRST_EPUB, "{}", f.name);
+        assert_eq!(
+            matches!(f.spec, Spec::Epub(_)),
+            i >= FIRST_EPUB,
+            "{}",
+            f.name
+        );
     }
 }
 
@@ -1242,11 +1423,18 @@ fn standard_names_are_listable_firmware_filenames() {
         // firmware lists SFNs with ext TXT / EPUB / EPU / MD.
         let (base, ext) = name.split_once('.').unwrap();
         assert!((1..=8).contains(&base.len()), "{name}: base");
-        assert!(base.bytes().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()), "{name}: upper-case alphanumerics only");
+        assert!(
+            base.bytes()
+                .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()),
+            "{name}: upper-case alphanumerics only"
+        );
         assert!(matches!(ext, "TXT" | "EPU"), "{name}: extension {ext}");
         assert!(name.len() <= 13, "{name}: DirEntry::name is 13 bytes");
         // and the firmware's own predicate (kernel/src/drivers/dir_entry.rs)
-        assert!(pulp_host::dir_entry::is_listed_name(name.as_bytes()), "{name} would not be listed");
+        assert!(
+            pulp_host::dir_entry::is_listed_name(name.as_bytes()),
+            "{name} would not be listed"
+        );
     }
     for (i, name) in STANDARD_NAMES.iter().enumerate() {
         assert_eq!(name.ends_with(".EPU"), i >= FIRST_EPUB, "{name}");
@@ -1259,38 +1447,67 @@ fn standard_card_lists_sizes_and_reads_back_every_fixture() {
     let card = fixtures::standard_card();
     let mut buf = vec![DirEntry::EMPTY; 32];
     let n = card.list_root_files(&mut buf).expect("list");
-    let mut listed: Vec<(String, u32)> = buf[..n].iter().map(|e| (e.name_str().to_string(), e.size)).collect();
+    let mut listed: Vec<(String, u32)> = buf[..n]
+        .iter()
+        .map(|e| (e.name_str().to_string(), e.size))
+        .collect();
     listed.sort();
-    let mut want: Vec<(String, u32)> = fx.iter().map(|f| (f.name.to_string(), f.bytes.len() as u32)).collect();
+    let mut want: Vec<(String, u32)> = fx
+        .iter()
+        .map(|f| (f.name.to_string(), f.bytes.len() as u32))
+        .collect();
     want.sort();
-    assert_eq!(listed, want, "list_root_files shows exactly the 11 fixtures with their byte sizes (and not _PULP)");
+    assert_eq!(
+        listed, want,
+        "list_root_files shows exactly the 11 fixtures with their byte sizes (and not _PULP)"
+    );
 
     for f in &fx {
-        assert_eq!(card.file_size(f.name).unwrap() as usize, f.bytes.len(), "{}", f.name);
+        assert_eq!(
+            card.file_size(f.name).unwrap() as usize,
+            f.bytes.len(),
+            "{}",
+            f.name
+        );
         // odd chunk size so chunk edges fall inside multi-byte sequences and ZIP headers
         let mut got = Vec::new();
         let mut chunk = [0u8; 509];
         loop {
-            let k = card.read_file_chunk(f.name, got.len() as u32, &mut chunk).unwrap();
+            let k = card
+                .read_file_chunk(f.name, got.len() as u32, &mut chunk)
+                .unwrap();
             if k == 0 {
                 break;
             }
             got.extend_from_slice(&chunk[..k]);
         }
-        assert_eq!(got, f.bytes, "{}: read back through read_file_chunk", f.name);
+        assert_eq!(
+            got, f.bytes,
+            "{}: read back through read_file_chunk",
+            f.name
+        );
     }
     // _PULP/ exists the way the firmware boots it
-    card.write_in_pulp("PROBE.BIN", b"x").expect("_PULP/ present");
+    card.write_in_pulp("PROBE.BIN", b"x")
+        .expect("_PULP/ present");
 }
 
 #[test]
 fn standard_set_is_small_enough_to_commit() {
     let fx = all_fixtures();
     let total: usize = fx.iter().map(|f| f.bytes.len()).sum();
-    assert!(total < MAX_TOTAL_BYTES, "standard set is {total} bytes, limit {MAX_TOTAL_BYTES}");
+    assert!(
+        total < MAX_TOTAL_BYTES,
+        "standard set is {total} bytes, limit {MAX_TOTAL_BYTES}"
+    );
     for f in &fx {
         assert!(!f.bytes.is_empty(), "{} is empty", f.name);
-        assert!(f.bytes.len() < MAX_FILE_BYTES, "{} is {} bytes, limit {MAX_FILE_BYTES}", f.name, f.bytes.len());
+        assert!(
+            f.bytes.len() < MAX_FILE_BYTES,
+            "{} is {} bytes, limit {MAX_FILE_BYTES}",
+            f.name,
+            f.bytes.len()
+        );
     }
 }
 
@@ -1298,7 +1515,10 @@ fn standard_set_is_small_enough_to_commit() {
 fn builders_are_deterministic_and_standard_bytes_come_from_their_spec() {
     let a = all_fixtures();
     let b = all_fixtures();
-    assert_eq!(a, b, "two standard() calls are identical (names, specs, bytes)");
+    assert_eq!(
+        a, b,
+        "two standard() calls are identical (names, specs, bytes)"
+    );
     for f in &a {
         let again = match &f.spec {
             Spec::Txt(t) => build_txt(t),
@@ -1321,10 +1541,18 @@ fn every_spec_field_changes_the_bytes() {
     // field at a time on a small book and require different bytes (and the
     // unchanged spec to be reproduced exactly)
     let mut base = mini_spec(EpubVersion::V3, Compression::Deflate);
-    base.images = vec![image("images/a.png", ImageKind::PngGray1, 16, 16, Pattern::Checker { cell: 2 })];
+    base.images = vec![image(
+        "images/a.png",
+        ImageKind::PngGray1,
+        16,
+        16,
+        Pattern::Checker { cell: 2 },
+    )];
     base.cover = Some(0);
     base.chapters[0].blocks.push(Block::Image(0));
-    base.chapters[0].blocks.push(para(vec![text("caf\u{e9} done.")]));
+    base.chapters[0]
+        .blocks
+        .push(para(vec![text("caf\u{e9} done.")]));
     let want = build_epub(&base).unwrap();
     assert_eq!(build_epub(&base.clone()).unwrap(), want);
 
@@ -1372,7 +1600,11 @@ fn every_spec_field_changes_the_bytes() {
     v.numeric_entities = true;
     variants.push(("numeric_entities", v));
     for (what, v) in variants {
-        assert_ne!(build_epub(&v).unwrap(), want, "changing {what} must change the bytes");
+        assert_ne!(
+            build_epub(&v).unwrap(),
+            want,
+            "changing {what} must change the bytes"
+        );
     }
     // TXT: a changed line, newline kind, trailing flag all change the bytes (hand-written test above pins them)
 }
@@ -1383,7 +1615,11 @@ fn standard_fixtures_are_ascii_plus_the_listed_unicode_only() {
     let check_text = |what: &str, bytes: &[u8]| {
         let t = std::str::from_utf8(bytes).unwrap_or_else(|e| panic!("{what}: not UTF-8: {e}"));
         for c in t.chars() {
-            assert!(is_ascii_text(c) || ALLOWED_NON_ASCII.contains(c), "{what}: character U+{:04X} {c:?} is outside the allowed set", c as u32);
+            assert!(
+                is_ascii_text(c) || ALLOWED_NON_ASCII.contains(c),
+                "{what}: character U+{:04X} {c:?} is outside the allowed set",
+                c as u32
+            );
         }
     };
     // 2. the characters the SPEC TEXT (what a reader shows) actually uses
@@ -1397,7 +1633,11 @@ fn standard_fixtures_are_ascii_plus_the_listed_unicode_only() {
             Spec::Epub(spec) => {
                 let ents = check_zip(&f.bytes).unwrap();
                 for e in &ents {
-                    if !spec.images.iter().any(|im| e.name == format!("OEBPS/{}", im.path)) {
+                    if !spec
+                        .images
+                        .iter()
+                        .any(|im| e.name == format!("OEBPS/{}", im.path))
+                    {
                         check_text(&format!("{}:{}", f.name, e.name), &e.data);
                     }
                 }
@@ -1415,15 +1655,31 @@ fn standard_fixtures_are_ascii_plus_the_listed_unicode_only() {
                 }
                 // provenance: self-declared synthetic content
                 let opf = ents.iter().find(|e| e.name == "OEBPS/content.opf").unwrap();
-                assert_eq!(xml::tag_text(&opf.data, b"rights"), Some(RIGHTS.as_bytes()), "{}: dc:rights", f.name);
-                assert!(spec.identifier.starts_with(ID_PREFIX), "{}: identifier {:?}", f.name, spec.identifier);
+                assert_eq!(
+                    xml::tag_text(&opf.data, b"rights"),
+                    Some(RIGHTS.as_bytes()),
+                    "{}: dc:rights",
+                    f.name
+                );
+                assert!(
+                    spec.identifier.starts_with(ID_PREFIX),
+                    "{}: identifier {:?}",
+                    f.name,
+                    spec.identifier
+                );
             }
         }
     }
     // the allowed set is actually exercised: 2-byte (e-acute) and 3-byte (quotes, dash, ellipsis)
     // characters, and the four characters that need escaping in XML
-    for c in ['\u{e9}', '\u{2019}', '\u{201c}', '\u{201d}', '\u{2014}', '\u{2026}', '&', '<', '>', '"'] {
-        assert!(used.contains(&c), "no fixture text contains U+{:04X} {c:?}", c as u32);
+    for c in [
+        '\u{e9}', '\u{2019}', '\u{201c}', '\u{201d}', '\u{2014}', '\u{2026}', '&', '<', '>', '"',
+    ] {
+        assert!(
+            used.contains(&c),
+            "no fixture text contains U+{:04X} {c:?}",
+            c as u32
+        );
     }
 }
 
@@ -1445,11 +1701,23 @@ fn every_standard_epub_is_a_valid_zip_and_a_valid_epub_container() {
         let ents = check_zip(&bytes).unwrap_or_else(|e| panic!("{name}: invalid ZIP: {e:?}"));
         check_epub_rules(&ents).unwrap_or_else(|e| panic!("{name}: invalid EPUB container: {e:?}"));
         let names: Vec<&str> = ents.iter().map(|e| e.name.as_str()).collect();
-        assert_eq!(names, expected_entry_names(&spec), "{name}: entry names and order");
+        assert_eq!(
+            names,
+            expected_entry_names(&spec),
+            "{name}: entry names and order"
+        );
         for (i, e) in ents.iter().enumerate() {
-            assert_eq!(e.method, expected_method(spec.compression, i), "{name}: entry {i} {} method", e.name);
+            assert_eq!(
+                e.method,
+                expected_method(spec.compression, i),
+                "{name}: entry {i} {} method",
+                e.name
+            );
         }
-        assert_eq!(ents[0].local_offset, 0, "{name}: mimetype is the first bytes of the file");
+        assert_eq!(
+            ents[0].local_offset, 0,
+            "{name}: mimetype is the first bytes of the file"
+        );
         // the mimetype entry is verbatim at byte 30: no extra field, stored
         assert_eq!(&bytes[30..38], b"mimetype");
         assert_eq!(&bytes[38..58], b"application/epub+zip");
@@ -1459,7 +1727,11 @@ fn every_standard_epub_is_a_valid_zip_and_a_valid_epub_container() {
         for (i, e) in ents.iter().enumerate() {
             let p = zip.entry(i);
             assert_eq!(zip.entry_name(i), e.name, "{name}[{i}]");
-            assert_eq!((p.method, p.comp_size, p.uncomp_size, p.local_offset), (e.method, e.comp_size, e.size, e.local_offset), "{name}[{i}]");
+            assert_eq!(
+                (p.method, p.comp_size, p.uncomp_size, p.local_offset),
+                (e.method, e.comp_size, e.size, e.local_offset),
+                "{name}[{i}]"
+            );
         }
     }
     assert_eq!(tested, 6);
@@ -1472,33 +1744,83 @@ fn compression_modes_really_show_stored_and_deflate_entries() {
         let ents = check_zip(&bytes).unwrap();
         let methods: BTreeSet<u16> = ents.iter().map(|e| e.method).collect();
         match spec.compression {
-            Compression::Stored => assert_eq!(methods, BTreeSet::from([METHOD_STORED]), "{name}: all STORED"),
+            Compression::Stored => assert_eq!(
+                methods,
+                BTreeSet::from([METHOD_STORED]),
+                "{name}: all STORED"
+            ),
             Compression::Deflate => {
-                assert_eq!(methods, BTreeSet::from([METHOD_STORED, METHOD_DEFLATE]), "{name}");
-                assert_eq!(ents.iter().filter(|e| e.method == METHOD_STORED).count(), 1, "{name}: only mimetype is stored");
-                assert!(ents.iter().skip(1).all(|e| e.method == METHOD_DEFLATE), "{name}");
+                assert_eq!(
+                    methods,
+                    BTreeSet::from([METHOD_STORED, METHOD_DEFLATE]),
+                    "{name}"
+                );
+                assert_eq!(
+                    ents.iter().filter(|e| e.method == METHOD_STORED).count(),
+                    1,
+                    "{name}: only mimetype is stored"
+                );
+                assert!(
+                    ents.iter().skip(1).all(|e| e.method == METHOD_DEFLATE),
+                    "{name}"
+                );
             }
             Compression::Mixed => {
                 mixed_seen += 1;
-                assert_eq!(methods, BTreeSet::from([METHOD_STORED, METHOD_DEFLATE]), "{name}");
+                assert_eq!(
+                    methods,
+                    BTreeSet::from([METHOD_STORED, METHOD_DEFLATE]),
+                    "{name}"
+                );
                 // chapters: some of each method, inside the same book
-                let ch: Vec<u16> = ents.iter().filter(|e| e.name.contains("/text/")).map(|e| e.method).collect();
-                assert!(ch.contains(&METHOD_STORED) && ch.contains(&METHOD_DEFLATE), "{name}: chapter methods {ch:?}");
+                let ch: Vec<u16> = ents
+                    .iter()
+                    .filter(|e| e.name.contains("/text/"))
+                    .map(|e| e.method)
+                    .collect();
+                assert!(
+                    ch.contains(&METHOD_STORED) && ch.contains(&METHOD_DEFLATE),
+                    "{name}: chapter methods {ch:?}"
+                );
                 // images: some of each method too
-                let im: Vec<u16> = spec.images.iter().map(|i| ents.iter().find(|e| e.name == format!("OEBPS/{}", i.path)).unwrap().method).collect();
-                assert!(im.contains(&METHOD_STORED) && im.contains(&METHOD_DEFLATE), "{name}: image methods {im:?}");
+                let im: Vec<u16> = spec
+                    .images
+                    .iter()
+                    .map(|i| {
+                        ents.iter()
+                            .find(|e| e.name == format!("OEBPS/{}", i.path))
+                            .unwrap()
+                            .method
+                    })
+                    .collect();
+                assert!(
+                    im.contains(&METHOD_STORED) && im.contains(&METHOD_DEFLATE),
+                    "{name}: image methods {im:?}"
+                );
             }
         }
         // DEFLATE entries are genuinely compressed streams: bytes on disk differ from content
-        for e in ents.iter().filter(|e| e.method == METHOD_DEFLATE && e.size > 256 && e.name.ends_with(".xhtml")) {
-            assert!(e.comp_size < e.size, "{name}: {} deflated {} -> {}", e.name, e.size, e.comp_size);
+        for e in ents
+            .iter()
+            .filter(|e| e.method == METHOD_DEFLATE && e.size > 256 && e.name.ends_with(".xhtml"))
+        {
+            assert!(
+                e.comp_size < e.size,
+                "{name}: {} deflated {} -> {}",
+                e.name,
+                e.size,
+                e.comp_size
+            );
         }
     }
     assert_eq!(mixed_seen, 2);
     // matrix: exactly one fixture per (version, compression)
     let mut cells = BTreeSet::new();
     for (_, spec, _) in epub_fixtures() {
-        assert!(cells.insert((format!("{:?}", spec.version), format!("{:?}", spec.compression))));
+        assert!(cells.insert((
+            format!("{:?}", spec.version),
+            format!("{:?}", spec.compression)
+        )));
     }
     assert_eq!(cells.len(), 6);
 }
@@ -1525,13 +1847,23 @@ fn checker_accepts_a_hand_built_good_epub() {
     let z = write_zip(&[
         ("mimetype", b"application/epub+zip", 0),
         ("META-INF/container.xml", b"<container/>", 8),
-        ("OEBPS/a.xhtml", &b"hello hello hello hello hello hello hello hello"[..], 8),
+        (
+            "OEBPS/a.xhtml",
+            &b"hello hello hello hello hello hello hello hello"[..],
+            8,
+        ),
         ("OEBPS/b.bin", &[0u8, 1, 2, 255][..], 0),
     ]);
     let ents = check_zip(&z).expect("good archive passes");
     assert_eq!(check_epub_rules(&ents), Ok(()));
-    assert_eq!(ents.iter().map(|e| e.method).collect::<Vec<_>>(), [0, 8, 8, 0]);
-    assert_eq!(ents[2].data, b"hello hello hello hello hello hello hello hello");
+    assert_eq!(
+        ents.iter().map(|e| e.method).collect::<Vec<_>>(),
+        [0, 8, 8, 0]
+    );
+    assert_eq!(
+        ents[2].data,
+        b"hello hello hello hello hello hello hello hello"
+    );
 }
 
 #[test]
@@ -1540,19 +1872,34 @@ fn checker_flags_epub_rule_violations() {
     let c: (&str, &[u8]) = ("META-INF/container.xml", b"<c/>");
     // mimetype compressed
     let z = write_zip(&[("mimetype", ok, 8), (c.0, c.1, 0)]);
-    assert_eq!(check_epub_rules(&check_zip(&z).expect("valid ZIP")), Err(EpubFault::MimetypeCompressed));
+    assert_eq!(
+        check_epub_rules(&check_zip(&z).expect("valid ZIP")),
+        Err(EpubFault::MimetypeCompressed)
+    );
     // mimetype not first
     let z = write_zip(&[(c.0, c.1, 0), ("mimetype", ok, 0)]);
-    assert_eq!(check_epub_rules(&check_zip(&z).unwrap()), Err(EpubFault::MimetypeNotFirst));
+    assert_eq!(
+        check_epub_rules(&check_zip(&z).unwrap()),
+        Err(EpubFault::MimetypeNotFirst)
+    );
     // wrong content (trailing newline)
     let z = write_zip(&[("mimetype", b"application/epub+zip\n", 0), (c.0, c.1, 0)]);
-    assert_eq!(check_epub_rules(&check_zip(&z).unwrap()), Err(EpubFault::MimetypeContent));
+    assert_eq!(
+        check_epub_rules(&check_zip(&z).unwrap()),
+        Err(EpubFault::MimetypeContent)
+    );
     // no container
     let z = write_zip(&[("mimetype", ok, 0), ("OEBPS/x", b"x", 0)]);
-    assert_eq!(check_epub_rules(&check_zip(&z).unwrap()), Err(EpubFault::NoContainer));
+    assert_eq!(
+        check_epub_rules(&check_zip(&z).unwrap()),
+        Err(EpubFault::NoContainer)
+    );
     // duplicate names
     let z = write_zip(&[("mimetype", ok, 0), (c.0, c.1, 0), (c.0, c.1, 0)]);
-    assert_eq!(check_epub_rules(&check_zip(&z).unwrap()), Err(EpubFault::DuplicateName));
+    assert_eq!(
+        check_epub_rules(&check_zip(&z).unwrap()),
+        Err(EpubFault::DuplicateName)
+    );
 }
 
 #[test]
@@ -1592,7 +1939,10 @@ fn checker_flags_zip_level_corruption() {
     let de = check_zip(&good_d).unwrap();
     let k = 4; // chapter01.xhtml
     assert_eq!(de[k].method, 8);
-    assert_ne!(de[k].comp_size, de[k].size, "precondition: this entry really shrank");
+    assert_ne!(
+        de[k].comp_size, de[k].size,
+        "precondition: this entry really shrank"
+    );
     let (lo, co) = header_offsets(&good_d, k);
     let mut b = good_d.clone();
     put16(&mut b, lo + 8, 0);
@@ -1606,7 +1956,12 @@ fn checker_flags_zip_level_corruption() {
     put16(&mut b, co1 + 10, 8);
     let r = check_zip(&b);
     assert!(
-        matches!(r, Err(ZipFault::BadDeflate(1)) | Err(ZipFault::SizeMismatch(1)) | Err(ZipFault::CrcMismatch(1))),
+        matches!(
+            r,
+            Err(ZipFault::BadDeflate(1))
+                | Err(ZipFault::SizeMismatch(1))
+                | Err(ZipFault::CrcMismatch(1))
+        ),
         "stored data labelled as deflate must be rejected, got {r:?}"
     );
 
@@ -1679,7 +2034,11 @@ fn every_xml_part_of_every_standard_epub_is_well_formed() {
     for (name, _spec, bytes) in epub_fixtures() {
         let mut parts = 0;
         for e in check_zip(&bytes).unwrap() {
-            if e.name.ends_with(".xml") || e.name.ends_with(".opf") || e.name.ends_with(".ncx") || e.name.ends_with(".xhtml") {
+            if e.name.ends_with(".xml")
+                || e.name.ends_with(".opf")
+                || e.name.ends_with(".ncx")
+                || e.name.ends_with(".xhtml")
+            {
                 parts += 1;
                 check_xml(&e.data).unwrap_or_else(|err| panic!("{name}:{}: {err}", e.name));
             }
@@ -1695,10 +2054,28 @@ fn special_spec(version: EpubVersion) -> EpubSpec {
         author: s("O'Hara & \"Sons\" <x>"),
         identifier: s("urn:pulp-os:fixture:a&b<c>"),
         chapters: vec![
-            chapter("Salt & Pepper <1> \"quoted\"", vec![para(vec![text("1 < 2 & 3 > 2, \"yes\" - 'no'.")]), Block::Heading(s("R&D <h2> \"x\""))]),
-            chapter("Two", vec![para(vec![Run::Bold(s("a&b")), text(" and "), Run::Italic(s("<i>")), Run::Break, text("end \"&amp;\".")])]),
+            chapter(
+                "Salt & Pepper <1> \"quoted\"",
+                vec![
+                    para(vec![text("1 < 2 & 3 > 2, \"yes\" - 'no'.")]),
+                    Block::Heading(s("R&D <h2> \"x\"")),
+                ],
+            ),
+            chapter(
+                "Two",
+                vec![para(vec![
+                    Run::Bold(s("a&b")),
+                    text(" and "),
+                    Run::Italic(s("<i>")),
+                    Run::Break,
+                    text("end \"&amp;\"."),
+                ])],
+            ),
         ],
-        toc: vec![toc("Salt & Pepper <1> \"quoted\"", 0, vec![]), toc("T&C <2>", 1, vec![])],
+        toc: vec![
+            toc("Salt & Pepper <1> \"quoted\"", 0, vec![]),
+            toc("T&C <2>", 1, vec![]),
+        ],
         images: vec![],
         cover: None,
         compression: Compression::Stored,
@@ -1717,23 +2094,63 @@ fn special_characters_are_escaped_not_emitted_raw() {
         }
         let opf = std::str::from_utf8(&ents[2].data).unwrap();
         // the escapes are the contract's, written out
-        assert!(opf.contains("A &amp; B &lt;C&gt; &quot;D&quot; 'E'") || opf.contains("A &amp; B &lt;C&gt; &quot;D&quot; &apos;E&apos;"), "{opf}");
-        assert!(opf.contains("urn:pulp-os:fixture:a&amp;b&lt;c&gt;"), "{opf}");
-        assert!(!opf.contains("<C>") && !opf.contains("a&b"), "raw special characters leaked into the OPF");
+        assert!(
+            opf.contains("A &amp; B &lt;C&gt; &quot;D&quot; 'E'")
+                || opf.contains("A &amp; B &lt;C&gt; &quot;D&quot; &apos;E&apos;"),
+            "{opf}"
+        );
+        assert!(
+            opf.contains("urn:pulp-os:fixture:a&amp;b&lt;c&gt;"),
+            "{opf}"
+        );
+        assert!(
+            !opf.contains("<C>") && !opf.contains("a&b"),
+            "raw special characters leaked into the OPF"
+        );
         // un-escaping the OPF text gives back the spec
-        assert_eq!(xml_unescape(std::str::from_utf8(xml::tag_text(&ents[2].data, b"title").unwrap()).unwrap()), spec.title);
-        assert_eq!(xml_unescape(std::str::from_utf8(xml::tag_text(&ents[2].data, b"creator").unwrap()).unwrap()), spec.author);
-        assert_eq!(xml_unescape(std::str::from_utf8(xml::tag_text(&ents[2].data, b"identifier").unwrap()).unwrap()), spec.identifier);
+        assert_eq!(
+            xml_unescape(
+                std::str::from_utf8(xml::tag_text(&ents[2].data, b"title").unwrap()).unwrap()
+            ),
+            spec.title
+        );
+        assert_eq!(
+            xml_unescape(
+                std::str::from_utf8(xml::tag_text(&ents[2].data, b"creator").unwrap()).unwrap()
+            ),
+            spec.author
+        );
+        assert_eq!(
+            xml_unescape(
+                std::str::from_utf8(xml::tag_text(&ents[2].data, b"identifier").unwrap()).unwrap()
+            ),
+            spec.identifier
+        );
         // chapter text
         let c1 = std::str::from_utf8(&ents[4].data).unwrap();
-        assert!(c1.contains("1 &lt; 2 &amp; 3 &gt; 2, &quot;yes&quot;"), "{c1}");
+        assert!(
+            c1.contains("1 &lt; 2 &amp; 3 &gt; 2, &quot;yes&quot;"),
+            "{c1}"
+        );
         let c2 = std::str::from_utf8(&ents[5].data).unwrap();
-        assert!(c2.contains("end &quot;&amp;amp;&quot;."), "a literal '&amp;' in the spec is escaped once more: {c2}");
-        assert!(c2.contains("<b>a&amp;b</b>") && c2.contains("<i>&lt;i&gt;</i>") && c2.contains("<br/>"), "{c2}");
+        assert!(
+            c2.contains("end &quot;&amp;amp;&quot;."),
+            "a literal '&amp;' in the spec is escaped once more: {c2}"
+        );
+        assert!(
+            c2.contains("<b>a&amp;b</b>")
+                && c2.contains("<i>&lt;i&gt;</i>")
+                && c2.contains("<br/>"),
+            "{c2}"
+        );
         // the production stripper turns the escapes back into the spec's text
         for (i, ch) in spec.chapters.iter().enumerate() {
             let stripped = strip_html_buf(&ents[4 + i].data).unwrap();
-            assert_eq!(stripped, expected_chapter_text(&spec, ch), "{v:?} chapter {i}");
+            assert_eq!(
+                stripped,
+                expected_chapter_text(&spec, ch),
+                "{v:?} chapter {i}"
+            );
         }
     }
 }
@@ -1742,7 +2159,9 @@ fn special_characters_are_escaped_not_emitted_raw() {
 fn numeric_entities_flag_controls_the_encoding_of_non_ascii() {
     let mut spec = mini_spec(EpubVersion::V3, Compression::Stored);
     spec.chapters[0].title = s("Caf\u{e9} \u{201c}Un\u{201d}");
-    spec.chapters[0].blocks = vec![para(vec![text("r\u{e9}sum\u{e9} \u{2014} it\u{2019}s ok\u{2026}")])];
+    spec.chapters[0].blocks = vec![para(vec![text(
+        "r\u{e9}sum\u{e9} \u{2014} it\u{2019}s ok\u{2026}",
+    )])];
     for numeric in [false, true] {
         spec.numeric_entities = numeric;
         let bytes = build_epub(&spec).unwrap();
@@ -1750,19 +2169,31 @@ fn numeric_entities_flag_controls_the_encoding_of_non_ascii() {
         let ch = &ents[4].data;
         check_xml(ch).unwrap();
         if numeric {
-            assert!(ch.is_ascii(), "numeric_entities: chapter XHTML must be pure ASCII");
+            assert!(
+                ch.is_ascii(),
+                "numeric_entities: chapter XHTML must be pure ASCII"
+            );
             let t = std::str::from_utf8(ch).unwrap();
-            for r in ["&#233;", "&#8212;", "&#8217;", "&#8230;", "&#8220;", "&#8221;"] {
+            for r in [
+                "&#233;", "&#8212;", "&#8217;", "&#8230;", "&#8220;", "&#8221;",
+            ] {
                 assert!(t.contains(r), "{r} missing in {t}");
             }
             assert!(!t.contains("&#x"), "decimal references only");
         } else {
             let t = std::str::from_utf8(ch).unwrap();
-            assert!(t.contains("r\u{e9}sum\u{e9} \u{2014} it\u{2019}s ok\u{2026}") && !t.contains("&#"), "{t}");
+            assert!(
+                t.contains("r\u{e9}sum\u{e9} \u{2014} it\u{2019}s ok\u{2026}") && !t.contains("&#"),
+                "{t}"
+            );
         }
         // either way the production stripper yields the identical text
         let want = expected_chapter_text(&spec, &spec.chapters[0]);
-        assert_eq!(strip_html_buf(ch).unwrap(), want, "numeric_entities={numeric}");
+        assert_eq!(
+            strip_html_buf(ch).unwrap(),
+            want,
+            "numeric_entities={numeric}"
+        );
         // the OPF stays UTF-8 / unescaped for non-ASCII in both modes? (titles are ASCII here)
         assert!(ents[2].data.is_ascii());
     }
@@ -1784,21 +2215,49 @@ fn production_container_and_opf_parse_to_the_spec() {
         assert_eq!(p.meta.author_str(), spec.author, "{name}: author");
         assert_eq!(p.spine.len(), spec.chapters.len(), "{name}: spine length");
         for i in 0..spec.chapters.len() {
-            assert_eq!(p.zip.entry_name(p.spine.items[i] as usize), chapter_entry_name(i), "{name}: spine[{i}]");
+            assert_eq!(
+                p.zip.entry_name(p.spine.items[i] as usize),
+                chapter_entry_name(i),
+                "{name}: spine[{i}]"
+            );
         }
         // language / identifier / rights through the production tag scanner
-        assert_eq!(xml::tag_text(&p.opf, b"language"), Some(&b"en"[..]), "{name}");
-        assert_eq!(xml::tag_text(&p.opf, b"identifier"), Some(spec.identifier.as_bytes()), "{name}");
-        assert_eq!(xml::tag_text(&p.opf, b"rights"), Some(RIGHTS.as_bytes()), "{name}");
+        assert_eq!(
+            xml::tag_text(&p.opf, b"language"),
+            Some(&b"en"[..]),
+            "{name}"
+        );
+        assert_eq!(
+            xml::tag_text(&p.opf, b"identifier"),
+            Some(spec.identifier.as_bytes()),
+            "{name}"
+        );
+        assert_eq!(
+            xml::tag_text(&p.opf, b"rights"),
+            Some(RIGHTS.as_bytes()),
+            "{name}"
+        );
         // package version
         let mut versions = Vec::new();
-        xml::for_each_tag(&p.opf, b"package", |t| versions.push(xml::get_attr(t, b"version").map(|v| v.to_vec())));
-        let want = if spec.version == EpubVersion::V2 { b"2.0".to_vec() } else { b"3.0".to_vec() };
+        xml::for_each_tag(&p.opf, b"package", |t| {
+            versions.push(xml::get_attr(t, b"version").map(|v| v.to_vec()))
+        });
+        let want = if spec.version == EpubVersion::V2 {
+            b"2.0".to_vec()
+        } else {
+            b"3.0".to_vec()
+        };
         assert_eq!(versions, vec![Some(want)], "{name}: package version");
         if spec.version == EpubVersion::V3 {
-            assert!(String::from_utf8_lossy(&p.opf).contains(&format!(">{MODIFIED}<")), "{name}: dcterms:modified");
+            assert!(
+                String::from_utf8_lossy(&p.opf).contains(&format!(">{MODIFIED}<")),
+                "{name}: dcterms:modified"
+            );
         } else {
-            assert!(!String::from_utf8_lossy(&p.opf).contains("dcterms"), "{name}");
+            assert!(
+                !String::from_utf8_lossy(&p.opf).contains("dcterms"),
+                "{name}"
+            );
         }
     }
 }
@@ -1811,15 +2270,27 @@ fn opf_manifest_and_spine_are_consistent_with_the_zip() {
         let mut items: Vec<(String, String, String, Option<String>)> = Vec::new();
         xml::for_each_tag(&p.opf, b"item", |t| {
             let g = |a: &[u8]| xml::get_attr(t, a).map(|v| String::from_utf8(v.to_vec()).unwrap());
-            items.push((g(b"id").unwrap(), g(b"href").unwrap(), g(b"media-type").unwrap(), g(b"properties")));
+            items.push((
+                g(b"id").unwrap(),
+                g(b"href").unwrap(),
+                g(b"media-type").unwrap(),
+                g(b"properties"),
+            ));
         });
         let hrefs: Vec<&str> = items.iter().map(|i| i.1.as_str()).collect();
-        let want: Vec<String> = expected_entry_names(&spec).into_iter().skip(3).map(|n| n.strip_prefix("OEBPS/").unwrap().to_string()).collect();
+        let want: Vec<String> = expected_entry_names(&spec)
+            .into_iter()
+            .skip(3)
+            .map(|n| n.strip_prefix("OEBPS/").unwrap().to_string())
+            .collect();
         let mut a: Vec<&str> = hrefs.clone();
         a.sort();
         let mut b: Vec<&str> = want.iter().map(|s| s.as_str()).collect();
         b.sort();
-        assert_eq!(a, b, "{name}: manifest hrefs == nav/ncx + chapters + images");
+        assert_eq!(
+            a, b,
+            "{name}: manifest hrefs == nav/ncx + chapters + images"
+        );
         let ids: BTreeSet<&str> = items.iter().map(|i| i.0.as_str()).collect();
         assert_eq!(ids.len(), items.len(), "{name}: manifest ids unique");
         for it in &items {
@@ -1833,28 +2304,60 @@ fn opf_manifest_and_spine_are_consistent_with_the_zip() {
                 "image/jpeg"
             };
             assert_eq!(it.2, mt, "{name}: media-type of {}", it.1);
-            assert!(p.zip.find(&format!("OEBPS/{}", it.1)).is_some(), "{name}: manifest href {} has no ZIP entry", it.1);
+            assert!(
+                p.zip.find(&format!("OEBPS/{}", it.1)).is_some(),
+                "{name}: manifest href {} has no ZIP entry",
+                it.1
+            );
         }
         // nav / ncx declaration
-        let nav: Vec<&str> = items.iter().filter(|i| i.3.as_deref().is_some_and(|p| p.split(' ').any(|t| t == "nav"))).map(|i| i.1.as_str()).collect();
+        let nav: Vec<&str> = items
+            .iter()
+            .filter(|i| {
+                i.3.as_deref()
+                    .is_some_and(|p| p.split(' ').any(|t| t == "nav"))
+            })
+            .map(|i| i.1.as_str())
+            .collect();
         let mut spine_toc = Vec::new();
-        xml::for_each_tag(&p.opf, b"spine", |t| spine_toc.push(xml::get_attr(t, b"toc").map(|v| String::from_utf8(v.to_vec()).unwrap())));
+        xml::for_each_tag(&p.opf, b"spine", |t| {
+            spine_toc.push(xml::get_attr(t, b"toc").map(|v| String::from_utf8(v.to_vec()).unwrap()))
+        });
         if spec.version == EpubVersion::V3 {
             assert_eq!(nav, ["nav.xhtml"], "{name}: nav item");
-            assert!(matches!(p.toc_source, Some(TocSource::Nav(i)) if p.zip.entry_name(i) == "OEBPS/nav.xhtml"), "{name}: find_toc_source");
+            assert!(
+                matches!(p.toc_source, Some(TocSource::Nav(i)) if p.zip.entry_name(i) == "OEBPS/nav.xhtml"),
+                "{name}: find_toc_source"
+            );
         } else {
             assert!(nav.is_empty(), "{name}");
             let ncx = items.iter().find(|i| i.1 == "toc.ncx").unwrap();
-            assert_eq!(spine_toc, vec![Some(ncx.0.clone())], "{name}: <spine toc> names the NCX item");
-            assert!(matches!(p.toc_source, Some(TocSource::Ncx(i)) if p.zip.entry_name(i) == "OEBPS/toc.ncx"), "{name}: find_toc_source");
+            assert_eq!(
+                spine_toc,
+                vec![Some(ncx.0.clone())],
+                "{name}: <spine toc> names the NCX item"
+            );
+            assert!(
+                matches!(p.toc_source, Some(TocSource::Ncx(i)) if p.zip.entry_name(i) == "OEBPS/toc.ncx"),
+                "{name}: find_toc_source"
+            );
         }
         // itemrefs, in order, resolve to the chapters in order
         let mut refs = Vec::new();
-        xml::for_each_tag(&p.opf, b"itemref", |t| refs.push(String::from_utf8(xml::get_attr(t, b"idref").unwrap().to_vec()).unwrap()));
+        xml::for_each_tag(&p.opf, b"itemref", |t| {
+            refs.push(String::from_utf8(xml::get_attr(t, b"idref").unwrap().to_vec()).unwrap())
+        });
         assert_eq!(refs.len(), spec.chapters.len(), "{name}");
         for (i, r) in refs.iter().enumerate() {
-            let it = items.iter().find(|it| &it.0 == r).unwrap_or_else(|| panic!("{name}: idref {r} not in manifest"));
-            assert_eq!(it.1, format!("text/chapter{:02}.xhtml", i + 1), "{name}: itemref {i}");
+            let it = items
+                .iter()
+                .find(|it| &it.0 == r)
+                .unwrap_or_else(|| panic!("{name}: idref {r} not in manifest"));
+            assert_eq!(
+                it.1,
+                format!("text/chapter{:02}.xhtml", i + 1),
+                "{name}: itemref {i}"
+            );
         }
     }
 }
@@ -1865,7 +2368,10 @@ fn production_toc_parse_equals_the_flattened_spec_toc() {
         let p = parse_book(&bytes);
         let mut want = Vec::new();
         flatten(&spec.toc, &mut want);
-        assert!(want.len() >= 4, "{name}: standard TOCs have several entries");
+        assert!(
+            want.len() >= 4,
+            "{name}: standard TOCs have several entries"
+        );
         assert_eq!(p.toc.len(), want.len(), "{name}: TOC entry count");
         for (i, (title, ch)) in want.iter().enumerate() {
             let e = &p.toc.entries[i];
@@ -1879,21 +2385,44 @@ fn production_toc_parse_equals_the_flattened_spec_toc() {
 fn nested_toc_is_flattened_in_document_order_with_titles_intact() {
     for v in [EpubVersion::V2, EpubVersion::V3] {
         let mut spec = mini_spec(v, Compression::Deflate);
-        spec.chapters.push(chapter("Four", vec![para(vec![text("Fourth.")])]));
-        spec.chapters.push(chapter("Five", vec![para(vec![text("Fifth.")])]));
+        spec.chapters
+            .push(chapter("Four", vec![para(vec![text("Fourth.")])]));
+        spec.chapters
+            .push(chapter("Five", vec![para(vec![text("Fifth.")])]));
         // depth 3, siblings after a deep branch, a title that shares a prefix with its parent,
         // the last entry pointing back at chapter 0
         spec.toc = vec![
-            toc("Part I", 0, vec![toc("Part I.a", 1, vec![toc("Part I.a.x", 2, vec![])]), toc("Part I.b", 3, vec![])]),
+            toc(
+                "Part I",
+                0,
+                vec![
+                    toc("Part I.a", 1, vec![toc("Part I.a.x", 2, vec![])]),
+                    toc("Part I.b", 3, vec![]),
+                ],
+            ),
             toc("Part II", 4, vec![]),
             toc("Back to the start", 0, vec![]),
         ];
         let p = parse_book(&build_epub(&spec).unwrap());
-        let got: Vec<(String, u16)> = (0..p.toc.len()).map(|i| (p.toc.entries[i].title_str().to_string(), p.toc.entries[i].spine_idx)).collect();
-        let want: Vec<(String, u16)> = [("Part I", 0), ("Part I.a", 1), ("Part I.a.x", 2), ("Part I.b", 3), ("Part II", 4), ("Back to the start", 0)]
-            .iter()
-            .map(|(t, c)| (t.to_string(), *c))
+        let got: Vec<(String, u16)> = (0..p.toc.len())
+            .map(|i| {
+                (
+                    p.toc.entries[i].title_str().to_string(),
+                    p.toc.entries[i].spine_idx,
+                )
+            })
             .collect();
+        let want: Vec<(String, u16)> = [
+            ("Part I", 0),
+            ("Part I.a", 1),
+            ("Part I.a.x", 2),
+            ("Part I.b", 3),
+            ("Part II", 4),
+            ("Back to the start", 0),
+        ]
+        .iter()
+        .map(|(t, c)| (t.to_string(), *c))
+        .collect();
         assert_eq!(got, want, "{v:?}");
     }
 }
@@ -1918,13 +2447,36 @@ fn toc_title_boundaries_match_the_production_caps() {
         let mut spec = mini_spec(v, Compression::Stored);
         spec.title = "T".repeat(epub::TITLE_CAP);
         spec.author = "W".repeat(epub::AUTHOR_CAP);
-        spec.toc = vec![toc(&"x".repeat(epub::TOC_TITLE_CAP), 0, vec![]), toc(&format!("{}\u{e9}", "y".repeat(epub::TOC_TITLE_CAP - 2)), 1, vec![])];
+        spec.toc = vec![
+            toc(&"x".repeat(epub::TOC_TITLE_CAP), 0, vec![]),
+            toc(
+                &format!("{}\u{e9}", "y".repeat(epub::TOC_TITLE_CAP - 2)),
+                1,
+                vec![],
+            ),
+        ];
         let p = parse_book(&build_epub(&spec).unwrap());
-        assert_eq!(p.meta.title_str(), spec.title, "{v:?}: 64-byte title survives whole");
-        assert_eq!(p.meta.author_str(), spec.author, "{v:?}: 64-byte author survives whole");
+        assert_eq!(
+            p.meta.title_str(),
+            spec.title,
+            "{v:?}: 64-byte title survives whole"
+        );
+        assert_eq!(
+            p.meta.author_str(),
+            spec.author,
+            "{v:?}: 64-byte author survives whole"
+        );
         assert_eq!(p.toc.len(), 2);
-        assert_eq!(p.toc.entries[0].title_str(), spec.toc[0].title, "{v:?}: 48-byte TOC title");
-        assert_eq!(p.toc.entries[1].title_str(), spec.toc[1].title, "{v:?}: 48-byte TOC title ending in a 2-byte char");
+        assert_eq!(
+            p.toc.entries[0].title_str(),
+            spec.toc[0].title,
+            "{v:?}: 48-byte TOC title"
+        );
+        assert_eq!(
+            p.toc.entries[1].title_str(),
+            spec.toc[1].title,
+            "{v:?}: 48-byte TOC title ending in a 2-byte char"
+        );
     }
 }
 
@@ -1948,12 +2500,27 @@ fn known_limitation_titles_are_not_entity_decoded_by_production() {
             check_xml(&e.data).unwrap_or_else(|err| panic!("{v:?} {}: {err}", e.name));
         }
         let p = parse_book(&bytes);
-        assert_eq!(p.meta.title_str(), "Fish &amp; Chips", "{v:?}: dc:title is returned undecoded");
-        assert_eq!(p.meta.author_str(), "R&amp;D &quot;Ltd&quot;", "{v:?}: dc:creator is returned undecoded");
-        assert_eq!(p.toc.entries[0].title_str(), "T&amp;C &lt;1&gt;", "{v:?}: TOC title is returned undecoded");
+        assert_eq!(
+            p.meta.title_str(),
+            "Fish &amp; Chips",
+            "{v:?}: dc:title is returned undecoded"
+        );
+        assert_eq!(
+            p.meta.author_str(),
+            "R&amp;D &quot;Ltd&quot;",
+            "{v:?}: dc:creator is returned undecoded"
+        );
+        assert_eq!(
+            p.toc.entries[0].title_str(),
+            "T&amp;C &lt;1&gt;",
+            "{v:?}: TOC title is returned undecoded"
+        );
         // and decoding it ourselves recovers the spec: the bytes are right, only the reader does not decode
         assert_eq!(xml_unescape(p.meta.title_str()), spec.title);
-        assert_eq!(xml_unescape(p.toc.entries[0].title_str()), spec.toc[0].title);
+        assert_eq!(
+            xml_unescape(p.toc.entries[0].title_str()),
+            spec.toc[0].title
+        );
     }
 }
 
@@ -1967,7 +2534,13 @@ fn spec_text_obeys_the_whitespace_normal_form() {
     for (name, spec, _) in epub_fixtures() {
         for (ci, ch) in spec.chapters.iter().enumerate() {
             let one_line = |t: &str, what: &str| {
-                assert!(!t.is_empty() && !t.contains(['\n', '\r', '\t']) && t.trim() == t && !t.contains("  "), "{name} ch{ci} {what}: {t:?}");
+                assert!(
+                    !t.is_empty()
+                        && !t.contains(['\n', '\r', '\t'])
+                        && t.trim() == t
+                        && !t.contains("  "),
+                    "{name} ch{ci} {what}: {t:?}"
+                );
             };
             one_line(&ch.title, "title");
             for b in &ch.blocks {
@@ -1978,12 +2551,26 @@ fn spec_text_obeys_the_whitespace_normal_form() {
                         paragraphs += 1;
                         for r in runs {
                             if let Run::Text(t) | Run::Bold(t) | Run::Italic(t) = r {
-                                assert!(!t.is_empty() && !t.contains(['\n', '\r', '\t']), "{name} ch{ci}: run {t:?}");
+                                assert!(
+                                    !t.is_empty() && !t.contains(['\n', '\r', '\t']),
+                                    "{name} ch{ci}: run {t:?}"
+                                );
                             }
                         }
                         let p = plain_of(runs);
-                        assert!(!p.is_empty() && !p.starts_with([' ', '\n']) && !p.ends_with([' ', '\n']), "{name} ch{ci}: {p:?}");
-                        assert!(!p.contains("  ") && !p.contains(" \n") && !p.contains("\n ") && !p.contains("\n\n"), "{name} ch{ci}: {p:?}");
+                        assert!(
+                            !p.is_empty()
+                                && !p.starts_with([' ', '\n'])
+                                && !p.ends_with([' ', '\n']),
+                            "{name} ch{ci}: {p:?}"
+                        );
+                        assert!(
+                            !p.contains("  ")
+                                && !p.contains(" \n")
+                                && !p.contains("\n ")
+                                && !p.contains("\n\n"),
+                            "{name} ch{ci}: {p:?}"
+                        );
                     }
                 }
             }
@@ -1999,11 +2586,20 @@ fn spec_text_obeys_the_whitespace_normal_form() {
         texts.push(spec.title.clone());
         texts.push(spec.author.clone());
         for title in texts {
-            assert!(!title.is_empty() && !title.contains(['\n', '\r', '\t']) && title.trim() == title, "{name}: {title:?}");
-            assert!(!title.contains(['&', '<', '>', '"']), "{name}: {title:?} has an XML special character");
+            assert!(
+                !title.is_empty() && !title.contains(['\n', '\r', '\t']) && title.trim() == title,
+                "{name}: {title:?}"
+            );
+            assert!(
+                !title.contains(['&', '<', '>', '"']),
+                "{name}: {title:?} has an XML special character"
+            );
         }
     }
-    assert!(paragraphs >= 30, "{paragraphs} paragraphs in the standard EPUBs");
+    assert!(
+        paragraphs >= 30,
+        "{paragraphs} paragraphs in the standard EPUBs"
+    );
 }
 
 #[test]
@@ -2020,7 +2616,11 @@ fn production_extract_and_strip_give_the_spec_text_for_every_chapter() {
             // route 1: extract the whole entry, then the in-memory stripper
             let xhtml = extract_entry(e, e.local_offset, read_at(&bytes)).unwrap();
             let got = strip_html_buf(&xhtml).unwrap();
-            assert_eq!(got, want, "{name} {entry_name} (method {}): extract_entry + strip_html_buf", e.method);
+            assert_eq!(
+                got, want,
+                "{name} {entry_name} (method {}): extract_entry + strip_html_buf",
+                e.method
+            );
 
             // route 2: the streaming pipeline the reader uses (4 KB chunks, no whole-entry buffer)
             let mut streamed = Vec::new();
@@ -2029,27 +2629,50 @@ fn production_extract_and_strip_give_the_spec_text_for_every_chapter() {
                 Ok(())
             })
             .unwrap();
-            assert_eq!(n as usize, streamed.len(), "{name} {entry_name}: reported length");
-            assert_eq!(streamed, want, "{name} {entry_name} (method {}): stream_strip_entry", e.method);
+            assert_eq!(
+                n as usize,
+                streamed.len(),
+                "{name} {entry_name}: reported length"
+            );
+            assert_eq!(
+                streamed, want,
+                "{name} {entry_name} (method {}): stream_strip_entry",
+                e.method
+            );
             chapters_checked += 1;
         }
     }
-    assert!(chapters_checked >= 20, "{chapters_checked} chapters checked");
+    assert!(
+        chapters_checked >= 20,
+        "{chapters_checked} chapters checked"
+    );
 }
 
 #[test]
 fn standard_epubs_have_entries_longer_than_three_stream_chunks_in_both_methods() {
     let (mut big_stored, mut big_deflate) = (false, false);
     for (_, _, bytes) in epub_fixtures() {
-        for e in check_zip(&bytes).unwrap().iter().filter(|e| e.name.contains("/text/")) {
+        for e in check_zip(&bytes)
+            .unwrap()
+            .iter()
+            .filter(|e| e.name.contains("/text/"))
+        {
             if e.size as usize >= 3 * STREAM_CHUNK {
                 big_stored |= e.method == METHOD_STORED;
                 big_deflate |= e.method == METHOD_DEFLATE;
             }
         }
     }
-    assert!(big_stored, "no STORED chapter of >= {} bytes", 3 * STREAM_CHUNK);
-    assert!(big_deflate, "no DEFLATE chapter of >= {} bytes", 3 * STREAM_CHUNK);
+    assert!(
+        big_stored,
+        "no STORED chapter of >= {} bytes",
+        3 * STREAM_CHUNK
+    );
+    assert!(
+        big_deflate,
+        "no DEFLATE chapter of >= {} bytes",
+        3 * STREAM_CHUNK
+    );
 }
 
 #[test]
@@ -2063,9 +2686,25 @@ fn hand_written_chapter_exercises_every_markup_form() {
             "Every Tag",
             vec![
                 Block::Heading(s("A Heading")),
-                para(vec![text("Plain, "), Run::Bold(s("bold")), text(", "), Run::Italic(s("italic")), text(", "), Run::Bold(s("b&b")), text(" end.")]),
-                para(vec![text("Line one"), Run::Break, text("Line two"), Run::Break, Run::Italic(s("Line three"))]),
-                para(vec![text("Quotes: \u{201c}smart\u{201d} and \u{2018}single\u{2019}, caf\u{e9}, dash \u{2014} ellipsis\u{2026} & \"plain\" <ok>.")]),
+                para(vec![
+                    text("Plain, "),
+                    Run::Bold(s("bold")),
+                    text(", "),
+                    Run::Italic(s("italic")),
+                    text(", "),
+                    Run::Bold(s("b&b")),
+                    text(" end."),
+                ]),
+                para(vec![
+                    text("Line one"),
+                    Run::Break,
+                    text("Line two"),
+                    Run::Break,
+                    Run::Italic(s("Line three")),
+                ]),
+                para(vec![text(
+                    "Quotes: \u{201c}smart\u{201d} and \u{2018}single\u{2019}, caf\u{e9}, dash \u{2014} ellipsis\u{2026} & \"plain\" <ok>.",
+                )]),
                 para(vec![text("Last.")]),
             ],
         )],
@@ -2106,10 +2745,20 @@ fn hand_written_chapter_exercises_every_markup_form() {
         want.extend_from_slice(b"Line three");
         want.extend_from_slice(&[M, b'i']);
         want.extend_from_slice(b"\n\nQuotes: \xE2\x80\x9Csmart\xE2\x80\x9D and \xE2\x80\x98single\xE2\x80\x99, caf\xC3\xA9, dash \xE2\x80\x94 ellipsis\xE2\x80\xA6 & \"plain\" <ok>.\n\nLast.\n");
-        assert_eq!(strip_html_buf(&ents[4].data).unwrap(), want, "numeric_entities={numeric}");
+        assert_eq!(
+            strip_html_buf(&ents[4].data).unwrap(),
+            want,
+            "numeric_entities={numeric}"
+        );
         // the contract's tags
         let html = String::from_utf8(ents[4].data.clone()).unwrap();
-        for tag in ["<h1>Every Tag</h1>", "<h2>A Heading</h2>", "<p>Plain, <b>bold</b>, <i>italic</i>, <b>b&amp;b</b> end.</p>", "<p>Line one<br/>Line two<br/><i>Line three</i></p>", "<p>Last.</p>"] {
+        for tag in [
+            "<h1>Every Tag</h1>",
+            "<h2>A Heading</h2>",
+            "<p>Plain, <b>bold</b>, <i>italic</i>, <b>b&amp;b</b> end.</p>",
+            "<p>Line one<br/>Line two<br/><i>Line three</i></p>",
+            "<p>Last.</p>",
+        ] {
             assert!(html.contains(tag), "missing {tag} in {html}");
         }
         let zip = open_zip(&bytes);
@@ -2131,9 +2780,19 @@ fn chapter_head_title_is_not_part_of_the_stripped_text() {
     spec.chapters[0].title = s("Unique Chapter Title");
     let ents = check_zip(&build_epub(&spec).unwrap()).unwrap();
     let html = String::from_utf8(ents[4].data.clone()).unwrap();
-    assert!(html.contains("<title>Unique Chapter Title</title>") && html.contains("<h1>Unique Chapter Title</h1>"), "{html}");
+    assert!(
+        html.contains("<title>Unique Chapter Title</title>")
+            && html.contains("<h1>Unique Chapter Title</h1>"),
+        "{html}"
+    );
     let stripped = strip_html_buf(&ents[4].data).unwrap();
-    assert_eq!(stripped.windows(20).filter(|w| *w == b"Unique Chapter Title").count(), 1);
+    assert_eq!(
+        stripped
+            .windows(20)
+            .filter(|w| *w == b"Unique Chapter Title")
+            .count(),
+        1
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -2149,7 +2808,11 @@ fn black(img: &DecodedImage, x: usize, y: usize) -> bool {
 // a density property for the gradient)
 fn assert_decoded_matches(img: &DecodedImage, spec: &ImageSpec, what: &str) {
     let (w, h) = (spec.width as usize, spec.height as usize);
-    assert_eq!((img.width as usize, img.height as usize), (w, h), "{what}: decoded size");
+    assert_eq!(
+        (img.width as usize, img.height as usize),
+        (w, h),
+        "{what}: decoded size"
+    );
     assert_eq!(img.stride, w.div_ceil(8), "{what}: stride");
     assert_eq!(img.data.len(), img.stride * h, "{what}: data length");
     match spec.pattern {
@@ -2159,7 +2822,9 @@ fn assert_decoded_matches(img: &DecodedImage, spec: &ImageSpec, what: &str) {
                     let want = match spec.pattern {
                         Pattern::Black => true,
                         Pattern::White => false,
-                        Pattern::Checker { cell } => (x / cell as usize + y / cell as usize) % 2 == 0,
+                        Pattern::Checker { cell } => {
+                            (x / cell as usize + y / cell as usize) % 2 == 0
+                        }
                         Pattern::HorizontalGradient => unreachable!(),
                     };
                     assert_eq!(black(img, x, y), want, "{what}: pixel ({x},{y}) black?");
@@ -2168,11 +2833,25 @@ fn assert_decoded_matches(img: &DecodedImage, spec: &ImageSpec, what: &str) {
         }
         Pattern::HorizontalGradient => {
             let q = w / 4;
-            let count = |x0: usize, x1: usize| (0..h).map(|y| (x0..x1).filter(|&x| black(img, x, y)).count()).sum::<usize>() as f64 / (h * (x1 - x0)) as f64;
+            let count = |x0: usize, x1: usize| {
+                (0..h)
+                    .map(|y| (x0..x1).filter(|&x| black(img, x, y)).count())
+                    .sum::<usize>() as f64
+                    / (h * (x1 - x0)) as f64
+            };
             let (left, right) = (count(0, q), count(w - q, w));
-            assert!(left > 0.70, "{what}: left quarter of a black->white ramp is only {left:.2} black");
-            assert!(right < 0.30, "{what}: right quarter of a black->white ramp is {right:.2} black");
-            assert!(left > right + 0.4, "{what}: ramp direction (left {left:.2}, right {right:.2})");
+            assert!(
+                left > 0.70,
+                "{what}: left quarter of a black->white ramp is only {left:.2} black"
+            );
+            assert!(
+                right < 0.30,
+                "{what}: right quarter of a black->white ramp is {right:.2} black"
+            );
+            assert!(
+                left > right + 0.4,
+                "{what}: ramp direction (left {left:.2}, right {right:.2})"
+            );
         }
     }
 }
@@ -2181,23 +2860,49 @@ fn is_jpeg(k: ImageKind) -> bool {
     k == ImageKind::Jpeg
 }
 
-fn decode_in_memory(data: &[u8], k: ImageKind, mw: u16, mh: u16) -> Result<DecodedImage, &'static str> {
-    if is_jpeg(k) { jpeg::decode_jpeg_fit(data, mw, mh) } else { png::decode_png_fit(data, mw, mh) }
+fn decode_in_memory(
+    data: &[u8],
+    k: ImageKind,
+    mw: u16,
+    mh: u16,
+) -> Result<DecodedImage, &'static str> {
+    if is_jpeg(k) {
+        jpeg::decode_jpeg_fit(data, mw, mh)
+    } else {
+        png::decode_png_fit(data, mw, mh)
+    }
 }
 
 // decode straight out of the EPUB bytes by the entry's own method: the
 // STORED / DEFLATE streaming paths the reader uses
-fn decode_from_zip(bytes: &[u8], zip: &ZipIndex, name: &str, k: ImageKind, mw: u16, mh: u16) -> Result<DecodedImage, &'static str> {
-    let idx = zip.find(name).unwrap_or_else(|| panic!("{name} not in the ZIP"));
+fn decode_from_zip(
+    bytes: &[u8],
+    zip: &ZipIndex,
+    name: &str,
+    k: ImageKind,
+    mw: u16,
+    mh: u16,
+) -> Result<DecodedImage, &'static str> {
+    let idx = zip
+        .find(name)
+        .unwrap_or_else(|| panic!("{name} not in the ZIP"));
     let e = zip.entry(idx);
     let mut header = [0u8; 30];
     read_at(bytes)(e.local_offset, &mut header).unwrap();
     let off = e.local_offset + ZipIndex::local_header_data_skip(&header).unwrap();
     match (is_jpeg(k), e.method) {
-        (false, METHOD_STORED) => png::decode_png_streaming(read_at(bytes), off, e.comp_size, mw, mh),
-        (false, METHOD_DEFLATE) => png::decode_png_deflate_streaming(read_at(bytes), off, e.comp_size, mw, mh),
-        (true, METHOD_STORED) => jpeg::decode_jpeg_streaming(read_at(bytes), off, e.comp_size, mw, mh),
-        (true, METHOD_DEFLATE) => jpeg::decode_jpeg_deflate_streaming(read_at(bytes), off, e.comp_size, mw, mh),
+        (false, METHOD_STORED) => {
+            png::decode_png_streaming(read_at(bytes), off, e.comp_size, mw, mh)
+        }
+        (false, METHOD_DEFLATE) => {
+            png::decode_png_deflate_streaming(read_at(bytes), off, e.comp_size, mw, mh)
+        }
+        (true, METHOD_STORED) => {
+            jpeg::decode_jpeg_streaming(read_at(bytes), off, e.comp_size, mw, mh)
+        }
+        (true, METHOD_DEFLATE) => {
+            jpeg::decode_jpeg_deflate_streaming(read_at(bytes), off, e.comp_size, mw, mh)
+        }
         (_, m) => panic!("method {m}"),
     }
 }
@@ -2209,11 +2914,22 @@ fn every_standard_image_is_a_valid_png_or_jpeg_of_the_specified_pixels() {
         let ents = check_zip(&bytes).unwrap();
         for im in &spec.images {
             count += 1;
-            let ent = ents.iter().find(|e| e.name == format!("OEBPS/{}", im.path)).unwrap_or_else(|| panic!("{name}: {} missing", im.path));
-            let r = if is_jpeg(im.kind) { check_jpeg(&ent.data, im) } else { check_png(&ent.data, im) };
+            let ent = ents
+                .iter()
+                .find(|e| e.name == format!("OEBPS/{}", im.path))
+                .unwrap_or_else(|| panic!("{name}: {} missing", im.path));
+            let r = if is_jpeg(im.kind) {
+                check_jpeg(&ent.data, im)
+            } else {
+                check_png(&ent.data, im)
+            };
             r.unwrap_or_else(|e| panic!("{name}: {}: {e}", im.path));
             match im.kind {
-                ImageKind::Jpeg => assert!(im.path.ends_with(".jpg") || im.path.ends_with(".jpeg"), "{}", im.path),
+                ImageKind::Jpeg => assert!(
+                    im.path.ends_with(".jpg") || im.path.ends_with(".jpeg"),
+                    "{}",
+                    im.path
+                ),
                 _ => assert!(im.path.ends_with(".png"), "{}", im.path),
             }
         }
@@ -2227,20 +2943,35 @@ fn production_decoders_reproduce_the_spec_pixels_through_memory_and_both_zip_pat
         let zip = open_zip(&bytes);
         for im in &spec.images {
             let entry = format!("OEBPS/{}", im.path);
-            let what = format!("{name}:{} ({:?}, method {})", im.path, im.kind, zip.entry(zip.find(&entry).unwrap()).method);
+            let what = format!(
+                "{name}:{} ({:?}, method {})",
+                im.path,
+                im.kind,
+                zip.entry(zip.find(&entry).unwrap()).method
+            );
             // in-memory decode of the independently decompressed bytes
             let raw = entry_bytes(&bytes, &zip, &entry);
-            let a = decode_in_memory(&raw, im.kind, 4096, 4096).unwrap_or_else(|e| panic!("{what}: in-memory decode: {e}"));
+            let a = decode_in_memory(&raw, im.kind, 4096, 4096)
+                .unwrap_or_else(|e| panic!("{what}: in-memory decode: {e}"));
             assert_decoded_matches(&a, im, &format!("{what} [memory]"));
             // streaming decode out of the archive, STORED or DEFLATE as the entry is
-            let b = decode_from_zip(&bytes, &zip, &entry, im.kind, 4096, 4096).unwrap_or_else(|e| panic!("{what}: zip decode: {e}"));
+            let b = decode_from_zip(&bytes, &zip, &entry, im.kind, 4096, 4096)
+                .unwrap_or_else(|e| panic!("{what}: zip decode: {e}"));
             assert_decoded_matches(&b, im, &format!("{what} [zip stream]"));
             assert_eq!(a.data, b.data, "{what}: both routes decode identically");
             // dimension peeks
             if is_jpeg(im.kind) {
-                assert_eq!(jpeg::peek_jpeg_dimensions(&raw), Ok((im.width, im.height)), "{what}: peek_jpeg_dimensions");
+                assert_eq!(
+                    jpeg::peek_jpeg_dimensions(&raw),
+                    Ok((im.width, im.height)),
+                    "{what}: peek_jpeg_dimensions"
+                );
             } else {
-                assert_eq!(png::peek_png_dimensions(&raw), Ok((im.width as u32, im.height as u32)), "{what}: peek_png_dimensions");
+                assert_eq!(
+                    png::peek_png_dimensions(&raw),
+                    Ok((im.width as u32, im.height as u32)),
+                    "{what}: peek_png_dimensions"
+                );
             }
         }
     }
@@ -2256,8 +2987,16 @@ fn standard_images_cover_every_kind_and_both_zip_methods_with_distinct_sizes() {
         let mut ks = BTreeSet::new();
         let mut paths = BTreeSet::new();
         for im in &spec.images {
-            assert!(paths.insert(im.path.clone()), "{name}: duplicate image path {}", im.path);
-            let m = ents.iter().find(|e| e.name == format!("OEBPS/{}", im.path)).unwrap().method;
+            assert!(
+                paths.insert(im.path.clone()),
+                "{name}: duplicate image path {}",
+                im.path
+            );
+            let m = ents
+                .iter()
+                .find(|e| e.name == format!("OEBPS/{}", im.path))
+                .unwrap()
+                .method;
             pairs.insert((format!("{:?}", im.kind), m));
             ks.insert(format!("{:?}", im.kind));
             if !is_jpeg(im.kind) {
@@ -2268,27 +3007,40 @@ fn standard_images_cover_every_kind_and_both_zip_methods_with_distinct_sizes() {
     }
     for k in ["PngGray1", "PngGray8", "PngPalette8", "Jpeg"] {
         for m in [METHOD_STORED, METHOD_DEFLATE] {
-            assert!(pairs.contains(&(k.to_string(), m)), "no {k} image stored with method {m}: add one so that decoder path has a fixture");
+            assert!(
+                pairs.contains(&(k.to_string(), m)),
+                "no {k} image stored with method {m}: add one so that decoder path has a fixture"
+            );
         }
     }
     // the 1-bit, greyscale and palette PNGs differ in size
     assert!(png_sizes.len() >= 3, "PNG sizes {png_sizes:?}");
     for (name, ks) in &kinds_in_book {
         if name.contains("MIXED") {
-            assert_eq!(ks.len(), 4, "{name}: a MIXED book carries all four image kinds, has {ks:?}");
+            assert_eq!(
+                ks.len(),
+                4,
+                "{name}: a MIXED book carries all four image kinds, has {ks:?}"
+            );
         }
     }
     // each of the three PNG kinds has its own dimensions in at least one book
     let mut per_kind: std::collections::BTreeMap<String, BTreeSet<(u16, u16)>> = Default::default();
     for (_, spec, _) in epub_fixtures() {
         for im in &spec.images {
-            per_kind.entry(format!("{:?}", im.kind)).or_default().insert((im.width, im.height));
+            per_kind
+                .entry(format!("{:?}", im.kind))
+                .or_default()
+                .insert((im.width, im.height));
         }
     }
     let g1 = &per_kind["PngGray1"];
     let g8 = &per_kind["PngGray8"];
     let pl = &per_kind["PngPalette8"];
-    assert!(g1.is_disjoint(g8) && g1.is_disjoint(pl) && g8.is_disjoint(pl), "1-bit {g1:?}, grey {g8:?}, palette {pl:?} must not share a size");
+    assert!(
+        g1.is_disjoint(g8) && g1.is_disjoint(pl) && g8.is_disjoint(pl),
+        "1-bit {g1:?}, grey {g8:?}, palette {pl:?} must not share a size"
+    );
 }
 
 #[test]
@@ -2297,15 +3049,29 @@ fn decoders_agree_with_independently_derivable_images_of_every_kind() {
     // change pure 0 / 255 samples); odd sizes exercise padding bits and
     // non-multiple-of-8 widths; JPEG sizes are multiples of 8 by contract
     let mut cases: Vec<ImageSpec> = Vec::new();
-    for kind in [ImageKind::PngGray1, ImageKind::PngGray8, ImageKind::PngPalette8] {
+    for kind in [
+        ImageKind::PngGray1,
+        ImageKind::PngGray8,
+        ImageKind::PngPalette8,
+    ] {
         for (w, h) in [(1u16, 1u16), (7, 5), (8, 8), (9, 3), (33, 17)] {
-            for pattern in [Pattern::Black, Pattern::White, Pattern::Checker { cell: 1 }, Pattern::Checker { cell: 3 }] {
+            for pattern in [
+                Pattern::Black,
+                Pattern::White,
+                Pattern::Checker { cell: 1 },
+                Pattern::Checker { cell: 3 },
+            ] {
                 cases.push(image("images/t.png", kind, w, h, pattern));
             }
         }
     }
     for (w, h) in [(8u16, 8u16), (16, 8), (24, 16), (40, 32)] {
-        for pattern in [Pattern::Black, Pattern::White, Pattern::Checker { cell: 8 }, Pattern::Checker { cell: 16 }] {
+        for pattern in [
+            Pattern::Black,
+            Pattern::White,
+            Pattern::Checker { cell: 8 },
+            Pattern::Checker { cell: 16 },
+        ] {
             cases.push(image("images/t.jpg", ImageKind::Jpeg, w, h, pattern));
         }
     }
@@ -2318,9 +3084,22 @@ fn decoders_agree_with_independently_derivable_images_of_every_kind() {
             let ents = check_zip(&bytes).unwrap();
             let ent = ents.last().unwrap();
             let what = format!("{im:?} {compression:?}");
-            if is_jpeg(im.kind) { check_jpeg(&ent.data, im) } else { check_png(&ent.data, im) }.unwrap_or_else(|e| panic!("{what}: {e}"));
+            if is_jpeg(im.kind) {
+                check_jpeg(&ent.data, im)
+            } else {
+                check_png(&ent.data, im)
+            }
+            .unwrap_or_else(|e| panic!("{what}: {e}"));
             let zip = open_zip(&bytes);
-            let d = decode_from_zip(&bytes, &zip, &format!("OEBPS/{}", im.path), im.kind, 4096, 4096).unwrap_or_else(|e| panic!("{what}: {e}"));
+            let d = decode_from_zip(
+                &bytes,
+                &zip,
+                &format!("OEBPS/{}", im.path),
+                im.kind,
+                4096,
+                4096,
+            )
+            .unwrap_or_else(|e| panic!("{what}: {e}"));
             assert_decoded_matches(&d, im, &what);
         }
     }
@@ -2328,25 +3107,58 @@ fn decoders_agree_with_independently_derivable_images_of_every_kind() {
 
 #[test]
 fn gradients_decode_as_dark_to_light_in_png_and_jpeg() {
-    for (kind, w, h) in [(ImageKind::PngGray8, 64u16, 16u16), (ImageKind::Jpeg, 72, 16)] {
-        let im = image(if is_jpeg(kind) { "images/g.jpg" } else { "images/g.png" }, kind, w, h, Pattern::HorizontalGradient);
+    for (kind, w, h) in [
+        (ImageKind::PngGray8, 64u16, 16u16),
+        (ImageKind::Jpeg, 72, 16),
+    ] {
+        let im = image(
+            if is_jpeg(kind) {
+                "images/g.jpg"
+            } else {
+                "images/g.png"
+            },
+            kind,
+            w,
+            h,
+            Pattern::HorizontalGradient,
+        );
         let mut spec = mini_spec(EpubVersion::V2, Compression::Deflate);
         spec.images = vec![im.clone()];
         spec.chapters[0].blocks.push(Block::Image(0));
         let bytes = build_epub(&spec).unwrap();
         let ents = check_zip(&bytes).unwrap();
-        if is_jpeg(kind) { check_jpeg(&ents.last().unwrap().data, &im) } else { check_png(&ents.last().unwrap().data, &im) }.unwrap();
+        if is_jpeg(kind) {
+            check_jpeg(&ents.last().unwrap().data, &im)
+        } else {
+            check_png(&ents.last().unwrap().data, &im)
+        }
+        .unwrap();
         let zip = open_zip(&bytes);
-        let d = decode_from_zip(&bytes, &zip, &format!("OEBPS/{}", im.path), kind, 4096, 4096).unwrap();
+        let d = decode_from_zip(
+            &bytes,
+            &zip,
+            &format!("OEBPS/{}", im.path),
+            kind,
+            4096,
+            4096,
+        )
+        .unwrap();
         assert_decoded_matches(&d, &im, &format!("{kind:?} gradient"));
     }
 }
 
 #[test]
 fn production_integer_downscale_halves_a_checker_and_keeps_pure_images_pure() {
-    for (kind, w, h, path) in [(ImageKind::PngGray8, 64u16, 32u16, "images/d.png"), (ImageKind::Jpeg, 64, 32, "images/d.jpg")] {
+    for (kind, w, h, path) in [
+        (ImageKind::PngGray8, 64u16, 32u16, "images/d.png"),
+        (ImageKind::Jpeg, 64, 32, "images/d.jpg"),
+    ] {
         // fit into half the size: integer factor 2 (64x32 -> 32x16)
-        for pattern in [Pattern::Black, Pattern::White, Pattern::Checker { cell: 16 }] {
+        for pattern in [
+            Pattern::Black,
+            Pattern::White,
+            Pattern::Checker { cell: 16 },
+        ] {
             let im = image(path, kind, w, h, pattern);
             let mut spec = mini_spec(EpubVersion::V2, Compression::Stored);
             spec.images = vec![im.clone()];
@@ -2355,18 +3167,39 @@ fn production_integer_downscale_halves_a_checker_and_keeps_pure_images_pure() {
             let zip = open_zip(&bytes);
             let raw = entry_bytes(&bytes, &zip, &format!("OEBPS/{path}"));
             let small = decode_in_memory(&raw, kind, w / 2, h / 2).unwrap();
-            assert_eq!((small.width, small.height), (w / 2, h / 2), "{kind:?} {pattern:?}: fit into {}x{}", w / 2, h / 2);
+            assert_eq!(
+                (small.width, small.height),
+                (w / 2, h / 2),
+                "{kind:?} {pattern:?}: fit into {}x{}",
+                w / 2,
+                h / 2
+            );
             let n = small.width as usize * small.height as usize;
-            let blacks = (0..small.height as usize).map(|y| (0..small.width as usize).filter(|&x| black(&small, x, y)).count()).sum::<usize>();
+            let blacks = (0..small.height as usize)
+                .map(|y| {
+                    (0..small.width as usize)
+                        .filter(|&x| black(&small, x, y))
+                        .count()
+                })
+                .sum::<usize>();
             match pattern {
                 Pattern::Black => assert_eq!(blacks, n, "{kind:?}: black stays black"),
                 Pattern::White => assert_eq!(blacks, 0, "{kind:?}: white stays white"),
-                _ => assert_eq!(blacks, n / 2, "{kind:?}: a 16 px checker downscaled by 2 stays half black"),
+                _ => assert_eq!(
+                    blacks,
+                    n / 2,
+                    "{kind:?}: a 16 px checker downscaled by 2 stays half black"
+                ),
             }
             // streaming path honours the same cap
-            let via_zip = decode_from_zip(&bytes, &zip, &format!("OEBPS/{path}"), kind, w / 2, h / 2).unwrap();
+            let via_zip =
+                decode_from_zip(&bytes, &zip, &format!("OEBPS/{path}"), kind, w / 2, h / 2)
+                    .unwrap();
             assert_eq!((via_zip.width, via_zip.height), (w / 2, h / 2));
-            assert_eq!(via_zip.data, small.data, "{kind:?} {pattern:?}: memory and zip decode agree after downscaling");
+            assert_eq!(
+                via_zip.data, small.data,
+                "{kind:?} {pattern:?}: memory and zip decode agree after downscaling"
+            );
         }
     }
 }
@@ -2391,29 +3224,67 @@ fn chapter_image_references_resolve_to_the_images_in_the_zip() {
                     i += 1;
                 }
             }
-            let want: Vec<&str> = ch.blocks.iter().filter_map(|b| if let Block::Image(k) = b { Some(spec.images[*k].path.as_str()) } else { None }).collect();
+            let want: Vec<&str> = ch
+                .blocks
+                .iter()
+                .filter_map(|b| {
+                    if let Block::Image(k) = b {
+                        Some(spec.images[*k].path.as_str())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             assert_eq!(found.len(), want.len(), "{name} ch{ci}: image references");
             for (src, path) in found.iter().zip(want) {
                 assert_eq!(src, &format!("../{path}"), "{name} ch{ci}: raw src");
-                assert!(String::from_utf8_lossy(&xhtml).contains(&format!("<p><img src=\"{src}\" alt=\"\"/></p>")), "{name} ch{ci}: <img> markup");
+                assert!(
+                    String::from_utf8_lossy(&xhtml)
+                        .contains(&format!("<p><img src=\"{src}\" alt=\"\"/></p>")),
+                    "{name} ch{ci}: <img> markup"
+                );
                 let mut out = [0u8; 512];
                 let n = epub::resolve_path(dir_of(&chapter_entry_name(ci)), src, &mut out);
                 let resolved = std::str::from_utf8(&out[..n]).unwrap();
-                assert_eq!(resolved, format!("OEBPS/{path}"), "{name} ch{ci}: resolve_path");
-                assert!(zip.find(resolved).is_some(), "{name}: {resolved} is a ZIP entry");
+                assert_eq!(
+                    resolved,
+                    format!("OEBPS/{path}"),
+                    "{name} ch{ci}: resolve_path"
+                );
+                assert!(
+                    zip.find(resolved).is_some(),
+                    "{name}: {resolved} is a ZIP entry"
+                );
                 refs_total += 1;
             }
         }
     }
-    assert!(refs_total >= 8, "{refs_total} inline image references in the standard set");
+    assert!(
+        refs_total >= 8,
+        "{refs_total} inline image references in the standard set"
+    );
 }
 
 #[test]
 fn every_image_is_referenced_and_every_reference_exists() {
     for (name, spec, _) in epub_fixtures() {
-        let referenced: BTreeSet<usize> = spec.chapters.iter().flat_map(|c| c.blocks.iter()).filter_map(|b| if let Block::Image(i) = b { Some(*i) } else { None }).collect();
+        let referenced: BTreeSet<usize> = spec
+            .chapters
+            .iter()
+            .flat_map(|c| c.blocks.iter())
+            .filter_map(|b| {
+                if let Block::Image(i) = b {
+                    Some(*i)
+                } else {
+                    None
+                }
+            })
+            .collect();
         for i in 0..spec.images.len() {
-            assert!(referenced.contains(&i) || spec.cover == Some(i), "{name}: image {i} is neither shown inline nor the cover");
+            assert!(
+                referenced.contains(&i) || spec.cover == Some(i),
+                "{name}: image {i} is neither shown inline nor the cover"
+            );
         }
     }
 }
@@ -2427,15 +3298,33 @@ fn cover_declared(opf: &[u8], version: EpubVersion) -> Vec<String> {
         items.push((g(b"id").unwrap(), g(b"href").unwrap(), g(b"properties")));
     });
     match version {
-        EpubVersion::V3 => items.iter().filter(|i| i.2.as_deref().is_some_and(|p| p.split(' ').any(|t| t == "cover-image"))).map(|i| i.1.clone()).collect(),
+        EpubVersion::V3 => items
+            .iter()
+            .filter(|i| {
+                i.2.as_deref()
+                    .is_some_and(|p| p.split(' ').any(|t| t == "cover-image"))
+            })
+            .map(|i| i.1.clone())
+            .collect(),
         EpubVersion::V2 => {
             let mut ids = Vec::new();
             xml::for_each_tag(opf, b"meta", |t| {
                 if xml::get_attr(t, b"name") == Some(&b"cover"[..]) {
-                    ids.push(String::from_utf8(xml::get_attr(t, b"content").unwrap().to_vec()).unwrap());
+                    ids.push(
+                        String::from_utf8(xml::get_attr(t, b"content").unwrap().to_vec()).unwrap(),
+                    );
                 }
             });
-            ids.iter().map(|id| items.iter().find(|i| &i.0 == id).unwrap_or_else(|| panic!("cover meta names unknown item {id}")).1.clone()).collect()
+            ids.iter()
+                .map(|id| {
+                    items
+                        .iter()
+                        .find(|i| &i.0 == id)
+                        .unwrap_or_else(|| panic!("cover meta names unknown item {id}"))
+                        .1
+                        .clone()
+                })
+                .collect()
         }
     }
 }
@@ -2448,7 +3337,11 @@ fn cover_images_are_declared_the_epub2_and_epub3_way() {
         let got = cover_declared(&p.opf, spec.version);
         match spec.cover {
             Some(c) => {
-                assert_eq!(got, vec![spec.images[c].path.clone()], "{name}: cover declaration");
+                assert_eq!(
+                    got,
+                    vec![spec.images[c].path.clone()],
+                    "{name}: cover declaration"
+                );
                 with_cover.insert(format!("{:?}", spec.version));
             }
             None => assert!(got.is_empty(), "{name}: no cover declared"),
@@ -2460,7 +3353,11 @@ fn cover_images_are_declared_the_epub2_and_epub3_way() {
             EpubVersion::V3 => assert!(!opf.contains("name=\"cover\""), "{name}"),
         }
     }
-    assert_eq!(with_cover.len(), 2, "both an EPUB2 and an EPUB3 standard book declare a cover");
+    assert_eq!(
+        with_cover.len(),
+        2,
+        "both an EPUB2 and an EPUB3 standard book declare a cover"
+    );
     // an explicit non-zero cover index
     for v in [EpubVersion::V2, EpubVersion::V3] {
         let mut spec = mini_spec(v, Compression::Stored);
@@ -2486,16 +3383,25 @@ fn standard_epubs_carry_toc_markup_entities_and_images_for_t6() {
     let mut blocks = BTreeSet::new();
     let (mut numeric, mut raw) = (false, false);
     for (name, spec, _) in &books {
-        assert!(spec.chapters.len() >= 4, "{name}: >= 4 chapters (spine navigation needs a few)");
+        assert!(
+            spec.chapters.len() >= 4,
+            "{name}: >= 4 chapters (spine navigation needs a few)"
+        );
         let mut flat = Vec::new();
         flatten(&spec.toc, &mut flat);
         assert!(flat.len() >= 4, "{name}: TOC entries");
-        assert!(spec.toc.iter().any(|t| !t.children.is_empty()), "{name}: nested TOC");
+        assert!(
+            spec.toc.iter().any(|t| !t.children.is_empty()),
+            "{name}: nested TOC"
+        );
         assert!(!spec.images.is_empty(), "{name}: at least one image");
         let mut targets: Vec<usize> = flat.iter().map(|(_, c)| *c).collect();
         targets.sort();
         targets.dedup();
-        assert!(targets.len() >= 4, "{name}: TOC points at >= 4 distinct chapters");
+        assert!(
+            targets.len() >= 4,
+            "{name}: TOC points at >= 4 distinct chapters"
+        );
         numeric |= spec.numeric_entities;
         raw |= !spec.numeric_entities;
         for ch in &spec.chapters {
@@ -2524,7 +3430,10 @@ fn standard_epubs_carry_toc_markup_entities_and_images_for_t6() {
     }
     assert_eq!(runs, BTreeSet::from(["text", "bold", "italic", "break"]));
     assert_eq!(blocks, BTreeSet::from(["paragraph", "heading", "image"]));
-    assert!(numeric && raw, "both numeric-entity and raw-UTF-8 chapters exist");
+    assert!(
+        numeric && raw,
+        "both numeric-entity and raw-UTF-8 chapters exist"
+    );
     // each version has a nested TOC and a cover book
     for v in [EpubVersion::V2, EpubVersion::V3] {
         assert_eq!(books.iter().filter(|(_, s, _)| s.version == v).count(), 3);
@@ -2539,7 +3448,13 @@ fn standard_epubs_carry_toc_markup_entities_and_images_for_t6() {
 fn invalid_specs_are_rejected_with_the_contracted_error() {
     let base = || {
         let mut s = mini_spec(EpubVersion::V3, Compression::Stored);
-        s.images = vec![image("images/a.png", ImageKind::PngGray1, 8, 8, Pattern::Black)];
+        s.images = vec![image(
+            "images/a.png",
+            ImageKind::PngGray1,
+            8,
+            8,
+            Pattern::Black,
+        )];
         s
     };
     build_epub(&base()).expect("base spec is valid");
@@ -2573,26 +3488,78 @@ fn invalid_specs_are_rejected_with_the_contracted_error() {
     let bad_images = [
         image("images/a.png", ImageKind::PngGray1, 0, 8, Pattern::Black),
         image("images/a.png", ImageKind::PngGray8, 8, 0, Pattern::Black),
-        image("images/a.png", ImageKind::PngGray1, 8, 8, Pattern::Checker { cell: 0 }),
-        image("images/a.png", ImageKind::PngGray1, 8, 8, Pattern::HorizontalGradient),
-        image("images/a.png", ImageKind::PngPalette8, 8, 8, Pattern::HorizontalGradient),
+        image(
+            "images/a.png",
+            ImageKind::PngGray1,
+            8,
+            8,
+            Pattern::Checker { cell: 0 },
+        ),
+        image(
+            "images/a.png",
+            ImageKind::PngGray1,
+            8,
+            8,
+            Pattern::HorizontalGradient,
+        ),
+        image(
+            "images/a.png",
+            ImageKind::PngPalette8,
+            8,
+            8,
+            Pattern::HorizontalGradient,
+        ),
         image("images/a.jpg", ImageKind::Jpeg, 70, 8, Pattern::Black),
         image("images/a.jpg", ImageKind::Jpeg, 8, 12, Pattern::Black),
-        image("images/a.jpg", ImageKind::Jpeg, 16, 16, Pattern::Checker { cell: 4 }),
+        image(
+            "images/a.jpg",
+            ImageKind::Jpeg,
+            16,
+            16,
+            Pattern::Checker { cell: 4 },
+        ),
     ];
     for bad in bad_images {
         let mut sp = base();
-        sp.images = vec![bad.clone(), image("images/ok.png", ImageKind::PngGray1, 8, 8, Pattern::White)];
+        sp.images = vec![
+            bad.clone(),
+            image("images/ok.png", ImageKind::PngGray1, 8, 8, Pattern::White),
+        ];
         assert_eq!(build_epub(&sp), Err(SpecError::BadImage(0)), "{bad:?}");
         let mut sp = base();
-        sp.images = vec![image("images/ok.png", ImageKind::PngGray1, 8, 8, Pattern::White), bad.clone()];
-        assert_eq!(build_epub(&sp), Err(SpecError::BadImage(1)), "{bad:?} as the second image");
+        sp.images = vec![
+            image("images/ok.png", ImageKind::PngGray1, 8, 8, Pattern::White),
+            bad.clone(),
+        ];
+        assert_eq!(
+            build_epub(&sp),
+            Err(SpecError::BadImage(1)),
+            "{bad:?} as the second image"
+        );
     }
     // gradient is fine where it is defined
     for ok in [
-        image("images/a.png", ImageKind::PngGray8, 8, 8, Pattern::HorizontalGradient),
-        image("images/a.jpg", ImageKind::Jpeg, 16, 8, Pattern::HorizontalGradient),
-        image("images/a.png", ImageKind::PngPalette8, 1, 1, Pattern::Checker { cell: 1 }),
+        image(
+            "images/a.png",
+            ImageKind::PngGray8,
+            8,
+            8,
+            Pattern::HorizontalGradient,
+        ),
+        image(
+            "images/a.jpg",
+            ImageKind::Jpeg,
+            16,
+            8,
+            Pattern::HorizontalGradient,
+        ),
+        image(
+            "images/a.png",
+            ImageKind::PngPalette8,
+            1,
+            1,
+            Pattern::Checker { cell: 1 },
+        ),
     ] {
         let mut sp = base();
         sp.images = vec![ok.clone()];
@@ -2611,7 +3578,11 @@ fn title_author_and_toc_title_limits_count_bytes() {
     assert_eq!(build_epub(&sp), Err(SpecError::TitleTooLong));
     // 33 two-byte characters = 66 bytes but only 33 chars
     sp.title = "\u{e9}".repeat(33);
-    assert_eq!(build_epub(&sp), Err(SpecError::TitleTooLong), "limits are in bytes");
+    assert_eq!(
+        build_epub(&sp),
+        Err(SpecError::TitleTooLong),
+        "limits are in bytes"
+    );
     sp.title = "\u{e9}".repeat(32);
     build_epub(&sp).expect("32 two-byte characters = 64 bytes");
 
@@ -2628,5 +3599,9 @@ fn title_author_and_toc_title_limits_count_bytes() {
     build_epub(&sp).expect("48-byte TOC title");
     let mut sp = base;
     sp.toc[1].children[0].title = t(epub::TOC_TITLE_CAP + 1);
-    assert_eq!(build_epub(&sp), Err(SpecError::TitleTooLong), "nested entries obey the cap too");
+    assert_eq!(
+        build_epub(&sp),
+        Err(SpecError::TitleTooLong),
+        "nested entries obey the cap too"
+    );
 }

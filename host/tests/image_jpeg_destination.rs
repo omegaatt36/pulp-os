@@ -182,14 +182,9 @@ fn streaming_routes_propagate_destination_errors_and_keep_legacy_pixels() {
     let reference = decode_jpeg_fit(&bytes, 13, 8).unwrap();
     let stored =
         decode_jpeg_streaming(read_at(&stored_file), 37, bytes.len() as u32, 13, 8).unwrap();
-    let deflated = decode_jpeg_deflate_streaming(
-        read_at(&deflated_file),
-        37,
-        compressed.len() as u32,
-        13,
-        8,
-    )
-    .unwrap();
+    let deflated =
+        decode_jpeg_deflate_streaming(read_at(&deflated_file), 37, compressed.len() as u32, 13, 8)
+            .unwrap();
     assert_eq!(stored.data, reference.data);
     assert_eq!(deflated.data, reference.data);
     let refusal = |_| Err::<Vec<u8>, _>("destination unavailable");

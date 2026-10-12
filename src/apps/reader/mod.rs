@@ -34,7 +34,8 @@ use crate::kernel::work_queue;
 use crate::kernel::work_queue::DecodedImage;
 use crate::kernel::{BufClass, TypedBuf};
 use crate::ui::{
-    Alignment, BATTERY_REGION, BatteryStatus, CONTENT_TOP, Region, StackFmt, TITLE_Y_OFFSET,
+    Alignment, BATTERY_REGION, BUTTON_BAR_H, BatteryStatus, CONTENT_TOP, Region, StackFmt,
+    TITLE_Y_OFFSET,
 };
 use metadata::ZipIndex;
 use pulp_board_logic::chapter_ring::{ChapterKey, ChapterRing, RingConfig, WarmJob};
@@ -828,6 +829,7 @@ impl ReaderApp {
     pub fn set_vertical(&mut self, vertical: bool) {
         self.vertical = vertical;
         self.cjk.set_vertical(vertical);
+        self.apply_theme_layout();
         self.apply_font_metrics();
     }
 
@@ -858,7 +860,11 @@ impl ReaderApp {
         self.text_margin = theme.margin_h;
         self.text_y = TEXT_Y + theme.margin_v;
         self.text_w = (SCREEN_W - 2 * self.text_margin) as u32;
-        self.text_area_h = SCREEN_H.saturating_sub(self.text_y + 4);
+        // a column runs the whole height of the text area, so it must stop
+        // above the button labels drawn along the bottom edge; a page of rows
+        // only loses its last row to them and keeps the full height
+        let bottom_pad = if self.vertical { BUTTON_BAR_H } else { 4 };
+        self.text_area_h = SCREEN_H.saturating_sub(self.text_y + bottom_pad);
         if let Some(width) = self.text_w_override {
             self.text_w = width;
         }

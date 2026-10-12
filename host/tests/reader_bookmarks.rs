@@ -520,7 +520,12 @@ fn generated_epub_bookmarks_restore_chapter_page_and_text_after_reboot() {
         let mut reader = Rig::new(card);
         reader.configure(2, 1);
         reader.open(fixture.name);
-        assert_eq!(reader.phase(), pulp_host::reader::Phase::Ready, "{}", fixture.name);
+        assert_eq!(
+            reader.phase(),
+            pulp_host::reader::Phase::Ready,
+            "{}",
+            fixture.name
+        );
         reader.idle(400);
         reader.press(Action::NextJump);
         assert_eq!(reader.chapter(), 1, "{}", fixture.name);
@@ -533,16 +538,29 @@ fn generated_epub_bookmarks_restore_chapter_page_and_text_after_reboot() {
         let mut rebooted = Rig::new(reader.into_storage());
         rebooted.configure(2, 1);
         rebooted.open(fixture.name);
-        assert_eq!(rebooted.phase(), pulp_host::reader::Phase::Ready, "{}", fixture.name);
+        assert_eq!(
+            rebooted.phase(),
+            pulp_host::reader::Phase::Ready,
+            "{}",
+            fixture.name
+        );
         assert_eq!(
             (rebooted.chapter(), rebooted.page(), rebooted.lines()),
             want,
             "{}: the same card restores the saved chapter, page and text",
             fixture.name
         );
-        rebooted.storage().write_file("OTHER.EPU", &fixture.bytes).unwrap();
+        rebooted
+            .storage()
+            .write_file("OTHER.EPU", &fixture.bytes)
+            .unwrap();
         rebooted.open("OTHER.EPU");
-        assert_eq!((rebooted.chapter(), rebooted.page()), (0, 0), "{}: another book has no bookmark", fixture.name);
+        assert_eq!(
+            (rebooted.chapter(), rebooted.page()),
+            (0, 0),
+            "{}: another book has no bookmark",
+            fixture.name
+        );
         assert!(rebooted.bookmark_find(b"OTHER.EPU").is_none());
         rebooted.save_position();
         let mut entries = [BmListEntry::EMPTY; 16];
@@ -561,7 +579,12 @@ fn generated_epub_bookmarks_restore_chapter_page_and_text_after_reboot() {
         remounted.bookmarks_flush();
         remounted.configure(2, 1);
         remounted.open(fixture.name);
-        assert_eq!((remounted.chapter(), remounted.page()), (0, 0), "{}: deletion restores the initial position", fixture.name);
+        assert_eq!(
+            (remounted.chapter(), remounted.page()),
+            (0, 0),
+            "{}: deletion restores the initial position",
+            fixture.name
+        );
         assert!(remounted.bookmark_find(fixture.name.as_bytes()).is_none());
         assert!(remounted.bookmark_find(b"OTHER.EPU").is_some());
     }

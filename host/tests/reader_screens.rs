@@ -24,7 +24,8 @@ fn txt_and_epub_screens_are_deterministic_across_navigation_and_reopen() {
     let fixtures = standard();
     // One generated TXT and all six EPUB2/3 compression variants.
     let txt = fixtures.iter().find(|f| f.name == "PLAINLF.TXT").unwrap();
-    for f in std::iter::once(txt).chain(fixtures.iter().filter(|f| matches!(f.spec, Spec::Epub(_)))) {
+    for f in std::iter::once(txt).chain(fixtures.iter().filter(|f| matches!(f.spec, Spec::Epub(_))))
+    {
         let card = VirtualStorage::memory_with(&[(f.name, &f.bytes)]);
         card.ensure_pulp_dir().unwrap();
         let mut r = Rig::new(card);
@@ -32,7 +33,9 @@ fn txt_and_epub_screens_are_deterministic_across_navigation_and_reopen() {
         r.open(f.name);
         assert_eq!(r.phase(), Phase::Ready, "{}", f.name);
         for _ in 0..400 {
-            if !r.has_bg_work() { break; }
+            if !r.has_bg_work() {
+                break;
+            }
             r.idle(1);
         }
         assert!(!r.has_bg_work(), "{} cache completes", f.name);
@@ -56,7 +59,9 @@ fn txt_and_epub_screens_are_deterministic_across_navigation_and_reopen() {
                 let pos = (r.chapter(), r.page());
                 r.press(Action::Next);
                 assert_eq!(r.phase(), Phase::Ready);
-                if pos == (r.chapter(), r.page()) { break; }
+                if pos == (r.chapter(), r.page()) {
+                    break;
+                }
             }
             assert!(saw_image, "{} has a rendered image page", f.name);
         }

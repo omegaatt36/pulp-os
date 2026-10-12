@@ -45,7 +45,12 @@ fn every_scalar_value_round_trips_with_its_exact_byte_length() {
     for c in all_scalars() {
         let s = c.encode_utf8(&mut buf);
         let n = s.len();
-        assert_eq!(decode_utf8_char(s.as_bytes(), 0), (c, n), "U+{:04X}", c as u32);
+        assert_eq!(
+            decode_utf8_char(s.as_bytes(), 0),
+            (c, n),
+            "U+{:04X}",
+            c as u32
+        );
     }
 }
 
@@ -111,8 +116,16 @@ fn utf8_iter_position_and_remaining_track_the_consumed_bytes() {
 fn check_valid_prefix(w: &[u8]) {
     let valid_prefix = (1..=w.len()).find(|&m| core::str::from_utf8(&w[..m]).is_ok());
     if let Some(m) = valid_prefix {
-        let first = core::str::from_utf8(&w[..m]).unwrap().chars().next().unwrap();
-        assert_eq!(decode_utf8_char(w, 0), (first, first.len_utf8()), "valid start in {w:02X?}");
+        let first = core::str::from_utf8(&w[..m])
+            .unwrap()
+            .chars()
+            .next()
+            .unwrap();
+        assert_eq!(
+            decode_utf8_char(w, 0),
+            (first, first.len_utf8()),
+            "valid start in {w:02X?}"
+        );
     }
 }
 
@@ -148,7 +161,9 @@ fn three_byte_windows_with_a_valid_start_decode_exactly() {
             }
         }
     }
-    let edge = [0x00u8, 0x41, 0x7F, 0x80, 0x8F, 0x90, 0x9F, 0xA0, 0xBF, 0xC0, 0xFF];
+    let edge = [
+        0x00u8, 0x41, 0x7F, 0x80, 0x8F, 0x90, 0x9F, 0xA0, 0xBF, 0xC0, 0xFF,
+    ];
     for a in 0..=255u8 {
         for &b in &edge {
             for &c in &edge {
@@ -161,7 +176,9 @@ fn three_byte_windows_with_a_valid_start_decode_exactly() {
 
 #[test]
 fn four_byte_windows_with_a_valid_start_decode_exactly() {
-    let edge = [0x00u8, 0x41, 0x7F, 0x80, 0x8F, 0x90, 0x9F, 0xA0, 0xBF, 0xC0, 0xFF];
+    let edge = [
+        0x00u8, 0x41, 0x7F, 0x80, 0x8F, 0x90, 0x9F, 0xA0, 0xBF, 0xC0, 0xFF,
+    ];
     for a in 0xF0..=0xFFu8 {
         for b in 0..=255u8 {
             for &c in &edge {
@@ -184,13 +201,19 @@ fn check_invalid_is_replacement(w: &[u8]) {
         return;
     }
     let (c, n) = decode_utf8_char(w, 0);
-    assert_eq!(c, FFFD, "{w:02X?} is not UTF-8 but decoded to {c:?} ({n} bytes)");
+    assert_eq!(
+        c, FFFD,
+        "{w:02X?} is not UTF-8 but decoded to {c:?} ({n} bytes)"
+    );
     assert!((1..=w.len()).contains(&n), "{w:02X?}: consumed {n}");
 }
 
 // bytes that are not continuation bytes (not 10xxxxxx), plus the continuation
 // range edges and a spread of valid ones
-const NOT_CONT: &[u8] = &[0x00, 0x01, 0x20, 0x3F, 0x40, 0x41, 0x7E, 0x7F, 0xC0, 0xC1, 0xC2, 0xDF, 0xE0, 0xEF, 0xF0, 0xF4, 0xF8, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF];
+const NOT_CONT: &[u8] = &[
+    0x00, 0x01, 0x20, 0x3F, 0x40, 0x41, 0x7E, 0x7F, 0xC0, 0xC1, 0xC2, 0xDF, 0xE0, 0xEF, 0xF0, 0xF4,
+    0xF8, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF,
+];
 const CONT: &[u8] = &[0x80, 0x81, 0x8F, 0x90, 0x9F, 0xA0, 0xBF];
 
 #[test]
@@ -230,7 +253,14 @@ fn four_byte_windows_that_are_not_utf8_decode_to_replacement() {
 #[test]
 fn a_continuation_position_holding_a_non_continuation_byte_is_replacement() {
     // lead of a 2/3/4-byte sequence, every position in turn replaced by a non-10xxxxxx byte
-    let leads: [(u8, usize); 6] = [(0xC2, 2), (0xDF, 2), (0xE1, 3), (0xEE, 3), (0xF1, 4), (0xF3, 4)];
+    let leads: [(u8, usize); 6] = [
+        (0xC2, 2),
+        (0xDF, 2),
+        (0xE1, 3),
+        (0xEE, 3),
+        (0xF1, 4),
+        (0xF3, 4),
+    ];
     for (lead, len) in leads {
         for pos in 1..len {
             for &bad in NOT_CONT {
@@ -246,7 +276,16 @@ fn a_continuation_position_holding_a_non_continuation_byte_is_replacement() {
         }
     }
     // the cases named in review
-    for w in [&[0xE4u8, 0xC1, 0x80][..], &[0xE4, 0x40, 0x80], &[0xE4, 0x80, 0xC1], &[0xE4, 0x80, 0x40], &[0xF0, 0x90, 0x80, 0x40], &[0xF0, 0x90, 0x40, 0x80], &[0xC2, 0x40], &[0xC2, 0xC1]] {
+    for w in [
+        &[0xE4u8, 0xC1, 0x80][..],
+        &[0xE4, 0x40, 0x80],
+        &[0xE4, 0x80, 0xC1],
+        &[0xE4, 0x80, 0x40],
+        &[0xF0, 0x90, 0x80, 0x40],
+        &[0xF0, 0x90, 0x40, 0x80],
+        &[0xC2, 0x40],
+        &[0xC2, 0xC1],
+    ] {
         assert_eq!(decode_utf8_char(w, 0).0, FFFD, "{w:02X?}");
     }
 }
@@ -288,17 +327,36 @@ fn lead_bytes_f8_to_ff_are_replacement_with_any_continuation_pattern() {
 // not turn them into a character. One test per class so a decision about any one
 // class (harden the shared decoder, or document the deviation) is isolated.
 const OVERLONG: &[&[u8]] = &[
-    &[0xC0, 0x80], &[0xC0, 0xAF], &[0xC1, 0xBF], &[0xE0, 0x80, 0x80], &[0xE0, 0x9F, 0xBF], &[0xF0, 0x80, 0x80, 0x80], &[0xF0, 0x8F, 0xBF, 0xBF],
+    &[0xC0, 0x80],
+    &[0xC0, 0xAF],
+    &[0xC1, 0xBF],
+    &[0xE0, 0x80, 0x80],
+    &[0xE0, 0x9F, 0xBF],
+    &[0xF0, 0x80, 0x80, 0x80],
+    &[0xF0, 0x8F, 0xBF, 0xBF],
 ];
-const SURROGATE: &[&[u8]] = &[&[0xED, 0xA0, 0x80], &[0xED, 0xAF, 0xBF], &[0xED, 0xB0, 0x80], &[0xED, 0xBF, 0xBF]];
-const OUT_OF_RANGE: &[&[u8]] = &[&[0xF4, 0x90, 0x80, 0x80], &[0xF5, 0x80, 0x80, 0x80], &[0xF7, 0xBF, 0xBF, 0xBF], &[0xF8, 0x88, 0x80, 0x80, 0x80]];
+const SURROGATE: &[&[u8]] = &[
+    &[0xED, 0xA0, 0x80],
+    &[0xED, 0xAF, 0xBF],
+    &[0xED, 0xB0, 0x80],
+    &[0xED, 0xBF, 0xBF],
+];
+const OUT_OF_RANGE: &[&[u8]] = &[
+    &[0xF4, 0x90, 0x80, 0x80],
+    &[0xF5, 0x80, 0x80, 0x80],
+    &[0xF7, 0xBF, 0xBF, 0xBF],
+    &[0xF8, 0x88, 0x80, 0x80, 0x80],
+];
 const NEVER_IN_UTF8: &[&[u8]] = &[&[0xFE], &[0xFF], &[0x80], &[0xBF]];
 
 fn assert_all_replacement(class: &str, seqs: &[&[u8]]) {
     for seq in seqs {
         let (c, n) = decode_utf8_char(seq, 0);
         assert_eq!(c, FFFD, "{class} {seq:02X?} decoded to {c:?} ({n} bytes)");
-        assert!((1..=seq.len()).contains(&n), "{class} {seq:02X?}: consumed {n}");
+        assert!(
+            (1..=seq.len()).contains(&n),
+            "{class} {seq:02X?}: consumed {n}"
+        );
     }
 }
 
@@ -356,8 +414,14 @@ fn utf8_iter_on_damaged_input_terminates_and_keeps_the_ascii_text() {
         data.extend_from_slice(b);
         data.extend_from_slice(b" omega");
         let chars: Vec<char> = Utf8Iter::new(&data).collect();
-        assert!(chars.len() <= data.len(), "never yields more chars than bytes");
-        assert!(chars.contains(&FFFD), "{b:02X?}: damaged bytes become U+FFFD");
+        assert!(
+            chars.len() <= data.len(),
+            "never yields more chars than bytes"
+        );
+        assert!(
+            chars.contains(&FFFD),
+            "{b:02X?}: damaged bytes become U+FFFD"
+        );
         let ascii: String = chars.iter().filter(|c| c.is_ascii_alphabetic()).collect();
         assert_eq!(ascii, "alphaomega", "{b:02X?}: surrounding text survives");
     }
@@ -365,7 +429,13 @@ fn utf8_iter_on_damaged_input_terminates_and_keeps_the_ascii_text() {
     let mut data = b"tail ".to_vec();
     data.extend_from_slice(&[0xE4, 0xB8]);
     let chars: Vec<char> = Utf8Iter::new(&data).collect();
-    assert_eq!(chars.iter().filter(|c| c.is_ascii_alphabetic()).collect::<String>(), "tail");
+    assert_eq!(
+        chars
+            .iter()
+            .filter(|c| c.is_ascii_alphabetic())
+            .collect::<String>(),
+        "tail"
+    );
     assert!(chars.contains(&FFFD));
     assert_eq!(chars.last(), Some(&FFFD));
 }

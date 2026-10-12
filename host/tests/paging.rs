@@ -115,7 +115,10 @@ struct Lcg(u64);
 
 impl Lcg {
     fn next(&mut self) -> u32 {
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (self.0 >> 33) as u32
     }
     fn below(&mut self, n: usize) -> usize {
@@ -124,10 +127,62 @@ impl Lcg {
 }
 
 const ASCII_WORDS: &[&str] = &[
-    "the", "lighthouse", "keeper", "climbed", "spiral", "stairs", "each", "evening", "harbour", "below", "turned", "colour", "of", "old",
-    "pewter", "she", "read", "letter", "twice", "folded", "along", "its", "creases", "where", "no", "one", "would", "look", "market",
-    "smelled", "tar", "oranges", "rope", "happy", "rain", "drummed", "tin", "roof", "hour", "softened", "whisper", "stopped", "patience",
-    "habit", "ledger", "barrels", "signatures", "tide", "ferry", "crossing", "cliffs", "A", "I", "of", "and", "to",
+    "the",
+    "lighthouse",
+    "keeper",
+    "climbed",
+    "spiral",
+    "stairs",
+    "each",
+    "evening",
+    "harbour",
+    "below",
+    "turned",
+    "colour",
+    "of",
+    "old",
+    "pewter",
+    "she",
+    "read",
+    "letter",
+    "twice",
+    "folded",
+    "along",
+    "its",
+    "creases",
+    "where",
+    "no",
+    "one",
+    "would",
+    "look",
+    "market",
+    "smelled",
+    "tar",
+    "oranges",
+    "rope",
+    "happy",
+    "rain",
+    "drummed",
+    "tin",
+    "roof",
+    "hour",
+    "softened",
+    "whisper",
+    "stopped",
+    "patience",
+    "habit",
+    "ledger",
+    "barrels",
+    "signatures",
+    "tide",
+    "ferry",
+    "crossing",
+    "cliffs",
+    "A",
+    "I",
+    "of",
+    "and",
+    "to",
 ];
 
 // every word has 2- or 3-byte UTF-8 characters (Latin-1 letters and typographic punctuation)
@@ -181,20 +236,31 @@ fn prose(seed: u64, bytes: usize, eol: &str) -> Book {
         paragraphs.push(p);
     }
     let sep = format!("{eol}{eol}");
-    Book { bytes: paragraphs.join(sep.as_str()).into_bytes(), paragraphs }
+    Book {
+        bytes: paragraphs.join(sep.as_str()).into_bytes(),
+        paragraphs,
+    }
 }
 
 // n short lines "line 0000", "line 0001", ... joined by `eol`; known by construction:
 // the expected layout is exactly these lines.
 fn numbered(n: usize, eol: &str, trailing_eol: bool) -> (Vec<u8>, Vec<Vec<u8>>) {
-    let lines: Vec<Vec<u8>> = (0..n).map(|i| format!("line {i:04}").into_bytes()).collect();
+    let lines: Vec<Vec<u8>> = (0..n)
+        .map(|i| format!("line {i:04}").into_bytes())
+        .collect();
     (join_lines(&lines, eol, trailing_eol), lines)
 }
 
 // like `numbered`, but every 5th line (i % 5 == 3, never the last) is empty
 fn numbered_with_blanks(n: usize) -> (Vec<u8>, Vec<Vec<u8>>) {
     let lines: Vec<Vec<u8>> = (0..n)
-        .map(|i| if i % 5 == 3 && i != n - 1 { Vec::new() } else { format!("row {i:04}").into_bytes() })
+        .map(|i| {
+            if i % 5 == 3 && i != n - 1 {
+                Vec::new()
+            } else {
+                format!("row {i:04}").into_bytes()
+            }
+        })
         .collect();
     (join_lines(&lines, "\n", false), lines)
 }
@@ -219,7 +285,8 @@ fn join_lines(lines: &[Vec<u8>], eol: &str, trailing_eol: bool) -> Vec<u8> {
 
 fn card(data: &[u8]) -> VirtualStorage {
     let s = VirtualStorage::memory_with(&[(BOOK, data)]);
-    s.ensure_pulp_dir().expect("card has _PULP/ the way the firmware boots it");
+    s.ensure_pulp_dir()
+        .expect("card has _PULP/ the way the firmware boots it");
     s
 }
 
@@ -245,9 +312,21 @@ struct Page {
 fn snapshot(r: &Rig) -> Page {
     let index = r.page();
     let offsets = r.page_offsets();
-    assert_eq!(offsets.len(), r.total_pages(), "page_offsets covers the page table");
-    assert!(index < offsets.len(), "current page {index} is inside the page table ({})", offsets.len());
-    Page { index, offset: offsets[index], lines: r.lines() }
+    assert_eq!(
+        offsets.len(),
+        r.total_pages(),
+        "page_offsets covers the page table"
+    );
+    assert!(
+        index < offsets.len(),
+        "current page {index} is inside the page table ({})",
+        offsets.len()
+    );
+    Page {
+        index,
+        offset: offsets[index],
+        lines: r.lines(),
+    }
 }
 
 // Press(Next) until the page stops changing; every Next moves exactly one page.
@@ -294,7 +373,10 @@ fn all_lines(pages: &[Page]) -> Vec<Vec<u8>> {
 // A wrapper may drop the space that overflows a line and consumes line
 // terminators, so text is compared modulo ASCII space / CR / LF.
 fn strip_ws(b: &[u8]) -> Vec<u8> {
-    b.iter().copied().filter(|c| !matches!(c, b' ' | b'\r' | b'\n')).collect()
+    b.iter()
+        .copied()
+        .filter(|c| !matches!(c, b' ' | b'\r' | b'\n'))
+        .collect()
 }
 
 fn text_of(lines: &[Vec<u8>]) -> Vec<u8> {
@@ -304,7 +386,12 @@ fn text_of(lines: &[Vec<u8>]) -> Vec<u8> {
 fn width(font: u8, line: &[u8]) -> u32 {
     let fs = FontSet::for_size(font);
     std::str::from_utf8(line)
-        .unwrap_or_else(|e| panic!("line is not valid UTF-8 ({e}): {:?}", String::from_utf8_lossy(line)))
+        .unwrap_or_else(|e| {
+            panic!(
+                "line is not valid UTF-8 ({e}): {:?}",
+                String::from_utf8_lossy(line)
+            )
+        })
         .chars()
         .map(|c| fs.advance(c, Style::Regular) as u32)
         .sum()
@@ -320,8 +407,15 @@ fn ceil_div(a: usize, b: usize) -> usize {
 
 // `data` must be valid UTF-8 and contain none of TAB / NBSP / soft hyphen.
 fn check_well_formed(r: &Rig, pages: &[Page], data: &[u8], font: u8, label: &str) {
-    assert!(r.fully_indexed(), "{label}: walked to the end, page table complete");
-    assert_eq!(r.total_pages(), pages.len(), "{label}: page table == pages visited");
+    assert!(
+        r.fully_indexed(),
+        "{label}: walked to the end, page table complete"
+    );
+    assert_eq!(
+        r.total_pages(),
+        pages.len(),
+        "{label}: page table == pages visited"
+    );
     let max = r.max_lines();
     let text_w = r.text_w();
 
@@ -329,19 +423,32 @@ fn check_well_formed(r: &Rig, pages: &[Page], data: &[u8], font: u8, label: &str
     let offs = r.page_offsets();
     assert_eq!(offs[0], 0, "{label}: first page starts at byte 0");
     for w in offs.windows(2) {
-        assert!(w[0] < w[1], "{label}: page offsets strictly increase: {offs:?}");
+        assert!(
+            w[0] < w[1],
+            "{label}: page offsets strictly increase: {offs:?}"
+        );
     }
     for (i, p) in pages.iter().enumerate() {
         assert_eq!(p.index, i, "{label}: page numbers are consecutive");
         assert_eq!(p.offset, offs[i]);
         let o = p.offset as usize;
-        assert!(o < data.len().max(1), "{label}: page {i} starts inside the file");
-        assert!(o == 0 || (data[o] & 0xC0) != 0x80, "{label}: page {i} starts in the middle of a UTF-8 character (byte {o})");
+        assert!(
+            o < data.len().max(1),
+            "{label}: page {i} starts inside the file"
+        );
+        assert!(
+            o == 0 || (data[o] & 0xC0) != 0x80,
+            "{label}: page {i} starts in the middle of a UTF-8 character (byte {o})"
+        );
     }
 
     // (2) every page's text is exactly the file's text between its offset and the next page's offset
     for (i, p) in pages.iter().enumerate() {
-        let end = if i + 1 < pages.len() { pages[i + 1].offset as usize } else { data.len() };
+        let end = if i + 1 < pages.len() {
+            pages[i + 1].offset as usize
+        } else {
+            data.len()
+        };
         assert_eq!(
             strip_ws(&text_of(&p.lines)),
             strip_ws(&data[p.offset as usize..end]),
@@ -351,15 +458,31 @@ fn check_well_formed(r: &Rig, pages: &[Page], data: &[u8], font: u8, label: &str
     }
 
     // (3) text conservation over the whole book
-    assert_eq!(strip_ws(&text_of(&all_lines(pages))), strip_ws(data), "{label}: text lost, duplicated or altered");
+    assert_eq!(
+        strip_ws(&text_of(&all_lines(pages))),
+        strip_ws(data),
+        "{label}: text lost, duplicated or altered"
+    );
 
     // (4) geometry of every line / page
     for (i, p) in pages.iter().enumerate() {
-        assert!(p.lines.len() <= max, "{label}: page {i} has {} lines > capacity {max}", p.lines.len());
+        assert!(
+            p.lines.len() <= max,
+            "{label}: page {i} has {} lines > capacity {max}",
+            p.lines.len()
+        );
         for l in &p.lines {
-            assert!(!l.contains(&b'\r') && !l.contains(&b'\n'), "{label}: page {i}: terminator inside a line {:?}", String::from_utf8_lossy(l));
+            assert!(
+                !l.contains(&b'\r') && !l.contains(&b'\n'),
+                "{label}: page {i}: terminator inside a line {:?}",
+                String::from_utf8_lossy(l)
+            );
             let w = width(font, l); // also asserts the line is valid UTF-8 (no cut character)
-            assert!(w <= text_w, "{label}: page {i}: line {:?} is {w}px > {text_w}px", String::from_utf8_lossy(l));
+            assert!(
+                w <= text_w,
+                "{label}: page {i}: line {:?} is {w}px > {text_w}px",
+                String::from_utf8_lossy(l)
+            );
         }
     }
 }
@@ -373,8 +496,15 @@ fn check_page_fill(r: &Rig, pages: &[Page], label: &str) {
         assert_eq!(p.lines.len(), max, "{label}: page {} is not full", p.index);
     }
     let last = pages.last().unwrap().lines.len();
-    assert!((1..=max).contains(&last), "{label}: last page has {last} lines (capacity {max})");
-    assert_eq!(pages.len(), ceil_div(total_lines, max), "{label}: {total_lines} lines at {max} per page");
+    assert!(
+        (1..=max).contains(&last),
+        "{label}: last page has {last} lines (capacity {max})"
+    );
+    assert_eq!(
+        pages.len(),
+        ceil_div(total_lines, max),
+        "{label}: {total_lines} lines at {max} per page"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -389,12 +519,29 @@ fn text_geometry_is_consistent_for_every_font_and_theme() {
             let r = open_book(b"x", font, theme);
             let label = format!("font {font} theme {theme}");
             let margin = r.text_margin() as u32;
-            assert_eq!(r.text_w(), SCREEN_W - 2 * margin, "{label}: text width is the screen minus both margins");
-            let (max, lh, area) = (r.max_lines() as u32, r.font_line_h() as u32, r.text_area_h() as u32);
+            assert_eq!(
+                r.text_w(),
+                SCREEN_W - 2 * margin,
+                "{label}: text width is the screen minus both margins"
+            );
+            let (max, lh, area) = (
+                r.max_lines() as u32,
+                r.font_line_h() as u32,
+                r.text_area_h() as u32,
+            );
             assert!(max >= 1, "{label}");
-            assert!(max * lh <= area, "{label}: {max} lines x {lh}px must fit {area}px");
-            assert!((max + 1) * lh > area, "{label}: capacity is the largest line count that fits ({max} x {lh} vs {area})");
-            assert!(r.font_line_h() >= prev_line_h[theme as usize], "{label}: larger font never has a shorter line");
+            assert!(
+                max * lh <= area,
+                "{label}: {max} lines x {lh}px must fit {area}px"
+            );
+            assert!(
+                (max + 1) * lh > area,
+                "{label}: capacity is the largest line count that fits ({max} x {lh} vs {area})"
+            );
+            assert!(
+                r.font_line_h() >= prev_line_h[theme as usize],
+                "{label}: larger font never has a shorter line"
+            );
             prev_line_h[theme as usize] = r.font_line_h();
         }
     }
@@ -410,8 +557,17 @@ fn english_prose_pages_conserve_the_text_and_tile_the_file() {
     for (font, theme) in CONFIGS {
         let mut r = open_book(&book.bytes, font, theme);
         let pages = walk_forward(&mut r);
-        assert!(pages.len() > 4, "font {font} theme {theme}: a 30 kB book spans many pages");
-        check_well_formed(&r, &pages, &book.bytes, font, &format!("prose font {font} theme {theme}"));
+        assert!(
+            pages.len() > 4,
+            "font {font} theme {theme}: a 30 kB book spans many pages"
+        );
+        check_well_formed(
+            &r,
+            &pages,
+            &book.bytes,
+            font,
+            &format!("prose font {font} theme {theme}"),
+        );
     }
 }
 
@@ -457,10 +613,16 @@ fn wrapping_fills_each_line_until_the_next_word_would_not_fit() {
             let next = std::str::from_utf8(b).unwrap().trim_start_matches(' ');
             let word = next.split(' ').next().unwrap();
             let need = width(font, cur.as_bytes()) + space + width(font, word.as_bytes());
-            assert!(need > text_w, "font {font} theme {theme}: line {k} {cur:?} would also have fit {word:?} ({need}px <= {text_w}px)");
+            assert!(
+                need > text_w,
+                "font {font} theme {theme}: line {k} {cur:?} would also have fit {word:?} ({need}px <= {text_w}px)"
+            );
             checked += 1;
         }
-        assert!(checked > 200, "font {font} theme {theme}: only {checked} wrapped line pairs were checked");
+        assert!(
+            checked > 200,
+            "font {font} theme {theme}: only {checked} wrapped line pairs were checked"
+        );
     }
 }
 
@@ -476,7 +638,11 @@ fn crlf_book_lays_out_exactly_like_the_lf_book_and_no_cr_survives() {
         check_well_formed(&b, &pb, &crlf.bytes, font, "crlf");
         assert_eq!(pa.len(), pb.len(), "font {font} theme {theme}");
         for (x, y) in pa.iter().zip(&pb) {
-            assert_eq!(x.lines, y.lines, "font {font} theme {theme} page {}", x.index);
+            assert_eq!(
+                x.lines, y.lines,
+                "font {font} theme {theme} page {}",
+                x.index
+            );
         }
     }
 }
@@ -503,10 +669,23 @@ fn multibyte_characters_are_never_cut_by_line_page_or_read_chunk_boundaries() {
             check_well_formed(&r, &pages, &data, 2, &label);
             let all = String::from_utf8(text_of(&all_lines(&pages))).unwrap();
             let ch = run.chars().next().unwrap();
-            assert_eq!(all.chars().filter(|&c| c == ch).count(), run.chars().count(), "{label}: character count");
-            assert!(!all.contains('\u{FFFD}'), "{label}: no replacement characters in valid text");
-            let lines_with_run = all_lines(&pages).iter().filter(|l| l.starts_with(ch.encode_utf8(&mut [0; 4]).as_bytes())).count();
-            assert!(lines_with_run >= 5, "{label}: the run must be split over several lines, got {lines_with_run}");
+            assert_eq!(
+                all.chars().filter(|&c| c == ch).count(),
+                run.chars().count(),
+                "{label}: character count"
+            );
+            assert!(
+                !all.contains('\u{FFFD}'),
+                "{label}: no replacement characters in valid text"
+            );
+            let lines_with_run = all_lines(&pages)
+                .iter()
+                .filter(|l| l.starts_with(ch.encode_utf8(&mut [0; 4]).as_bytes()))
+                .count();
+            assert!(
+                lines_with_run >= 5,
+                "{label}: the run must be split over several lines, got {lines_with_run}"
+            );
         }
     }
 }
@@ -521,7 +700,13 @@ fn dense_multibyte_prose_survives_every_start_phase() {
         for (font, theme) in [(2u8, 1u8), (4, 3)] {
             let mut r = open_book(&data, font, theme);
             let pages = walk_forward(&mut r);
-            check_well_formed(&r, &pages, &data, font, &format!("pad {pad} font {font} theme {theme}"));
+            check_well_formed(
+                &r,
+                &pages,
+                &data,
+                font,
+                &format!("pad {pad} font {font} theme {theme}"),
+            );
         }
     }
 }
@@ -556,17 +741,32 @@ fn damaged_utf8_becomes_replacement_characters_and_the_surrounding_text_survives
             }
         }
         let mut r = open_book(&data, 2, 1);
-        assert_eq!(r.phase(), Phase::Ready, "pad {pad}: damaged text still opens");
+        assert_eq!(
+            r.phase(),
+            Phase::Ready,
+            "pad {pad}: damaged text still opens"
+        );
         let pages = walk_forward(&mut r);
         assert_eq!(r.phase(), Phase::Ready);
         let shown = String::from_utf8_lossy(&text_of(&all_lines(&pages))).into_owned();
         let replacements = shown.chars().filter(|&c| c == '\u{FFFD}').count();
-        assert!(replacements >= bad.len(), "pad {pad}: {replacements} U+FFFD for {} damaged sequences", bad.len());
+        assert!(
+            replacements >= bad.len(),
+            "pad {pad}: {replacements} U+FFFD for {} damaged sequences",
+            bad.len()
+        );
         let kept: Vec<u8> = strip_ws(shown.replace('\u{FFFD}', "").as_bytes());
-        assert_eq!(kept, strip_ws(&expect), "pad {pad}: text around the damage must be intact");
+        assert_eq!(
+            kept,
+            strip_ws(&expect),
+            "pad {pad}: text around the damage must be intact"
+        );
         // every page boundary is still a character boundary or damaged byte, never a panic path
         let offs = r.page_offsets();
-        assert!(offs.windows(2).all(|w| w[0] < w[1]), "pad {pad}: offsets increase");
+        assert!(
+            offs.windows(2).all(|w| w[0] < w[1]),
+            "pad {pad}: offsets increase"
+        );
     }
 }
 
@@ -583,19 +783,40 @@ fn short_lines_page_as_exactly_ceil_n_over_capacity() {
     for (font, theme) in [(0u8, 0u8), (2, 1), (4, 3)] {
         let max = capacity(font, theme);
         assert!(max >= 10);
-        let counts = [1, max - 1, max, max + 1, 2 * max - 1, 2 * max, 2 * max + 1, 3 * max - 1, 3 * max, 7 * max + 3];
+        let counts = [
+            1,
+            max - 1,
+            max,
+            max + 1,
+            2 * max - 1,
+            2 * max,
+            2 * max + 1,
+            3 * max - 1,
+            3 * max,
+            7 * max + 3,
+        ];
         for n in counts {
             for (eol, trailing) in [("\n", false), ("\r\n", false), ("\n", true), ("\r\n", true)] {
                 let (data, expected) = numbered(n, eol, trailing);
                 let mut r = open_book(&data, font, theme);
                 let pages = walk_forward(&mut r);
-                let label = format!("font {font} theme {theme}: {n} lines, eol {eol:?}, trailing {trailing}");
+                let label = format!(
+                    "font {font} theme {theme}: {n} lines, eol {eol:?}, trailing {trailing}"
+                );
                 assert_eq!(pages.len(), ceil_div(n, max), "{label}");
-                assert_eq!(all_lines(&pages), expected, "{label}: every source line is one displayed line, in order");
+                assert_eq!(
+                    all_lines(&pages),
+                    expected,
+                    "{label}: every source line is one displayed line, in order"
+                );
                 for p in &pages[..pages.len() - 1] {
                     assert_eq!(p.lines.len(), max, "{label}: page {} is full", p.index);
                 }
-                assert_eq!(pages.last().unwrap().lines.len(), n - (pages.len() - 1) * max, "{label}: remainder on the last page");
+                assert_eq!(
+                    pages.last().unwrap().lines.len(),
+                    n - (pages.len() - 1) * max,
+                    "{label}: remainder on the last page"
+                );
                 assert!(r.fully_indexed());
                 assert_eq!(r.total_pages(), pages.len(), "{label}");
             }
@@ -644,7 +865,11 @@ fn empty_and_one_character_files() {
     assert_eq!(r.total_pages(), 1);
 
     let r = open_book("\u{e9}".as_bytes(), 2, 1);
-    assert_eq!(r.lines(), vec!["\u{e9}".as_bytes().to_vec()], "a lone two-byte character is one intact line");
+    assert_eq!(
+        r.lines(),
+        vec!["\u{e9}".as_bytes().to_vec()],
+        "a lone two-byte character is one intact line"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -661,13 +886,28 @@ fn forward_n_then_backward_n_returns_to_page_zero_with_identical_content() {
         let n = fwd.len();
         assert!(n > 4);
         let mut back = walk_back(&mut r);
-        assert_eq!(back.len(), n, "font {font} theme {theme}: same number of pages going back");
+        assert_eq!(
+            back.len(),
+            n,
+            "font {font} theme {theme}: same number of pages going back"
+        );
         back.reverse();
-        assert_eq!(fwd, back, "font {font} theme {theme}: the same pages, with the same text and offsets, in reverse");
+        assert_eq!(
+            fwd, back,
+            "font {font} theme {theme}: the same pages, with the same text and offsets, in reverse"
+        );
         assert_eq!(r.page(), 0);
-        assert_eq!(snapshot(&r), first, "page 0 is unchanged after the round trip");
+        assert_eq!(
+            snapshot(&r),
+            first,
+            "page 0 is unchanged after the round trip"
+        );
         // and once more forward: identical to the first walk
-        assert_eq!(walk_forward(&mut r), fwd, "font {font} theme {theme}: second pass");
+        assert_eq!(
+            walk_forward(&mut r),
+            fwd,
+            "font {font} theme {theme}: second pass"
+        );
     }
 }
 
@@ -694,10 +934,21 @@ fn page_numbers_are_monotonic_and_content_is_a_function_of_the_page_only() {
             model = model.saturating_sub(1);
         }
         assert_eq!(r.phase(), Phase::Ready, "step {step}");
-        assert_eq!(r.page(), model, "step {step}: page number follows Next/Prev with clamping");
+        assert_eq!(
+            r.page(),
+            model,
+            "step {step}: page number follows Next/Prev with clamping"
+        );
         let got = snapshot(&r);
-        assert_eq!(got, want[model], "step {step}: page {model} shows the same text and offset however it was reached");
-        assert!(r.total_pages() > model && r.total_pages() <= total, "step {step}: table size {}", r.total_pages());
+        assert_eq!(
+            got, want[model],
+            "step {step}: page {model} shows the same text and offset however it was reached"
+        );
+        assert!(
+            r.total_pages() > model && r.total_pages() <= total,
+            "step {step}: table size {}",
+            r.total_pages()
+        );
     }
 }
 
@@ -717,8 +968,16 @@ fn first_page_has_no_previous_and_last_page_has_no_next() {
     for a in [Action::Next, Action::NextJump, Action::Next] {
         r.press(a);
         assert_eq!(r.phase(), Phase::Ready);
-        assert_eq!(snapshot(&r), last, "{a:?} on the last page stays on the last page");
-        assert_eq!(r.total_pages(), pages.len(), "the page table does not grow past the end");
+        assert_eq!(
+            snapshot(&r),
+            last,
+            "{a:?} on the last page stays on the last page"
+        );
+        assert_eq!(
+            r.total_pages(),
+            pages.len(),
+            "the page table does not grow past the end"
+        );
     }
 }
 
@@ -728,7 +987,11 @@ fn jumps_move_a_fixed_distance_clamp_at_both_ends_and_show_the_right_page() {
     let mut r = open_book(&book.bytes, 2, 1);
     let want = walk_forward(&mut r); // index everything
     let last = want.len() - 1;
-    assert!(last >= 25, "need a book of at least 26 pages, got {}", want.len());
+    assert!(
+        last >= 25,
+        "need a book of at least 26 pages, got {}",
+        want.len()
+    );
     walk_back(&mut r);
     assert_eq!(r.page(), 0);
 
@@ -801,7 +1064,11 @@ fn memory_card_and_host_directory_card_page_identically() {
 }
 
 fn book_reads(r: &Rig) -> Vec<pulp_host::storage::ReadRecord> {
-    r.storage().read_log().into_iter().filter(|x| x.path == BOOK).collect()
+    r.storage()
+        .read_log()
+        .into_iter()
+        .filter(|x| x.path == BOOK)
+        .collect()
 }
 
 fn bytes_returned(recs: &[pulp_host::storage::ReadRecord]) -> usize {
@@ -815,7 +1082,10 @@ fn a_page_turn_reads_a_small_part_of_the_book_not_the_whole_file() {
     let size = book.bytes.len();
     let mut r = open_book(&book.bytes, 0, 0);
     let limit = size / 4;
-    assert!(book_reads(&r).iter().all(|x| x.outcome == ReadOutcome::Ok), "healthy card: every read succeeds");
+    assert!(
+        book_reads(&r).iter().all(|x| x.outcome == ReadOutcome::Ok),
+        "healthy card: every read succeeds"
+    );
 
     let mut pages = 1;
     loop {
@@ -827,7 +1097,11 @@ fn a_page_turn_reads_a_small_part_of_the_book_not_the_whole_file() {
         }
         pages += 1;
         let got = bytes_returned(&book_reads(&r));
-        assert!(got < limit, "turning to page {} read {got} bytes of a {size} byte book (limit {limit})", r.page());
+        assert!(
+            got < limit,
+            "turning to page {} read {got} bytes of a {size} byte book (limit {limit})",
+            r.page()
+        );
     }
     assert!(pages > 60, "book spans {pages} pages");
 
@@ -836,7 +1110,11 @@ fn a_page_turn_reads_a_small_part_of_the_book_not_the_whole_file() {
         r.storage().reset_reads();
         r.press(Action::Prev);
         let got = bytes_returned(&book_reads(&r));
-        assert!(got < limit, "going back to page {} read {got} bytes of a {size} byte book (limit {limit})", r.page());
+        assert!(
+            got < limit,
+            "going back to page {} read {got} bytes of a {size} byte book (limit {limit})",
+            r.page()
+        );
     }
     assert_eq!(r.page(), 0);
 }
@@ -848,13 +1126,24 @@ fn reads_of_the_book_stay_inside_the_file_and_are_all_accounted_for() {
     let mut r = open_book(&book.bytes, 2, 1);
     walk_forward(&mut r);
     let recs = book_reads(&r);
-    assert!(recs.len() >= 3, "a 40 kB book is not read in fewer than 3 reads, got {}", recs.len());
+    assert!(
+        recs.len() >= 3,
+        "a 40 kB book is not read in fewer than 3 reads, got {}",
+        recs.len()
+    );
     assert_eq!(r.storage().read_count(), r.storage().read_log().len());
     for x in &recs {
         assert_eq!(x.outcome, ReadOutcome::Ok);
-        assert!(x.offset as usize <= size, "read at {} beyond the {size} byte file", x.offset);
+        assert!(
+            x.offset as usize <= size,
+            "read at {} beyond the {size} byte file",
+            x.offset
+        );
         assert!(x.returned <= x.requested);
-        assert!(x.returned <= size - x.offset as usize, "a read cannot return bytes past EOF");
+        assert!(
+            x.returned <= size - x.offset as usize,
+            "a read cannot return bytes past EOF"
+        );
     }
 }
 
@@ -912,9 +1201,14 @@ fn a_read_error_while_opening_is_an_error_page_not_a_panic() {
     let book = prose(13, 30_000, "\n");
     // the injected kind reaches the error page (pre-port baseline: ReadFailed -> ReadFailed)
     let mut r = fresh_rig(&book.bytes, 2, 1);
-    r.storage().inject_error(StorageOp::Read, BOOK, 1, ErrorKind::ReadFailed);
+    r.storage()
+        .inject_error(StorageOp::Read, BOOK, 1, ErrorKind::ReadFailed);
     r.open(BOOK);
-    assert_eq!(r.storage().pending_injections(), 0, "the injection fired during open");
+    assert_eq!(
+        r.storage().pending_injections(),
+        0,
+        "the injection fired during open"
+    );
     assert_eq!(r.phase(), Phase::Error);
     assert_eq!(r.error_kind(), Some(ErrorKind::ReadFailed));
 
@@ -924,7 +1218,10 @@ fn a_read_error_while_opening_is_an_error_page_not_a_panic() {
         r.open(BOOK);
         assert_eq!(r.storage().pending_injections(), 0, "{kind:?}: fired");
         assert_eq!(r.phase(), Phase::Error, "{kind:?}");
-        assert!(r.error_kind().is_some(), "{kind:?}: the error page names a kind");
+        assert!(
+            r.error_kind().is_some(),
+            "{kind:?}: the error page names a kind"
+        );
     }
 }
 
@@ -935,17 +1232,34 @@ fn a_read_error_during_paging_never_shows_wrong_content() {
     assert!(log.len() >= 3 && want.len() > 30);
     for j in sample_indices(log.len()) {
         let mut r = fresh_rig(&book.bytes, 0, 0);
-        r.storage().inject_error(StorageOp::Read, BOOK, j + 1, ErrorKind::ReadFailed);
+        r.storage()
+            .inject_error(StorageOp::Read, BOOK, j + 1, ErrorKind::ReadFailed);
         r.open(BOOK);
         let pages = walk_tolerant(&mut r);
-        assert_eq!(r.storage().pending_injections(), 0, "read #{}: the injection must fire (same read sequence as the healthy run)", j + 1);
+        assert_eq!(
+            r.storage().pending_injections(),
+            0,
+            "read #{}: the injection must fire (same read sequence as the healthy run)",
+            j + 1
+        );
         match r.phase() {
-            Phase::Error => assert_eq!(r.error_kind(), Some(ErrorKind::ReadFailed), "read #{}", j + 1),
+            Phase::Error => assert_eq!(
+                r.error_kind(),
+                Some(ErrorKind::ReadFailed),
+                "read #{}",
+                j + 1
+            ),
             Phase::Ready => {}
             other => panic!("read #{}: unexpected phase {other:?}", j + 1),
         }
         for p in &pages {
-            assert_eq!(p, &want[p.index], "read #{}: page {} shown while a read failed is wrong", j + 1, p.index);
+            assert_eq!(
+                p,
+                &want[p.index],
+                "read #{}: page {} shown while a read failed is wrong",
+                j + 1,
+                p.index
+            );
         }
         assert!(pages.len() <= want.len());
     }
@@ -960,7 +1274,8 @@ fn a_transient_read_error_is_not_mistaken_for_the_end_of_the_book() {
     assert!(log.len() >= 3 && want.len() > 30);
     for j in sample_indices(log.len()) {
         let mut r = fresh_rig(&book.bytes, 0, 0);
-        r.storage().inject_error(StorageOp::Read, BOOK, j + 1, ErrorKind::ReadFailed);
+        r.storage()
+            .inject_error(StorageOp::Read, BOOK, j + 1, ErrorKind::ReadFailed);
         r.open(BOOK);
         let mut pages = walk_tolerant(&mut r);
         if r.phase() == Phase::Error {
@@ -976,7 +1291,12 @@ fn a_transient_read_error_is_not_mistaken_for_the_end_of_the_book() {
                 pages.extend(walk_tolerant(&mut r)); // first element is the page just reached
             }
         }
-        assert_eq!(pages, want, "read #{}: every page of the book is reachable after a transient error", j + 1);
+        assert_eq!(
+            pages,
+            want,
+            "read #{}: every page of the book is reachable after a transient error",
+            j + 1
+        );
     }
 }
 
@@ -997,7 +1317,10 @@ fn a_short_read_never_corrupts_the_text_that_is_shown() {
         if rec.returned < 2 {
             continue;
         }
-        let Some(k) = (1..=(rec.returned / 2).max(1)).rev().find(|k| data[rec.offset as usize + k] < 0x80) else {
+        let Some(k) = (1..=(rec.returned / 2).max(1))
+            .rev()
+            .find(|k| data[rec.offset as usize + k] < 0x80)
+        else {
             continue;
         };
         tried += 1;
@@ -1005,18 +1328,32 @@ fn a_short_read_never_corrupts_the_text_that_is_shown() {
         r.storage().inject_short_read(BOOK, j + 1, k);
         r.open(BOOK);
         let pages = walk_tolerant(&mut r);
-        assert_eq!(r.storage().pending_injections(), 0, "read #{}: the injection must fire", j + 1);
+        assert_eq!(
+            r.storage().pending_injections(),
+            0,
+            "read #{}: the injection must fire",
+            j + 1
+        );
         match r.phase() {
             Phase::Error => assert!(r.error_kind().is_some(), "read #{}", j + 1),
             Phase::Ready => {
                 for p in &pages {
                     // every character shown is a whole one
                     for l in &p.lines {
-                        assert!(std::str::from_utf8(l).is_ok(), "read #{}: page {} line cut inside a character", j + 1, p.index);
+                        assert!(
+                            std::str::from_utf8(l).is_ok(),
+                            "read #{}: page {} line cut inside a character",
+                            j + 1,
+                            p.index
+                        );
                     }
                 }
                 let shown = strip_ws(&text_of(&all_lines(&pages)));
-                assert!(full.starts_with(&shown), "read #{}: shown text is not a prefix of the book (a gap or garbage appeared)", j + 1);
+                assert!(
+                    full.starts_with(&shown),
+                    "read #{}: shown text is not a prefix of the book (a gap or garbage appeared)",
+                    j + 1
+                );
                 assert!(pages.len() <= want.len(), "read #{}", j + 1);
             }
             other => panic!("read #{}: unexpected phase {other:?}", j + 1),

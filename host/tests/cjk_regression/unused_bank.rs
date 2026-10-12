@@ -17,7 +17,9 @@ fn latin_rig() -> Rig {
 fn assert_no_pack_reads(r: &Rig) {
     let reads = r.storage().read_log();
     assert!(
-        reads.iter().all(|read| !read.path.starts_with("_PULP/FONTS/")),
+        reads
+            .iter()
+            .all(|read| !read.path.starts_with("_PULP/FONTS/")),
         "Latin needs no fallback pack reads: {reads:?}"
     );
 }
@@ -36,9 +38,17 @@ fn assert_original_latin_with_unused_packs(packs: &[(u16, Vec<u8>)]) {
     }
     r.storage().reset_reads();
     r.open(BOOK);
-    assert_eq!(r.phase(), Phase::Ready, "unused optional banks cannot prevent Latin reading");
+    assert_eq!(
+        r.phase(),
+        Phase::Ready,
+        "unused optional banks cannot prevent Latin reading"
+    );
     assert_no_pack_reads(&r);
-    assert_eq!(r.lines(), original_lines, "original Latin text and wrapping survive");
+    assert_eq!(
+        r.lines(),
+        original_lines,
+        "original Latin text and wrapping survive"
+    );
     r.storage().reset_reads();
     r.prepare_render();
     assert_no_pack_reads(&r);
@@ -46,7 +56,11 @@ fn assert_original_latin_with_unused_packs(packs: &[(u16, Vec<u8>)]) {
     let frame = render_full(&|s| r.draw(s)).frame.to_pbm();
     assert_eq!(frame, original_frame, "original Latin glyph pixels survive");
     assert_eq!(frame, render_stitched(&|s| r.draw(s)).frame.to_pbm());
-    assert_eq!(r.storage().read_count(), 0, "draw performs no storage reads");
+    assert_eq!(
+        r.storage().read_count(),
+        0,
+        "draw performs no storage reads"
+    );
 }
 
 #[test]

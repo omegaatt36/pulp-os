@@ -10,7 +10,9 @@ fn serial() -> std::sync::MutexGuard<'static, ()> {
 
 fn card() -> VirtualStorage {
     let bytes = build_txt(&TxtSpec {
-        lines: (0..1200).map(|i| format!("Line {i}: a distinct sentence for reliable page navigation.")).collect(),
+        lines: (0..1200)
+            .map(|i| format!("Line {i}: a distinct sentence for reliable page navigation."))
+            .collect(),
         newline: Newline::Lf,
         trailing_newline: true,
     });
@@ -36,7 +38,8 @@ fn missing_card_is_a_storage_boundary_failure_and_mount_recovers() {
 fn failed_open_and_page_read_can_be_retried() {
     let _serial = serial();
     let mut r = Rig::new(card());
-    r.storage().inject_error(StorageOp::Read, "FAIL.TXT", 1, ErrorKind::ReadFailed);
+    r.storage()
+        .inject_error(StorageOp::Read, "FAIL.TXT", 1, ErrorKind::ReadFailed);
     r.open("FAIL.TXT");
     assert_eq!(r.phase(), Phase::Error);
     assert_eq!(r.error_kind(), Some(ErrorKind::ReadFailed));
@@ -47,11 +50,17 @@ fn failed_open_and_page_read_can_be_retried() {
     r.press(Action::Next);
     assert!(r.page() > 0);
     r.storage().reset_reads();
-    r.storage().inject_error(StorageOp::Read, "FAIL.TXT", 1, ErrorKind::ReadFailed);
+    r.storage()
+        .inject_error(StorageOp::Read, "FAIL.TXT", 1, ErrorKind::ReadFailed);
     r.press(Action::Prev);
     assert_eq!(r.phase(), Phase::Error);
     assert_eq!(r.error_kind(), Some(ErrorKind::ReadFailed));
-    assert!(r.storage().read_log().iter().any(|x| x.outcome == ReadOutcome::ErrorInjected(ErrorKind::ReadFailed)));
+    assert!(
+        r.storage()
+            .read_log()
+            .iter()
+            .any(|x| x.outcome == ReadOutcome::ErrorInjected(ErrorKind::ReadFailed))
+    );
     r.open("FAIL.TXT");
     assert_eq!(r.phase(), Phase::Ready);
 }
@@ -64,12 +73,18 @@ fn failed_best_effort_prefetch_keeps_the_displayed_page_ready_and_recovers() {
     assert_eq!(r.phase(), Phase::Ready);
     let first_page = r.page();
     r.storage().reset_reads();
-    r.storage().inject_error(StorageOp::Read, "FAIL.TXT", 1, ErrorKind::ReadFailed);
+    r.storage()
+        .inject_error(StorageOp::Read, "FAIL.TXT", 1, ErrorKind::ReadFailed);
     r.press(Action::Next);
     assert_eq!(r.phase(), Phase::Ready);
     assert_eq!(r.page(), first_page + 1);
     assert_eq!(r.storage().pending_injections(), 0);
-    assert!(r.storage().read_log().iter().any(|x| x.outcome == ReadOutcome::ErrorInjected(ErrorKind::ReadFailed)));
+    assert!(
+        r.storage()
+            .read_log()
+            .iter()
+            .any(|x| x.outcome == ReadOutcome::ErrorInjected(ErrorKind::ReadFailed))
+    );
     r.press(Action::Next);
     assert_eq!(r.phase(), Phase::Ready);
     assert_eq!(r.page(), first_page + 2);
@@ -84,11 +99,16 @@ fn short_read_is_recorded_and_reader_settles() {
     r.storage().inject_short_read("FAIL.TXT", 1, 17);
     r.open("FAIL.TXT");
     let reads = r.storage().read_log();
-    let short = reads.iter().find(|x| x.outcome == ReadOutcome::ShortInjected).expect("short read reached the reader");
+    let short = reads
+        .iter()
+        .find(|x| x.outcome == ReadOutcome::ShortInjected)
+        .expect("short read reached the reader");
     assert_eq!(short.returned, 17);
     assert!(short.requested > short.returned);
     assert!(matches!(r.phase(), Phase::Ready | Phase::Error));
-    if r.phase() == Phase::Error { assert!(r.error_kind().is_some()); }
+    if r.phase() == Phase::Error {
+        assert!(r.error_kind().is_some());
+    }
     assert_eq!(r.storage().pending_injections(), 0);
     r.open("FAIL.TXT");
     assert_eq!(r.phase(), Phase::Ready);
@@ -105,7 +125,12 @@ fn settings_write_failure_preserves_bytes_and_next_tick_retries() {
     let old = r.file().expect("baseline settings saved");
     r.press(Action::NextJump);
     assert_eq!(r.settings().sleep_timeout, 20);
-    r.storage().inject_error(StorageOp::Write, "_PULP/SETTINGS.TXT", 1, ErrorKind::WriteFailed);
+    r.storage().inject_error(
+        StorageOp::Write,
+        "_PULP/SETTINGS.TXT",
+        1,
+        ErrorKind::WriteFailed,
+    );
     r.tick();
     assert_eq!(r.storage().pending_injections(), 0);
     assert_eq!(r.file().unwrap(), old);
@@ -114,7 +139,12 @@ fn settings_write_failure_preserves_bytes_and_next_tick_retries() {
     assert!(!r.is_dirty());
     let saved = r.file().unwrap();
     assert_ne!(saved, old);
-    assert!(String::from_utf8(saved).unwrap().lines().any(|x| x == "sleep_timeout=20"));
+    assert!(
+        String::from_utf8(saved)
+            .unwrap()
+            .lines()
+            .any(|x| x == "sleep_timeout=20")
+    );
 }
 
 #[test]
@@ -126,13 +156,23 @@ fn bookmark_flush_failure_preserves_bytes_and_dirty_state() {
     let read = |r: &Rig| {
         let n = r.storage().file_size_in_pulp("BKMK.BIN").unwrap() as usize;
         let mut bytes = vec![0; n];
-        assert_eq!(r.storage().read_chunk_in_pulp("BKMK.BIN", 0, &mut bytes).unwrap(), n);
+        assert_eq!(
+            r.storage()
+                .read_chunk_in_pulp("BKMK.BIN", 0, &mut bytes)
+                .unwrap(),
+            n
+        );
         bytes
     };
     let old = read(&r);
     r.bookmark_save(b"FAIL.TXT", 456, 0);
     assert!(r.bookmarks_dirty());
-    r.storage().inject_error(StorageOp::Write, "_PULP/BKMK.BIN", 1, ErrorKind::WriteFailed);
+    r.storage().inject_error(
+        StorageOp::Write,
+        "_PULP/BKMK.BIN",
+        1,
+        ErrorKind::WriteFailed,
+    );
     r.bookmarks_flush();
     assert_eq!(r.storage().pending_injections(), 0);
     assert_eq!(read(&r), old);

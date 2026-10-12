@@ -195,7 +195,8 @@ impl TempRoot {
     fn new() -> Self {
         static N: AtomicUsize = AtomicUsize::new(0);
         let n = N.fetch_add(1, Ordering::SeqCst);
-        let p = std::env::temp_dir().join(format!("pulp-host-storage-{}-{}", std::process::id(), n));
+        let p =
+            std::env::temp_dir().join(format!("pulp-host-storage-{}-{}", std::process::id(), n));
         let _ = std::fs::remove_dir_all(&p);
         std::fs::create_dir_all(&p).unwrap();
         TempRoot(p)
@@ -226,7 +227,11 @@ fn memory_fx(seeded: bool) -> Fx {
     } else {
         VirtualStorage::memory()
     };
-    Fx { label: "memory", sd, root: None }
+    Fx {
+        label: "memory",
+        sd,
+        root: None,
+    }
 }
 
 fn host_fx(seeded: bool) -> Fx {
@@ -239,7 +244,11 @@ fn host_fx(seeded: bool) -> Fx {
         }
     }
     let sd = VirtualStorage::host_dir(&root.0);
-    Fx { label: "host-file", sd, root: Some(root) }
+    Fx {
+        label: "host-file",
+        sd,
+        root: Some(root),
+    }
 }
 
 // run `f` once per backend, each on a freshly built, identically seeded card
@@ -291,11 +300,18 @@ fn seeded_files_read_back_through_every_read_variant() {
         assert_eq!(&b, b"01234567");
 
         let mut b = [0u8; 100];
-        assert_eq!(sd.read_file_chunk_in_dir("BOOKS", "A.TXT", 3, &mut b).unwrap(), 8);
+        assert_eq!(
+            sd.read_file_chunk_in_dir("BOOKS", "A.TXT", 3, &mut b)
+                .unwrap(),
+            8
+        );
         assert_eq!(&b[..8], b"dir-file");
 
         let mut b = [0u8; 4];
-        assert_eq!(sd.read_file_start_in_dir("BOOKS", "A.TXT", &mut b).unwrap(), (11, 4));
+        assert_eq!(
+            sd.read_file_start_in_dir("BOOKS", "A.TXT", &mut b).unwrap(),
+            (11, 4)
+        );
         assert_eq!(&b, b"in-d");
 
         let mut b = [0u8; 100];
@@ -303,7 +319,11 @@ fn seeded_files_read_back_through_every_read_variant() {
         assert_eq!(&b[..14], b"bookmark-bytes");
 
         let mut b = [0u8; 100];
-        assert_eq!(sd.read_chunk_in_pulp_subdir("CACHE", "P0.BIN", 7, &mut b).unwrap(), 5);
+        assert_eq!(
+            sd.read_chunk_in_pulp_subdir("CACHE", "P0.BIN", 7, &mut b)
+                .unwrap(),
+            5
+        );
         assert_eq!(&b[..5], b"bytes");
 
         assert_eq!(sd.file_size("BOOK.TXT").unwrap(), 20);
@@ -321,7 +341,11 @@ fn read_at_and_past_eof() {
         let mut b = [0xEEu8; 10];
         assert_eq!(sd.read_file_chunk("BOOK.TXT", 15, &mut b).unwrap(), 5);
         assert_eq!(&b[..5], b"fghij");
-        assert_eq!(&b[5..], &[0xEE; 5], "bytes past the returned count are untouched");
+        assert_eq!(
+            &b[5..],
+            &[0xEE; 5],
+            "bytes past the returned count are untouched"
+        );
 
         // exactly at EOF (offset == len): Ok(0), not an error
         let mut b = [0xEEu8; 10];
@@ -331,8 +355,18 @@ fn read_at_and_past_eof() {
         // beyond EOF (offset > len): the firmware's seek fails -> SeekFailed,
         // buf untouched, and the failed read is still counted and logged
         sd.reset_reads();
-        assert_eq!(sd.read_file_chunk("BOOK.TXT", 21, &mut b).unwrap_err().kind(), ErrorKind::SeekFailed);
-        assert_eq!(sd.read_file_chunk("BOOK.TXT", 4096, &mut b).unwrap_err().kind(), ErrorKind::SeekFailed);
+        assert_eq!(
+            sd.read_file_chunk("BOOK.TXT", 21, &mut b)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::SeekFailed
+        );
+        assert_eq!(
+            sd.read_file_chunk("BOOK.TXT", 4096, &mut b)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::SeekFailed
+        );
         assert_eq!(b, [0xEE; 10]);
         assert_eq!(sd.read_count(), 2);
         assert_eq!(
@@ -367,33 +401,68 @@ fn missing_file_fails_with_firmware_kinds_and_buffer_untouched() {
     each_backend(true, |fx| {
         let sd = &fx.sd;
         let mut b = [0xEEu8; 8];
-        assert_eq!(sd.read_file_chunk("NOPE.TXT", 0, &mut b).unwrap_err().kind(), ErrorKind::OpenFile);
-        assert_eq!(sd.read_file_start("NOPE.TXT", &mut b).unwrap_err().kind(), ErrorKind::OpenFile);
         assert_eq!(
-            sd.read_file_chunk_in_dir("BOOKS", "NOPE.TXT", 0, &mut b).unwrap_err().kind(),
+            sd.read_file_chunk("NOPE.TXT", 0, &mut b)
+                .unwrap_err()
+                .kind(),
             ErrorKind::OpenFile
         );
         assert_eq!(
-            sd.read_file_start_in_dir("BOOKS", "NOPE.TXT", &mut b).unwrap_err().kind(),
+            sd.read_file_start("NOPE.TXT", &mut b).unwrap_err().kind(),
             ErrorKind::OpenFile
         );
-        assert_eq!(sd.read_chunk_in_pulp("NOPE.BIN", 0, &mut b).unwrap_err().kind(), ErrorKind::OpenFile);
         assert_eq!(
-            sd.read_chunk_in_pulp_subdir("CACHE", "NOPE.BIN", 0, &mut b).unwrap_err().kind(),
+            sd.read_file_chunk_in_dir("BOOKS", "NOPE.TXT", 0, &mut b)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::OpenFile
+        );
+        assert_eq!(
+            sd.read_file_start_in_dir("BOOKS", "NOPE.TXT", &mut b)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::OpenFile
+        );
+        assert_eq!(
+            sd.read_chunk_in_pulp("NOPE.BIN", 0, &mut b)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::OpenFile
+        );
+        assert_eq!(
+            sd.read_chunk_in_pulp_subdir("CACHE", "NOPE.BIN", 0, &mut b)
+                .unwrap_err()
+                .kind(),
             ErrorKind::OpenFile
         );
         assert_eq!(b, [0xEE; 8], "failed reads must not touch the buffer");
 
-        assert_eq!(sd.file_size("NOPE.TXT").unwrap_err().kind(), ErrorKind::OpenFile);
-        assert_eq!(sd.file_size_in_pulp("NOPE.BIN").unwrap_err().kind(), ErrorKind::OpenFile);
         assert_eq!(
-            sd.file_size_in_pulp_subdir("CACHE", "NOPE.BIN").unwrap_err().kind(),
+            sd.file_size("NOPE.TXT").unwrap_err().kind(),
             ErrorKind::OpenFile
         );
-        assert_eq!(sd.delete_file("NOPE.TXT").unwrap_err().kind(), ErrorKind::DeleteFailed);
-        assert_eq!(sd.delete_in_pulp("NOPE.BIN").unwrap_err().kind(), ErrorKind::DeleteFailed);
         assert_eq!(
-            sd.delete_in_pulp_subdir("CACHE", "NOPE.BIN").unwrap_err().kind(),
+            sd.file_size_in_pulp("NOPE.BIN").unwrap_err().kind(),
+            ErrorKind::OpenFile
+        );
+        assert_eq!(
+            sd.file_size_in_pulp_subdir("CACHE", "NOPE.BIN")
+                .unwrap_err()
+                .kind(),
+            ErrorKind::OpenFile
+        );
+        assert_eq!(
+            sd.delete_file("NOPE.TXT").unwrap_err().kind(),
+            ErrorKind::DeleteFailed
+        );
+        assert_eq!(
+            sd.delete_in_pulp("NOPE.BIN").unwrap_err().kind(),
+            ErrorKind::DeleteFailed
+        );
+        assert_eq!(
+            sd.delete_in_pulp_subdir("CACHE", "NOPE.BIN")
+                .unwrap_err()
+                .kind(),
             ErrorKind::DeleteFailed
         );
     });
@@ -417,9 +486,15 @@ fn root_write_append_delete_roundtrip() {
         assert_eq!(read_all(sd, "NEW.TXT"), b"z");
 
         sd.delete_file("NEW.TXT").unwrap();
-        assert_eq!(sd.file_size("NEW.TXT").unwrap_err().kind(), ErrorKind::OpenFile);
+        assert_eq!(
+            sd.file_size("NEW.TXT").unwrap_err().kind(),
+            ErrorKind::OpenFile
+        );
         let mut b = [0u8; 4];
-        assert_eq!(sd.read_file_chunk("NEW.TXT", 0, &mut b).unwrap_err().kind(), ErrorKind::OpenFile);
+        assert_eq!(
+            sd.read_file_chunk("NEW.TXT", 0, &mut b).unwrap_err().kind(),
+            ErrorKind::OpenFile
+        );
         // other files untouched
         assert_eq!(read_all(sd, "NOTE.TXT"), NOTE);
     });
@@ -448,16 +523,26 @@ fn pulp_write_append_write_at_delete_roundtrip() {
 
         sd.write_at_in_pulp("X.BIN", 1, b"ZZ").unwrap();
         assert_eq!(read_all_pulp(sd, "X.BIN"), b"aZZdefgh");
-        assert_eq!(sd.file_size_in_pulp("X.BIN").unwrap(), 8, "in-range write_at keeps the size");
+        assert_eq!(
+            sd.file_size_in_pulp("X.BIN").unwrap(),
+            8,
+            "in-range write_at keeps the size"
+        );
 
         // an existing seeded _PULP file is replaced, not merged
         sd.write_in_pulp("BKMK.BIN", b"new").unwrap();
         assert_eq!(read_all_pulp(sd, "BKMK.BIN"), b"new");
 
         sd.delete_in_pulp("X.BIN").unwrap();
-        assert_eq!(sd.file_size_in_pulp("X.BIN").unwrap_err().kind(), ErrorKind::OpenFile);
+        assert_eq!(
+            sd.file_size_in_pulp("X.BIN").unwrap_err().kind(),
+            ErrorKind::OpenFile
+        );
         // a root file with the same name is a different file
-        assert_eq!(sd.file_size("X.BIN").unwrap_err().kind(), ErrorKind::OpenFile);
+        assert_eq!(
+            sd.file_size("X.BIN").unwrap_err().kind(),
+            ErrorKind::OpenFile
+        );
     });
 }
 
@@ -468,23 +553,34 @@ fn in_dir_and_pulp_subdir_write_append_delete_roundtrip() {
         sd.write_file_in_dir("BOOKS", "B.TXT", b"book-b").unwrap();
         sd.append_file_in_dir("BOOKS", "B.TXT", b"+more").unwrap();
         let mut b = [0u8; 64];
-        let n = sd.read_file_chunk_in_dir("BOOKS", "B.TXT", 0, &mut b).unwrap();
+        let n = sd
+            .read_file_chunk_in_dir("BOOKS", "B.TXT", 0, &mut b)
+            .unwrap();
         assert_eq!(&b[..n], b"book-b+more");
         // not visible in the root under the same bare name
-        assert_eq!(sd.file_size("B.TXT").unwrap_err().kind(), ErrorKind::OpenFile);
+        assert_eq!(
+            sd.file_size("B.TXT").unwrap_err().kind(),
+            ErrorKind::OpenFile
+        );
 
-        sd.write_in_pulp_subdir("CACHE", "P1.BIN", b"page1").unwrap();
-        sd.append_in_pulp_subdir("CACHE", "P1.BIN", b"-tail").unwrap();
+        sd.write_in_pulp_subdir("CACHE", "P1.BIN", b"page1")
+            .unwrap();
+        sd.append_in_pulp_subdir("CACHE", "P1.BIN", b"-tail")
+            .unwrap();
         assert_eq!(sd.file_size_in_pulp_subdir("CACHE", "P1.BIN").unwrap(), 10);
         let mut b = [0u8; 64];
-        let n = sd.read_chunk_in_pulp_subdir("CACHE", "P1.BIN", 0, &mut b).unwrap();
+        let n = sd
+            .read_chunk_in_pulp_subdir("CACHE", "P1.BIN", 0, &mut b)
+            .unwrap();
         assert_eq!(&b[..n], b"page1-tail");
         // seeded sibling untouched
         assert_eq!(sd.file_size_in_pulp_subdir("CACHE", "P0.BIN").unwrap(), 12);
 
         sd.delete_in_pulp_subdir("CACHE", "P1.BIN").unwrap();
         assert_eq!(
-            sd.file_size_in_pulp_subdir("CACHE", "P1.BIN").unwrap_err().kind(),
+            sd.file_size_in_pulp_subdir("CACHE", "P1.BIN")
+                .unwrap_err()
+                .kind(),
             ErrorKind::OpenFile
         );
         assert_eq!(sd.file_size_in_pulp_subdir("CACHE", "P0.BIN").unwrap(), 12);
@@ -499,7 +595,11 @@ fn ensure_dirs_are_idempotent_and_usable_on_an_empty_card() {
         sd.ensure_dir("NEWDIR").unwrap();
         sd.write_file_in_dir("NEWDIR", "F.TXT", b"f").unwrap();
         let mut b = [0u8; 4];
-        assert_eq!(sd.read_file_chunk_in_dir("NEWDIR", "F.TXT", 0, &mut b).unwrap(), 1);
+        assert_eq!(
+            sd.read_file_chunk_in_dir("NEWDIR", "F.TXT", 0, &mut b)
+                .unwrap(),
+            1
+        );
         assert_eq!(b[0], b'f');
 
         sd.ensure_pulp_dir().unwrap();
@@ -590,8 +690,18 @@ fn list_root_files_applies_the_firmware_filters() {
         let (n, entries) = list(sd, 32);
         assert!(entries.iter().all(|e| !e.is_dir), "is_dir is always false");
         let names: Vec<&str> = entries.iter().map(|e| e.name_str()).collect();
-        for hidden in ["SKIP.BIN", "_HIDDEN.TXT", ".DOT.TXT", "EMPTYD", "BOOKS", "_PULP"] {
-            assert!(!names.contains(&hidden), "{hidden} must be filtered out, got {names:?}");
+        for hidden in [
+            "SKIP.BIN",
+            "_HIDDEN.TXT",
+            ".DOT.TXT",
+            "EMPTYD",
+            "BOOKS",
+            "_PULP",
+        ] {
+            assert!(
+                !names.contains(&hidden),
+                "{hidden} must be filtered out, got {names:?}"
+            );
         }
         assert_eq!(
             files_of(&entries),
@@ -632,18 +742,30 @@ fn host_file_backend_is_backed_by_real_host_files() {
 
     // backend writes land on the host file system
     sd.write_file("HOSTW.TXT", b"via backend").unwrap();
-    assert_eq!(std::fs::read(root.join("HOSTW.TXT")).unwrap(), b"via backend");
+    assert_eq!(
+        std::fs::read(root.join("HOSTW.TXT")).unwrap(),
+        b"via backend"
+    );
     sd.append_root_file("HOSTW.TXT", b"!").unwrap();
-    assert_eq!(std::fs::read(root.join("HOSTW.TXT")).unwrap(), b"via backend!");
+    assert_eq!(
+        std::fs::read(root.join("HOSTW.TXT")).unwrap(),
+        b"via backend!"
+    );
     sd.write_in_pulp("W.BIN", b"pulp").unwrap();
-    assert_eq!(std::fs::read(root.join("_PULP").join("W.BIN")).unwrap(), b"pulp");
+    assert_eq!(
+        std::fs::read(root.join("_PULP").join("W.BIN")).unwrap(),
+        b"pulp"
+    );
     sd.write_in_pulp_subdir("CACHE", "W2.BIN", b"sub").unwrap();
     assert_eq!(
         std::fs::read(root.join("_PULP").join("CACHE").join("W2.BIN")).unwrap(),
         b"sub"
     );
     sd.write_file_in_dir("BOOKS", "W3.TXT", b"dir").unwrap();
-    assert_eq!(std::fs::read(root.join("BOOKS").join("W3.TXT")).unwrap(), b"dir");
+    assert_eq!(
+        std::fs::read(root.join("BOOKS").join("W3.TXT")).unwrap(),
+        b"dir"
+    );
 
     // backend delete removes the host file
     sd.delete_file("HOSTW.TXT").unwrap();
@@ -676,11 +798,26 @@ fn counter_records_every_read_variant_exactly() {
         let sd = &fx.sd;
         let mut b = [0u8; 8];
         assert_eq!(sd.read_file_chunk("BOOK.TXT", 4, &mut b).unwrap(), 8);
-        assert_eq!(sd.read_file_start("BOOK.TXT", &mut b[..6]).unwrap(), (20, 6));
-        assert_eq!(sd.read_file_chunk_in_dir("BOOKS", "A.TXT", 9, &mut b).unwrap(), 2);
-        assert_eq!(sd.read_file_start_in_dir("BOOKS", "A.TXT", &mut b[..3]).unwrap(), (11, 3));
+        assert_eq!(
+            sd.read_file_start("BOOK.TXT", &mut b[..6]).unwrap(),
+            (20, 6)
+        );
+        assert_eq!(
+            sd.read_file_chunk_in_dir("BOOKS", "A.TXT", 9, &mut b)
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            sd.read_file_start_in_dir("BOOKS", "A.TXT", &mut b[..3])
+                .unwrap(),
+            (11, 3)
+        );
         assert_eq!(sd.read_chunk_in_pulp("BKMK.BIN", 0, &mut b).unwrap(), 8);
-        assert_eq!(sd.read_chunk_in_pulp_subdir("CACHE", "P0.BIN", 7, &mut b).unwrap(), 5);
+        assert_eq!(
+            sd.read_chunk_in_pulp_subdir("CACHE", "P0.BIN", 7, &mut b)
+                .unwrap(),
+            5
+        );
 
         assert_eq!(sd.read_count(), 6);
         assert_eq!(
@@ -784,7 +921,11 @@ fn reset_clears_count_and_log_but_keeps_pending_injections() {
         sd.reset_reads();
         assert_eq!(sd.read_count(), 0);
         assert!(sd.read_log().is_empty());
-        assert_eq!(sd.pending_injections(), 1, "reset_reads must not drop injections");
+        assert_eq!(
+            sd.pending_injections(),
+            1,
+            "reset_reads must not drop injections"
+        );
 
         sd.read_file_chunk("BOOK.TXT", 8, &mut b).unwrap();
         assert_eq!(sd.read_count(), 1);
@@ -819,7 +960,11 @@ fn short_read_returns_the_injected_length_and_is_marked_in_the_log() {
                 outcome: ReadOutcome::ShortInjected,
             }]
         );
-        assert_eq!(sd.pending_injections(), 0, "one-shot: consumed after firing");
+        assert_eq!(
+            sd.pending_injections(),
+            0,
+            "one-shot: consumed after firing"
+        );
 
         // the very next identical read is normal and full
         let mut b = [0xEEu8; 10];
@@ -913,7 +1058,11 @@ fn multiple_short_reads_on_one_file_each_fire_once() {
         let outcomes: Vec<ReadOutcome> = sd.read_log().iter().map(|r| r.outcome).collect();
         assert_eq!(
             outcomes,
-            vec![ReadOutcome::ShortInjected, ReadOutcome::ShortInjected, ReadOutcome::Ok]
+            vec![
+                ReadOutcome::ShortInjected,
+                ReadOutcome::ShortInjected,
+                ReadOutcome::Ok
+            ]
         );
     });
 }
@@ -948,13 +1097,23 @@ fn short_read_paths_cover_dir_pulp_and_pulp_subdir_reads() {
         sd.inject_short_read("_PULP/BKMK.BIN", 1, 3);
         sd.inject_short_read("_PULP/CACHE/P0.BIN", 1, 4);
         let mut b = [0u8; 8];
-        assert_eq!(sd.read_file_chunk_in_dir("BOOKS", "A.TXT", 0, &mut b).unwrap(), 2);
+        assert_eq!(
+            sd.read_file_chunk_in_dir("BOOKS", "A.TXT", 0, &mut b)
+                .unwrap(),
+            2
+        );
         assert_eq!(sd.read_chunk_in_pulp("BKMK.BIN", 0, &mut b).unwrap(), 3);
-        assert_eq!(sd.read_chunk_in_pulp_subdir("CACHE", "P0.BIN", 0, &mut b).unwrap(), 4);
+        assert_eq!(
+            sd.read_chunk_in_pulp_subdir("CACHE", "P0.BIN", 0, &mut b)
+                .unwrap(),
+            4
+        );
         assert_eq!(sd.pending_injections(), 0);
         let log = sd.read_log();
         assert_eq!(
-            log.iter().map(|r| (r.path.as_str(), r.returned, r.outcome)).collect::<Vec<_>>(),
+            log.iter()
+                .map(|r| (r.path.as_str(), r.returned, r.outcome))
+                .collect::<Vec<_>>(),
             vec![
                 ("BOOKS/A.TXT", 2, ReadOutcome::ShortInjected),
                 ("_PULP/BKMK.BIN", 3, ReadOutcome::ShortInjected),
@@ -1021,7 +1180,12 @@ fn injected_read_error_preserves_each_requested_kind() {
         for kind in kinds {
             sd.inject_error(StorageOp::Read, "NOTE.TXT", 1, kind);
             let mut b = [0u8; 4];
-            assert_eq!(sd.read_file_chunk("NOTE.TXT", 0, &mut b).unwrap_err().kind(), kind);
+            assert_eq!(
+                sd.read_file_chunk("NOTE.TXT", 0, &mut b)
+                    .unwrap_err()
+                    .kind(),
+                kind
+            );
             let last = sd.read_log().pop().unwrap();
             assert_eq!(last.outcome, ReadOutcome::ErrorInjected(kind));
             assert_eq!(last.returned, 0);
@@ -1039,17 +1203,26 @@ fn injected_error_applies_to_the_other_read_variants_by_path() {
         sd.inject_error(StorageOp::Read, "_PULP/BKMK.BIN", 1, ErrorKind::ReadFailed);
         sd.inject_error(StorageOp::Read, "_PULP/CACHE/P0.BIN", 1, ErrorKind::OpenDir);
         let mut b = [0u8; 4];
-        assert_eq!(sd.read_file_start("BOOK.TXT", &mut b).unwrap_err().kind(), ErrorKind::OpenFile);
         assert_eq!(
-            sd.read_file_start_in_dir("BOOKS", "A.TXT", &mut b).unwrap_err().kind(),
+            sd.read_file_start("BOOK.TXT", &mut b).unwrap_err().kind(),
+            ErrorKind::OpenFile
+        );
+        assert_eq!(
+            sd.read_file_start_in_dir("BOOKS", "A.TXT", &mut b)
+                .unwrap_err()
+                .kind(),
             ErrorKind::SeekFailed
         );
         assert_eq!(
-            sd.read_chunk_in_pulp("BKMK.BIN", 0, &mut b).unwrap_err().kind(),
+            sd.read_chunk_in_pulp("BKMK.BIN", 0, &mut b)
+                .unwrap_err()
+                .kind(),
             ErrorKind::ReadFailed
         );
         assert_eq!(
-            sd.read_chunk_in_pulp_subdir("CACHE", "P0.BIN", 0, &mut b).unwrap_err().kind(),
+            sd.read_chunk_in_pulp_subdir("CACHE", "P0.BIN", 0, &mut b)
+                .unwrap_err()
+                .kind(),
             ErrorKind::OpenDir
         );
         assert_eq!(sd.pending_injections(), 0);
@@ -1072,7 +1245,11 @@ fn injection_on_one_file_leaves_other_files_untouched() {
         assert_eq!(sd.pending_injections(), 2);
         assert!(sd.read_log().iter().all(|r| r.outcome == ReadOutcome::Ok));
         // the same bare name under another directory is a different file
-        assert_eq!(sd.read_file_chunk_in_dir("BOOKS", "A.TXT", 0, &mut b).unwrap(), 1);
+        assert_eq!(
+            sd.read_file_chunk_in_dir("BOOKS", "A.TXT", 0, &mut b)
+                .unwrap(),
+            1
+        );
     });
 }
 
@@ -1102,7 +1279,11 @@ fn injected_write_error_returns_kind_and_leaves_storage_unchanged() {
         sd.inject_error(StorageOp::Write, "NEW.TXT", 1, ErrorKind::WriteFailed);
         let err = sd.write_file("NEW.TXT", b"abc").unwrap_err();
         assert_eq!(err.kind(), ErrorKind::WriteFailed);
-        assert_eq!(sd.file_size("NEW.TXT").unwrap_err().kind(), ErrorKind::OpenFile, "no file created");
+        assert_eq!(
+            sd.file_size("NEW.TXT").unwrap_err().kind(),
+            ErrorKind::OpenFile,
+            "no file created"
+        );
         if fx.root.is_some() {
             assert!(!fx.host_root().join("NEW.TXT").exists());
         }
@@ -1113,10 +1294,16 @@ fn injected_write_error_returns_kind_and_leaves_storage_unchanged() {
 
         // an injected failure over an existing file keeps the old content
         sd.inject_error(StorageOp::Write, "NOTE.TXT", 1, ErrorKind::DirFull);
-        assert_eq!(sd.write_file("NOTE.TXT", b"zz").unwrap_err().kind(), ErrorKind::DirFull);
+        assert_eq!(
+            sd.write_file("NOTE.TXT", b"zz").unwrap_err().kind(),
+            ErrorKind::DirFull
+        );
         assert_eq!(read_all(sd, "NOTE.TXT"), NOTE);
         // injected write failures are not reads
-        assert_eq!(sd.read_log().iter().filter(|r| r.path == "NEW.TXT").count(), 1);
+        assert_eq!(
+            sd.read_log().iter().filter(|r| r.path == "NEW.TXT").count(),
+            1
+        );
     });
 }
 
@@ -1124,15 +1311,29 @@ fn injected_write_error_returns_kind_and_leaves_storage_unchanged() {
 fn injected_write_error_covers_pulp_write_and_write_at() {
     each_backend(true, |fx| {
         let sd = &fx.sd;
-        sd.inject_error(StorageOp::Write, "_PULP/BKMK.BIN", 1, ErrorKind::WriteFailed);
+        sd.inject_error(
+            StorageOp::Write,
+            "_PULP/BKMK.BIN",
+            1,
+            ErrorKind::WriteFailed,
+        );
         assert_eq!(
-            sd.write_at_in_pulp("BKMK.BIN", 0, b"XX").unwrap_err().kind(),
+            sd.write_at_in_pulp("BKMK.BIN", 0, b"XX")
+                .unwrap_err()
+                .kind(),
             ErrorKind::WriteFailed
         );
-        assert_eq!(read_all_pulp(sd, "BKMK.BIN"), BKMK, "failed write_at must not modify the file");
+        assert_eq!(
+            read_all_pulp(sd, "BKMK.BIN"),
+            BKMK,
+            "failed write_at must not modify the file"
+        );
 
         sd.inject_error(StorageOp::Write, "_PULP/BKMK.BIN", 1, ErrorKind::SeekFailed);
-        assert_eq!(sd.write_in_pulp("BKMK.BIN", b"new").unwrap_err().kind(), ErrorKind::SeekFailed);
+        assert_eq!(
+            sd.write_in_pulp("BKMK.BIN", b"new").unwrap_err().kind(),
+            ErrorKind::SeekFailed
+        );
         assert_eq!(read_all_pulp(sd, "BKMK.BIN"), BKMK);
 
         // both consumed: writes work again
@@ -1146,7 +1347,10 @@ fn injected_append_error_leaves_the_file_unchanged() {
     each_backend(true, |fx| {
         let sd = &fx.sd;
         sd.inject_error(StorageOp::Append, "NOTE.TXT", 1, ErrorKind::WriteFailed);
-        assert_eq!(sd.append_root_file("NOTE.TXT", b"!!").unwrap_err().kind(), ErrorKind::WriteFailed);
+        assert_eq!(
+            sd.append_root_file("NOTE.TXT", b"!!").unwrap_err().kind(),
+            ErrorKind::WriteFailed
+        );
         assert_eq!(read_all(sd, "NOTE.TXT"), NOTE);
         sd.append_root_file("NOTE.TXT", b"!!").unwrap();
         assert_eq!(read_all(sd, "NOTE.TXT"), b"hello!!");
@@ -1158,10 +1362,20 @@ fn injected_delete_error_keeps_the_file() {
     each_backend(true, |fx| {
         let sd = &fx.sd;
         sd.inject_error(StorageOp::Delete, "NOTE.TXT", 1, ErrorKind::DeleteFailed);
-        assert_eq!(sd.delete_file("NOTE.TXT").unwrap_err().kind(), ErrorKind::DeleteFailed);
-        assert_eq!(sd.file_size("NOTE.TXT").unwrap(), 5, "file survives a failed delete");
+        assert_eq!(
+            sd.delete_file("NOTE.TXT").unwrap_err().kind(),
+            ErrorKind::DeleteFailed
+        );
+        assert_eq!(
+            sd.file_size("NOTE.TXT").unwrap(),
+            5,
+            "file survives a failed delete"
+        );
         sd.delete_file("NOTE.TXT").unwrap();
-        assert_eq!(sd.file_size("NOTE.TXT").unwrap_err().kind(), ErrorKind::OpenFile);
+        assert_eq!(
+            sd.file_size("NOTE.TXT").unwrap_err().kind(),
+            ErrorKind::OpenFile
+        );
     });
 }
 
@@ -1170,12 +1384,18 @@ fn injected_file_size_and_list_errors() {
     each_backend(true, |fx| {
         let sd = &fx.sd;
         sd.inject_error(StorageOp::FileSize, "NOTE.TXT", 1, ErrorKind::OpenFile);
-        assert_eq!(sd.file_size("NOTE.TXT").unwrap_err().kind(), ErrorKind::OpenFile);
+        assert_eq!(
+            sd.file_size("NOTE.TXT").unwrap_err().kind(),
+            ErrorKind::OpenFile
+        );
         assert_eq!(sd.file_size("NOTE.TXT").unwrap(), 5);
 
         sd.inject_error(StorageOp::List, "", 1, ErrorKind::OpenDir);
         let mut buf = [DirEntry::EMPTY; 16];
-        assert_eq!(sd.list_root_files(&mut buf).unwrap_err().kind(), ErrorKind::OpenDir);
+        assert_eq!(
+            sd.list_root_files(&mut buf).unwrap_err().kind(),
+            ErrorKind::OpenDir
+        );
         let n = sd.list_root_files(&mut buf).unwrap();
         assert_eq!(files_of(&buf[..n]).len(), 2);
         assert_eq!(sd.read_count(), 0, "size/list failures are not reads");
@@ -1197,10 +1417,15 @@ fn injections_of_one_op_class_do_not_fire_for_other_classes_on_the_same_path() {
         assert_eq!(sd.read_file_chunk("NOTE.TXT", 0, &mut b).unwrap(), 6); // read #1 ok
         assert_eq!(sd.pending_injections(), 2);
 
-        assert_eq!(sd.write_file("NOTE.TXT", b"x").unwrap_err().kind(), ErrorKind::WriteFailed);
+        assert_eq!(
+            sd.write_file("NOTE.TXT", b"x").unwrap_err().kind(),
+            ErrorKind::WriteFailed
+        );
         assert_eq!(sd.pending_injections(), 1);
         assert_eq!(
-            sd.read_file_chunk("NOTE.TXT", 0, &mut b).unwrap_err().kind(),
+            sd.read_file_chunk("NOTE.TXT", 0, &mut b)
+                .unwrap_err()
+                .kind(),
             ErrorKind::ReadFailed
         ); // read #2 injected
         assert_eq!(sd.pending_injections(), 0);
@@ -1208,22 +1433,31 @@ fn injections_of_one_op_class_do_not_fire_for_other_classes_on_the_same_path() {
     });
 }
 
-
 #[test]
 fn purge_pulp_subdir_removes_the_files_then_the_directory() {
     let sd = VirtualStorage::memory();
     sd.ensure_pulp_dir().unwrap();
     sd.ensure_pulp_subdir("_ABC1234").unwrap();
-    sd.write_in_pulp_subdir("_ABC1234", "PG000.IDX", &[1, 2, 3]).unwrap();
-    sd.write_in_pulp_subdir("_ABC1234", "IMG0.BIN", &[4; 10]).unwrap();
+    sd.write_in_pulp_subdir("_ABC1234", "PG000.IDX", &[1, 2, 3])
+        .unwrap();
+    sd.write_in_pulp_subdir("_ABC1234", "IMG0.BIN", &[4; 10])
+        .unwrap();
     sd.ensure_pulp_subdir("_KEEP000").unwrap();
-    sd.write_in_pulp_subdir("_KEEP000", "PG000.IDX", &[9]).unwrap();
+    sd.write_in_pulp_subdir("_KEEP000", "PG000.IDX", &[9])
+        .unwrap();
 
     assert_eq!(sd.purge_pulp_subdir("_ABC1234").unwrap(), 2);
-    assert!(sd.file_size_in_pulp_subdir("_ABC1234", "PG000.IDX").is_err());
+    assert!(
+        sd.file_size_in_pulp_subdir("_ABC1234", "PG000.IDX")
+            .is_err()
+    );
     assert!(sd.file_size_in_pulp_subdir("_ABC1234", "IMG0.BIN").is_err());
     // another book's directory is untouched
-    assert_eq!(sd.file_size_in_pulp_subdir("_KEEP000", "PG000.IDX").unwrap(), 1);
+    assert_eq!(
+        sd.file_size_in_pulp_subdir("_KEEP000", "PG000.IDX")
+            .unwrap(),
+        1
+    );
 }
 
 #[test]

@@ -211,6 +211,24 @@ fn a_column_is_as_tall_as_the_text_area_and_a_page_has_text_width_over_pitch_col
 }
 
 #[test]
+fn a_column_ends_above_the_button_labels_drawn_along_the_bottom_edge() {
+    let r = open(&"臺灣繁體中文".repeat(100), "", &VERTICAL);
+    // BUTTON_BAR_H: the labels' tab (22) and the inset below it (4)
+    let bar_top: u16 = 800 - 26;
+    assert!(
+        r.text_y() + r.text_area_h() <= bar_top,
+        "text band ends at {}, the labels start at {bar_top}",
+        r.text_y() + r.text_area_h()
+    );
+    let g = Grid::of(&r);
+    let rows = i32::from(r.text_area_h() / PX);
+    assert!(
+        g.em_top(rows as usize) <= i32::from(bar_top),
+        "the last glyph of a column is clear of the labels"
+    );
+}
+
+#[test]
 fn glyphs_are_centred_on_their_column_and_columns_run_right_to_left() {
     let r = open(&"臺灣繁體中文".repeat(100), "", &VERTICAL);
     let g = Grid::of(&r);

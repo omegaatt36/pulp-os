@@ -168,7 +168,10 @@ fn glyph_cells(font: &BitmapFont, ch: char, cx: i32, baseline: i32, out: &mut Ce
         for col in 0..w {
             let byte = r.bitmaps[g.bitmap_offset as usize + row * row_bytes + col / 8];
             if (byte >> (7 - col % 8)) & 1 == 1 {
-                out.insert((cx + g.offset_x as i32 + col as i32, baseline + g.offset_y as i32 + row as i32));
+                out.insert((
+                    cx + g.offset_x as i32 + col as i32,
+                    baseline + g.offset_y as i32 + row as i32,
+                ));
             }
         }
     }
@@ -286,15 +289,24 @@ fn assert_exact_tiling(name: &str, passes: &[Pass]) {
         }
     }
     let bad = cover.iter().filter(|&&c| c != 1).count();
-    assert_eq!(bad, 0, "{name}: {bad} page pixels are not covered by exactly one pass");
+    assert_eq!(
+        bad, 0,
+        "{name}: {bad} page pixels are not covered by exactly one pass"
+    );
 }
 
 // a window of the strip buffer must fit its capacity: physical rows (the
 // logical thin side under Deg270) <= max_rows_for_width(physical width)
 fn assert_within_capacity(name: &str, passes: &[Pass]) {
     for p in passes {
-        let fits = p.w <= StripBuffer::max_rows_for_width(p.h) || p.h <= StripBuffer::max_rows_for_width(p.w);
-        assert!(fits, "{name}: pass {p:?} exceeds max_rows_for_width ({} / {})", StripBuffer::max_rows_for_width(p.h), StripBuffer::max_rows_for_width(p.w));
+        let fits = p.w <= StripBuffer::max_rows_for_width(p.h)
+            || p.h <= StripBuffer::max_rows_for_width(p.w);
+        assert!(
+            fits,
+            "{name}: pass {p:?} exceeds max_rows_for_width ({} / {})",
+            StripBuffer::max_rows_for_width(p.h),
+            StripBuffer::max_rows_for_width(p.w)
+        );
     }
 }
 
@@ -306,7 +318,10 @@ struct Lcg(u64);
 
 impl Lcg {
     fn next(&mut self) -> u32 {
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (self.0 >> 33) as u32
     }
     fn below(&mut self, n: usize) -> usize {
@@ -315,10 +330,59 @@ impl Lcg {
 }
 
 const WORDS: &[&str] = &[
-    "the", "lighthouse", "keeper", "climbed", "spiral", "stairs", "each", "evening", "harbour", "below", "turned", "colour", "of", "old",
-    "pewter", "she", "read", "letter", "twice", "folded", "along", "its", "creases", "where", "no", "one", "would", "look", "market",
-    "smelled", "tar", "oranges", "rope", "happy", "rain", "drummed", "tin", "roof", "hour", "softened", "whisper", "stopped", "patience",
-    "caf\u{e9}", "na\u{ef}ve", "r\u{e9}sum\u{e9}", "it\u{2019}s", "\u{2014}", "\u{201c}quoted\u{201d}", "Wolf", "Hymn", "gypsy", "quiz",
+    "the",
+    "lighthouse",
+    "keeper",
+    "climbed",
+    "spiral",
+    "stairs",
+    "each",
+    "evening",
+    "harbour",
+    "below",
+    "turned",
+    "colour",
+    "of",
+    "old",
+    "pewter",
+    "she",
+    "read",
+    "letter",
+    "twice",
+    "folded",
+    "along",
+    "its",
+    "creases",
+    "where",
+    "no",
+    "one",
+    "would",
+    "look",
+    "market",
+    "smelled",
+    "tar",
+    "oranges",
+    "rope",
+    "happy",
+    "rain",
+    "drummed",
+    "tin",
+    "roof",
+    "hour",
+    "softened",
+    "whisper",
+    "stopped",
+    "patience",
+    "caf\u{e9}",
+    "na\u{ef}ve",
+    "r\u{e9}sum\u{e9}",
+    "it\u{2019}s",
+    "\u{2014}",
+    "\u{201c}quoted\u{201d}",
+    "Wolf",
+    "Hymn",
+    "gypsy",
+    "quiz",
 ];
 
 fn prose(seed: u64, bytes: usize) -> Vec<u8> {
@@ -337,11 +401,16 @@ fn prose(seed: u64, bytes: usize) -> Vec<u8> {
 
 fn rig_for(data: &[u8], font: u8, theme: u8) -> Rig {
     let card = VirtualStorage::memory_with(&[(BOOK, data)]);
-    card.ensure_pulp_dir().expect("card has _PULP/ the way the firmware boots it");
+    card.ensure_pulp_dir()
+        .expect("card has _PULP/ the way the firmware boots it");
     let mut r = Rig::new(card);
     r.configure(font, theme);
     r.open(BOOK);
-    assert_eq!(r.phase(), Phase::Ready, "book font {font} theme {theme} must open to a page");
+    assert_eq!(
+        r.phase(),
+        Phase::Ready,
+        "book font {font} theme {theme} must open to a page"
+    );
     r
 }
 
@@ -349,7 +418,11 @@ fn goto_page(r: &mut Rig, n: usize) {
     while r.page() < n {
         let before = r.page();
         r.press(Action::Next);
-        assert_eq!(r.page(), before + 1, "Next must advance one page (fixture long enough)");
+        assert_eq!(
+            r.page(),
+            before + 1,
+            "Next must advance one page (fixture long enough)"
+        );
     }
 }
 
@@ -435,8 +508,14 @@ fn band_cells(r: &Rig, fb: &Framebuffer) -> Cells {
 fn blank_page_is_white_for_both_renderers() {
     for (name, render) in RENDERERS {
         let r = render(&|_| {});
-        assert_eq!(r.frame.black_count(), 0, "{name}: nothing drawn, so no black pixel");
-        assert!(!r.frame.is_black(0, 0) && !r.frame.is_black(479, 799) && !r.frame.is_black(240, 400));
+        assert_eq!(
+            r.frame.black_count(),
+            0,
+            "{name}: nothing drawn, so no black pixel"
+        );
+        assert!(
+            !r.frame.is_black(0, 0) && !r.frame.is_black(479, 799) && !r.frame.is_black(240, 400)
+        );
     }
 }
 
@@ -463,12 +542,26 @@ fn is_black_rejects_y_out_of_range() {
 fn pbm_file_has_header_and_exact_size() {
     let dir = tmp_dir("pbm-size");
     let path = dir.join("blank.pbm");
-    render_stitched(&|_| {}).frame.write_pbm(&path).expect("write_pbm");
+    render_stitched(&|_| {})
+        .frame
+        .write_pbm(&path)
+        .expect("write_pbm");
     let bytes = std::fs::read(&path).expect("artifact exists");
     assert_eq!(PBM_HEADER.len(), 11);
-    assert_eq!(&bytes[..PBM_HEADER.len()], PBM_HEADER, "P4 header with fixed 480 800");
-    assert_eq!(bytes.len(), PBM_HEADER.len() + 800 * 60, "raster is 800 rows x ceil(480/8) bytes");
-    assert!(bytes[PBM_HEADER.len()..].iter().all(|&b| b == 0), "blank page: every raster byte 0x00 (0 = white)");
+    assert_eq!(
+        &bytes[..PBM_HEADER.len()],
+        PBM_HEADER,
+        "P4 header with fixed 480 800"
+    );
+    assert_eq!(
+        bytes.len(),
+        PBM_HEADER.len() + 800 * 60,
+        "raster is 800 rows x ceil(480/8) bytes"
+    );
+    assert!(
+        bytes[PBM_HEADER.len()..].iter().all(|&b| b == 0),
+        "blank page: every raster byte 0x00 (0 = white)"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -490,8 +583,14 @@ fn pbm_write_truncates_an_existing_file() {
     let dir = tmp_dir("pbm-trunc");
     let path = dir.join("page.pbm");
     std::fs::write(&path, vec![0xAAu8; 100_000]).unwrap();
-    render_stitched(&|_| {}).frame.write_pbm(&path).expect("write_pbm");
-    assert_eq!(std::fs::read(&path).unwrap().len(), PBM_HEADER.len() + 800 * 60);
+    render_stitched(&|_| {})
+        .frame
+        .write_pbm(&path)
+        .expect("write_pbm");
+    assert_eq!(
+        std::fs::read(&path).unwrap().len(),
+        PBM_HEADER.len() + 800 * 60
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -512,9 +611,19 @@ fn pbm_is_msb_first_with_one_meaning_black() {
         let pbm = r.frame.to_pbm();
         assert_eq!(&pbm[..PBM_HEADER.len()], PBM_HEADER);
         let data = &pbm[PBM_HEADER.len()..];
-        assert_eq!(data[idx], val, "pixel ({x},{y}) must land in raster byte {idx} as {val:#04x}");
-        let others = data.iter().enumerate().filter(|&(i, &b)| i != idx && b != 0).count();
-        assert_eq!(others, 0, "pixel ({x},{y}): no other raster byte may be set");
+        assert_eq!(
+            data[idx], val,
+            "pixel ({x},{y}) must land in raster byte {idx} as {val:#04x}"
+        );
+        let others = data
+            .iter()
+            .enumerate()
+            .filter(|&(i, &b)| i != idx && b != 0)
+            .count();
+        assert_eq!(
+            others, 0,
+            "pixel ({x},{y}): no other raster byte may be set"
+        );
     }
 }
 
@@ -533,7 +642,10 @@ fn pbm_equals_independent_encoding_of_the_pixels() {
             put_pixel(s, x, y);
         }
     });
-    assert!(r.frame.to_pbm() == pbm_of(&want), "to_pbm must equal an independent MSB-first, 1 = black encoding of the drawn pixels");
+    assert!(
+        r.frame.to_pbm() == pbm_of(&want),
+        "to_pbm must equal an independent MSB-first, 1 = black encoding of the drawn pixels"
+    );
 }
 
 #[test]
@@ -558,7 +670,20 @@ fn pbm_bits_agree_with_is_black() {
 #[test]
 fn portrait_orientation_single_pixels_are_not_mirrored_or_transposed() {
     // asymmetric points: a mirror in x, in y, or a transpose moves every one of them
-    let pts = [(0, 0), (479, 0), (0, 799), (479, 799), (3, 5), (476, 7), (11, 790), (468, 794), (1, 0), (0, 1), (240, 400), (100, 700)];
+    let pts = [
+        (0, 0),
+        (479, 0),
+        (0, 799),
+        (479, 799),
+        (3, 5),
+        (476, 7),
+        (11, 790),
+        (468, 794),
+        (1, 0),
+        (0, 1),
+        (240, 400),
+        (100, 700),
+    ];
     for (name, render) in RENDERERS {
         for (x, y) in pts {
             let r = render(&move |s: &mut StripBuffer| put_pixel(s, x, y));
@@ -573,11 +698,24 @@ fn portrait_orientation_single_pixels_are_not_mirrored_or_transposed() {
 fn off_screen_pixels_are_ignored() {
     for (name, render) in RENDERERS {
         let r = render(&|s: &mut StripBuffer| {
-            for (x, y) in [(-1, 0), (0, -1), (480, 0), (0, 800), (-100, -100), (1000, 1000), (479, 800), (480, 799)] {
+            for (x, y) in [
+                (-1, 0),
+                (0, -1),
+                (480, 0),
+                (0, 800),
+                (-100, -100),
+                (1000, 1000),
+                (479, 800),
+                (480, 799),
+            ] {
                 put_pixel(s, x, y);
             }
         });
-        assert_eq!(r.frame.black_count(), 0, "{name}: off-screen pixels draw nothing");
+        assert_eq!(
+            r.frame.black_count(),
+            0,
+            "{name}: off-screen pixels draw nothing"
+        );
     }
 }
 
@@ -605,13 +743,22 @@ fn solid_rectangles_are_pixel_exact_including_borders() {
 
 #[test]
 fn rectangles_partly_off_screen_are_clipped() {
-    let rects: [(i32, i32, u32, u32); 4] = [(-10, -10, 30, 30), (470, 790, 40, 40), (-5, 100, 20, 5), (400, -3, 100, 10)];
+    let rects: [(i32, i32, u32, u32); 4] = [
+        (-10, -10, 30, 30),
+        (470, 790, 40, 40),
+        (-5, 100, 20, 5),
+        (400, -3, 100, 10),
+    ];
     for (name, render) in RENDERERS {
         for (x, y, w, h) in rects {
             let r = render(&move |s: &mut StripBuffer| fill_rect(s, x, y, w, h));
             let mut want = Cells::new();
             rect_cells(&mut want, x, y, w as i32, h as i32);
-            assert_cells(&format!("{name} clipped rect ({x},{y}) {w}x{h}"), &r.frame, &want);
+            assert_cells(
+                &format!("{name} clipped rect ({x},{y}) {w}x{h}"),
+                &r.frame,
+                &want,
+            );
         }
     }
 }
@@ -649,8 +796,14 @@ fn single_glyph_pixels_match_the_public_bitmap_for_every_font_and_style() {
                 let got_adv = Cell::new(0u8);
                 // full-path equality is checked for every combination on the stitched
                 // path and (below) on the full path for the extreme sizes
-                let r = render_stitched(&|s: &mut StripBuffer| got_adv.set(fs.draw_char(s, ch, style, cx, base)));
-                assert_eq!(got_adv.get(), advance, "size {size} {style:?} {ch:?}: draw_char returns the glyph advance");
+                let r = render_stitched(&|s: &mut StripBuffer| {
+                    got_adv.set(fs.draw_char(s, ch, style, cx, base))
+                });
+                assert_eq!(
+                    got_adv.get(),
+                    advance,
+                    "size {size} {style:?} {ch:?}: draw_char returns the glyph advance"
+                );
                 assert_cells(&format!("size {size} {style:?} {ch:?}"), &r.frame, &want);
             }
         }
@@ -689,7 +842,14 @@ fn glyph_position_is_cursor_plus_offset_x_and_baseline_plus_offset_y() {
 fn glyphs_clipped_at_the_page_edges() {
     let fs = FontSet::for_size(3);
     let f = fs.font(Style::Regular);
-    for (cx, base) in [(-6, 300), (470, 300), (100, 4), (100, 798), (-3, 2), (476, 799)] {
+    for (cx, base) in [
+        (-6, 300),
+        (470, 300),
+        (100, 4),
+        (100, 798),
+        (-3, 2),
+        (476, 799),
+    ] {
         let mut want = Cells::new();
         glyph_cells(f, 'W', cx, base, &mut want);
         clip(&mut want);
@@ -713,7 +873,9 @@ fn string_glyphs_advance_by_each_glyphs_advance() {
     }
     clip(&mut want);
     let end = Cell::new(0);
-    let r = render_stitched(&|s: &mut StripBuffer| end.set(fs.draw_str(s, text, Style::Regular, cx, base)));
+    let r = render_stitched(&|s: &mut StripBuffer| {
+        end.set(fs.draw_str(s, text, Style::Regular, cx, base))
+    });
     assert_eq!(end.get(), pen, "draw_str returns the final pen x");
     assert_cells("draw_str", &r.frame, &want);
 }
@@ -731,7 +893,9 @@ fn utf8_bytes_decode_to_extended_glyphs() {
     }
     clip(&mut want);
     let end = Cell::new(0);
-    let r = render_stitched(&|s: &mut StripBuffer| end.set(fs.draw_bytes(s, bytes, Style::Regular, cx, base)));
+    let r = render_stitched(&|s: &mut StripBuffer| {
+        end.set(fs.draw_bytes(s, bytes, Style::Regular, cx, base))
+    });
     assert_eq!(end.get(), pen);
     assert_cells("draw_bytes", &r.frame, &want);
 }
@@ -745,9 +909,21 @@ fn reader_geometry_matches_theme_and_screen_constants() {
         let r = rig_for(&book, 2, theme);
         let t = reading_theme(theme);
         assert_eq!(r.text_margin(), t.margin_h, "theme {theme} margin_h");
-        assert_eq!(r.text_y(), 24 + t.margin_v, "theme {theme}: TEXT_Y 24 + margin_v");
-        assert_eq!(r.text_w(), 480 - 2 * t.margin_h as u32, "theme {theme} text width");
-        assert_eq!(r.text_y() + r.text_area_h(), 796, "theme {theme}: text area ends 4 px above the page bottom");
+        assert_eq!(
+            r.text_y(),
+            24 + t.margin_v,
+            "theme {theme}: TEXT_Y 24 + margin_v"
+        );
+        assert_eq!(
+            r.text_w(),
+            480 - 2 * t.margin_h as u32,
+            "theme {theme} text width"
+        );
+        assert_eq!(
+            r.text_y() + r.text_area_h(),
+            796,
+            "theme {theme}: text area ends 4 px above the page bottom"
+        );
     }
 }
 
@@ -763,8 +939,14 @@ fn reader_page_ink_is_exactly_the_laid_out_glyphs_over_every_font_and_theme() {
                 let actual = band_cells(&r, &fb);
                 let loose = band_cells_loose(&r, &fb);
                 let lines = r.lines();
-                assert!(!lines.is_empty() && !actual.is_empty(), "font {font} theme {theme} page {page}: a text page has ink");
-                let first = lines.iter().position(|l| !l.is_empty()).expect("a non-blank line");
+                assert!(
+                    !lines.is_empty() && !actual.is_empty(),
+                    "font {font} theme {theme} page {page}: a text page has ink"
+                );
+                let first = lines
+                    .iter()
+                    .position(|l| !l.is_empty())
+                    .expect("a non-blank line");
                 let (top, _) = text_band(&r);
                 let (ink_top, _) = strict_band(&r);
                 // line 0's baseline is unknown to the test (reader layout detail); it must
@@ -808,9 +990,18 @@ fn single_line_page_has_ink_only_in_its_line_and_inside_the_margins() {
     let b0 = found.expect("band ink == glyph composite of the single line");
     // everything lies in the first line box (+ its descent): below that the band is white
     let max_y = actual.iter().map(|&(_, y)| y).max().unwrap();
-    assert!(max_y < b0 + FontSet::for_size(font).font(Style::Regular).line_height as i32, "no ink below the single line");
-    let (min_x, max_x) = (actual.iter().map(|&(x, _)| x).min().unwrap(), actual.iter().map(|&(x, _)| x).max().unwrap());
-    assert!(min_x >= r.text_margin() as i32 && max_x < 480 - r.text_margin() as i32, "ink [{min_x}, {max_x}] inside the margins");
+    assert!(
+        max_y < b0 + FontSet::for_size(font).font(Style::Regular).line_height as i32,
+        "no ink below the single line"
+    );
+    let (min_x, max_x) = (
+        actual.iter().map(|&(x, _)| x).min().unwrap(),
+        actual.iter().map(|&(x, _)| x).max().unwrap(),
+    );
+    assert!(
+        min_x >= r.text_margin() as i32 && max_x < 480 - r.text_margin() as i32,
+        "ink [{min_x}, {max_x}] inside the margins"
+    );
 }
 
 #[test]
@@ -822,10 +1013,18 @@ fn text_pages_keep_the_side_margins_white_inside_the_text_band() {
             goto_page(&mut r, page);
             let fb = shot(&r).frame;
             let band = band_cells(&r, &fb);
-            assert!(!band.is_empty(), "font {font} theme {theme} page {page}: non-blank text band");
+            assert!(
+                !band.is_empty(),
+                "font {font} theme {theme} page {page}: non-blank text band"
+            );
             let m = r.text_margin() as i32;
             let inside = band.iter().filter(|&&(x, _)| x >= m && x < 480 - m).count();
-            assert_eq!(inside, band.len(), "font {font} theme {theme} page {page}: ink only in [{m}, {})", 480 - m);
+            assert_eq!(
+                inside,
+                band.len(),
+                "font {font} theme {theme} page {page}: ink only in [{m}, {})",
+                480 - m
+            );
             // and the page as a whole is not blank
             assert!(fb.black_count() >= band.len());
         }
@@ -843,7 +1042,10 @@ fn reader_page_artifact_is_a_valid_portrait_pbm() {
     let bytes = std::fs::read(&path).unwrap();
     assert_eq!(&bytes[..PBM_HEADER.len()], PBM_HEADER);
     assert_eq!(bytes.len(), PBM_HEADER.len() + 48_000);
-    let black_bits: u32 = bytes[PBM_HEADER.len()..].iter().map(|b| b.count_ones()).sum();
+    let black_bits: u32 = bytes[PBM_HEADER.len()..]
+        .iter()
+        .map(|b| b.count_ones())
+        .sum();
     assert_eq!(black_bits as usize, shot.frame.black_count());
     assert!(black_bits > 0);
     let _ = std::fs::remove_dir_all(&dir);
@@ -862,7 +1064,10 @@ fn rendering_the_same_page_twice_is_byte_identical() {
         let (p1, p2) = (dir.join("a.pbm"), dir.join("b.pbm"));
         shot(&r).frame.write_pbm(&p1).unwrap();
         shot(&r).frame.write_pbm(&p2).unwrap();
-        assert!(std::fs::read(&p1).unwrap() == std::fs::read(&p2).unwrap(), "page {page}: two artifacts differ");
+        assert!(
+            std::fs::read(&p1).unwrap() == std::fs::read(&p2).unwrap(),
+            "page {page}: two artifacts differ"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
     // a freshly built rig on the same data / page renders the same bytes (no hidden global state)
@@ -871,7 +1076,10 @@ fn rendering_the_same_page_twice_is_byte_identical() {
         goto_page(&mut r2, 2);
         shot(&r2).frame.to_pbm()
     };
-    assert!(again == shot(&r).frame.to_pbm(), "an independent rig on the same page renders different bytes");
+    assert!(
+        again == shot(&r).frame.to_pbm(),
+        "an independent rig on the same page renders different bytes"
+    );
 }
 
 #[test]
@@ -879,12 +1087,24 @@ fn rendering_does_not_change_the_rig() {
     let book = prose(0x5eed, 12_000);
     let mut r = rig_for(&book, 2, 1);
     goto_page(&mut r, 2);
-    let before = (r.page(), r.total_pages(), r.lines(), r.page_offsets(), r.phase());
+    let before = (
+        r.page(),
+        r.total_pages(),
+        r.lines(),
+        r.page_offsets(),
+        r.phase(),
+    );
     for _ in 0..3 {
         let _ = shot(&r);
         let _ = render_full(&|s| r.draw(s));
     }
-    let after = (r.page(), r.total_pages(), r.lines(), r.page_offsets(), r.phase());
+    let after = (
+        r.page(),
+        r.total_pages(),
+        r.lines(),
+        r.page_offsets(),
+        r.phase(),
+    );
     assert!(before == after, "render must not touch the reader state");
     assert_eq!(r.page(), 2);
 }
@@ -899,8 +1119,14 @@ fn different_pages_render_differently() {
     let p1 = shot(&r).frame;
     r.press(Action::Next);
     let p2 = shot(&r).frame;
-    assert!(p0.to_pbm() != p1.to_pbm(), "page 0 and page 1 look identical");
-    assert!(p1.to_pbm() != p2.to_pbm(), "page 1 and page 2 look identical");
+    assert!(
+        p0.to_pbm() != p1.to_pbm(),
+        "page 0 and page 1 look identical"
+    );
+    assert!(
+        p1.to_pbm() != p2.to_pbm(),
+        "page 1 and page 2 look identical"
+    );
     assert!(p0.to_pbm() != p2.to_pbm());
     // the text bands differ (not just a page number in the chrome)
     let (b0, b1) = (band_cells(&r, &p0), band_cells(&r, &p1));
@@ -921,16 +1147,31 @@ fn stitched_render_is_really_made_of_the_firmware_strips() {
         calls.set(calls.get() + 1);
     });
     let strips = StripBuffer::strip_count() as usize;
-    assert_eq!(strips, 480 / STRIP_ROWS as usize, "firmware strips: the 480 panel rows in STRIP_ROWS bands");
+    assert_eq!(
+        strips,
+        480 / STRIP_ROWS as usize,
+        "firmware strips: the 480 panel rows in STRIP_ROWS bands"
+    );
     assert!(strips > 1, "a page is several strips, never one");
     assert_eq!(r.passes.len(), strips, "one pass per strip");
     assert_eq!(calls.get(), strips, "draw invoked exactly once per strip");
-    let observed: Vec<Pass> = seen.borrow().iter().map(|&(x, y, w, h)| Pass { x, y, w, h }).collect();
-    assert_eq!(observed, r.passes, "reported passes are the windows draw actually saw, in order");
+    let observed: Vec<Pass> = seen
+        .borrow()
+        .iter()
+        .map(|&(x, y, w, h)| Pass { x, y, w, h })
+        .collect();
+    assert_eq!(
+        observed, r.passes,
+        "reported passes are the windows draw actually saw, in order"
+    );
     assert_exact_tiling("stitched", &r.passes);
     assert_within_capacity("stitched", &r.passes);
     for p in &r.passes {
-        assert_eq!((p.w.min(p.h), p.w.max(p.h)), (STRIP_ROWS, 800), "every strip is STRIP_ROWS x 800 (one physical band): {p:?}");
+        assert_eq!(
+            (p.w.min(p.h), p.w.max(p.h)),
+            (STRIP_ROWS, 800),
+            "every strip is STRIP_ROWS x 800 (one physical band): {p:?}"
+        );
     }
 }
 
@@ -941,15 +1182,31 @@ fn full_render_is_a_different_exact_tiling_within_buffer_capacity() {
         let w = s.logical_window();
         seen.borrow_mut().push((w.x, w.y, w.w, w.h));
     });
-    let observed: Vec<Pass> = seen.borrow().iter().map(|&(x, y, w, h)| Pass { x, y, w, h }).collect();
-    assert_eq!(observed, r.passes, "reported passes are the windows draw actually saw, in order");
-    assert!(r.passes.len() > 1, "the 48 KB page can never be one 4 KB window");
+    let observed: Vec<Pass> = seen
+        .borrow()
+        .iter()
+        .map(|&(x, y, w, h)| Pass { x, y, w, h })
+        .collect();
+    assert_eq!(
+        observed, r.passes,
+        "reported passes are the windows draw actually saw, in order"
+    );
+    assert!(
+        r.passes.len() > 1,
+        "the 48 KB page can never be one 4 KB window"
+    );
     assert_exact_tiling("full", &r.passes);
     assert_within_capacity("full", &r.passes);
     let stitched = render_stitched(&|_| {});
-    assert!(r.passes != stitched.passes, "'full' must be a different partition than the firmware strips, else equality is vacuous");
+    assert!(
+        r.passes != stitched.passes,
+        "'full' must be a different partition than the firmware strips, else equality is vacuous"
+    );
     let strip_shape = |p: &Pass| (p.w.min(p.h), p.w.max(p.h)) == (STRIP_ROWS, 800);
-    assert!(!r.passes.iter().all(strip_shape), "'full' tiles must not all be firmware-strip shaped");
+    assert!(
+        !r.passes.iter().all(strip_shape),
+        "'full' tiles must not all be firmware-strip shaped"
+    );
 }
 
 #[test]
@@ -957,7 +1214,11 @@ fn every_pass_contributes_a_marker_pixel() {
     // a renderer that skips / duplicates / mis-places any one pass loses or moves a marker
     for (name, render) in RENDERERS {
         let probe = render(&|_| {});
-        let markers: Vec<(i32, i32)> = probe.passes.iter().map(|p| (p.x as i32 + p.w as i32 / 2, p.y as i32 + p.h as i32 / 2)).collect();
+        let markers: Vec<(i32, i32)> = probe
+            .passes
+            .iter()
+            .map(|p| (p.x as i32 + p.w as i32 / 2, p.y as i32 + p.h as i32 / 2))
+            .collect();
         // first and last pixel of every pass too (the pass corners)
         let mut corners: Vec<(i32, i32)> = Vec::new();
         for p in &probe.passes {
@@ -973,7 +1234,10 @@ fn every_pass_contributes_a_marker_pixel() {
                 put_pixel(s, x, y);
             }
         });
-        assert_eq!(r.passes, probe.passes, "{name}: the tiling does not depend on the content");
+        assert_eq!(
+            r.passes, probe.passes,
+            "{name}: the tiling does not depend on the content"
+        );
         assert_cells(&format!("{name} markers"), &r.frame, &want);
     }
 }
@@ -1004,7 +1268,10 @@ fn all_edges() -> (Vec<i32>, Vec<i32>) {
 #[test]
 fn rectangles_straddling_every_tile_boundary_are_identical_and_correct() {
     let (xs, ys) = all_edges();
-    assert!(xs.len() + ys.len() >= 11, "at least the firmware strip boundaries: x {xs:?} y {ys:?}");
+    assert!(
+        xs.len() + ys.len() >= 11,
+        "at least the firmware strip boundaries: x {xs:?} y {ys:?}"
+    );
     let mut rects: Vec<(i32, i32, i32, i32)> = Vec::new();
     for (k, &e) in xs.iter().enumerate() {
         rects.push((e - 3, 10 + (k as i32 * 61) % 700, 6, 40)); // 3 px either side of the edge
@@ -1108,7 +1375,9 @@ fn seeded_scatter_of_rectangles_and_pixels_full_equals_stitched_equals_geometry(
         let (w, h) = (1 + rng.below(120) as i32, 1 + rng.below(120) as i32);
         rects.push((x, y, w, h));
     }
-    let pixels: Vec<(i32, i32)> = (0..400).map(|_| (rng.below(500) as i32 - 10, rng.below(820) as i32 - 10)).collect();
+    let pixels: Vec<(i32, i32)> = (0..400)
+        .map(|_| (rng.below(500) as i32 - 10, rng.below(820) as i32 - 10))
+        .collect();
     let mut want = Cells::new();
     for &(x, y, w, h) in &rects {
         rect_cells(&mut want, x, y, w, h);
@@ -1167,6 +1436,9 @@ fn reader_page_ink_crosses_strip_boundaries() {
         // columns in the margin may be blank; require ink in the 16 px on each side instead
         let strip_left = cells.iter().filter(|&&(x, _)| x >= e - 16 && x < e).count();
         let strip_right = cells.iter().filter(|&&(x, _)| x >= e && x < e + 16).count();
-        assert!(strip_left > 0 && strip_right > 0, "edge x={e}: ink on both sides ({strip_left}/{strip_right})");
+        assert!(
+            strip_left > 0 && strip_right > 0,
+            "edge x={e}: ink on both sides ({strip_left}/{strip_right})"
+        );
     }
 }
