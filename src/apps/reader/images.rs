@@ -132,10 +132,10 @@ impl ReaderApp {
         // inline images are capped to a fraction of the text area so
         // they feel proportional to surrounding text.  fullscreen
         // images (sole content on the page) get the full budget.
-        let img_budget_h = if self.fullscreen_img {
-            self.text_area_h
+        let (img_budget_w, img_budget_h) = if self.fullscreen_img {
+            (self.text_w as u16, self.text_area_h)
         } else {
-            super::inline_img_max_h(self.text_area_h)
+            super::inline_img_box(self.vertical, self.text_w, self.text_area_h)
         };
 
         // decoded images of recent pages, found by source, path and the budget
@@ -146,7 +146,7 @@ impl ReaderApp {
         let lru_key = ImageKey {
             source: self.epub.source,
             path: path_hash.finish(),
-            max_w: self.text_w as u16,
+            max_w: img_budget_w,
             max_h: img_budget_h,
         };
         if let Some(img) = self.epub.images.get(&lru_key).and_then(copy_image) {
@@ -164,7 +164,7 @@ impl ReaderApp {
             // use the cache if the image already fits the budget;
             // if the cached image is too tall (precache used full
             // text_area_h) fall through to re-decode at inline budget
-            if img.height <= img_budget_h && img.width <= self.text_w as u16 {
+            if img.height <= img_budget_h && img.width <= img_budget_w {
                 log::info!(
                     "reader: image cache hit {} ({}x{})",
                     img_file,
@@ -263,7 +263,7 @@ impl ReaderApp {
         // images use the full text area
         let img_max_h = img_budget_h;
 
-        let img_max_w = self.text_w as u16;
+        let img_max_w = img_budget_w;
         let do_decode = |k_ref: &mut KernelHandle<'_>| -> Result<DecodedImage, &'static str> {
             let k_cell = RefCell::new(k_ref);
             let read_err = |e: Error| -> &'static str { e.into() };

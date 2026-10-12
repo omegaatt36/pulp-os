@@ -77,7 +77,8 @@ An EPUB whose spine declares `page-progression-direction="rtl"` and whose `dc:la
 - **CJK ideographs, kana, fullwidth forms:** upright, one em per step down the column.
 - **Brackets, dashes, ellipsis, stops:** the pack's vertical presentation form (`U+FE10..FE48`) when it has one. Otherwise brackets and dashes are the horizontal glyph turned a quarter clockwise; `，、。：；` stay upright.
 - **Latin text and digits:** turned a quarter clockwise, on their own advance.
-- **Not yet:** images (references are skipped), ruby, tate-chu-yoko, emphasis marks.
+- **Images:** an inline image takes whole columns, up to 60% of the text width and as tall as the text area. It never straddles a page edge and a page holds one: an image that does not fit, or follows another, starts the next page.
+- **Not yet:** ruby, tate-chu-yoko, emphasis marks.
 
 Render pages from the real reader without hardware:
 

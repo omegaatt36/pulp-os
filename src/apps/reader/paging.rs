@@ -11,7 +11,7 @@ use pulp_kernel::util::utf8_incomplete_tail_len;
 
 use super::{
     INDENT_PX, LINES_PER_PAGE, LineSpan, NO_PREFETCH, PAGE_BUF, ReaderApp, State, decode_utf8_char,
-    inline_img_max_h,
+    inline_img_box,
 };
 
 /// Page-start marker flag: an earlier window of this chapter staged fallback
@@ -195,6 +195,7 @@ impl ReaderApp {
                 let carried = view.has_fallback() || initial_flags & CARRIED_FALLBACK != 0;
                 let mut examined = 0;
                 let line_len = self.line_len_px();
+                let (img_w, img_h) = inline_img_box(self.vertical, self.text_w, self.text_area_h);
                 let laid_out = wrap_proportional(
                     &self.pg.buf,
                     n,
@@ -202,12 +203,13 @@ impl ReaderApp {
                     &mut self.pg.lines,
                     self.max_lines as usize,
                     line_len,
-                    // columns carry no images yet: 0 skips their references
-                    if self.vertical {
-                        0
-                    } else {
-                        inline_img_max_h(self.text_area_h)
-                    },
+                    // every image reserves the extent of its box along the
+                    // axis the lines pile up on
+                    if self.vertical { img_w } else { img_h },
+                    // a column cannot be cropped at the page edge as a row
+                    // of lines is: an image there goes whole to a page that
+                    // holds no other
+                    self.vertical,
                     if carried { initial_flags } else { 0 },
                     if carried { initial_indent } else { 0 },
                     at_eof,
@@ -868,7 +870,12 @@ pub(super) fn wrap_proportional(
     lines: &mut [LineSpan],
     max_lines: usize,
     max_width_px: u32,
-    img_h: u16,
+    // extent every image reserves along the axis the lines pile up on; 0 skips
+    // image references
+    img_extent: u16,
+    // an image is never split by the page edge and a page holds one: the
+    // image that does not fit, or follows another, starts the next page
+    whole_images: bool,
     initial_flags: u8,
     initial_indent: u8,
     at_eof: bool,
@@ -878,6 +885,8 @@ pub(super) fn wrap_proportional(
     let max_l = max_lines.min(lines.len());
     let base_max_w = max_width_px;
     let mut line_count: usize = 0;
+    // the page has an image (see `whole_images`)
+    let mut has_image = false;
     let mut line_start: usize = 0;
     let mut cursor_x: u32 = 0;
     let mut last_space: usize = 0;
@@ -924,7 +933,7 @@ pub(super) fn wrap_proportional(
                 let path_len = buf[i + 2] as usize;
                 let path_start = i + 3;
                 if path_start + path_len <= n && path_len > 0 {
-                    if img_h == 0 {
+                    if img_extent == 0 {
                         i = path_start + path_len;
                         continue;
                     }
@@ -936,11 +945,18 @@ pub(super) fn wrap_proportional(
                     }
 
                     let line_h = fonts.line_height(fonts::Style::Regular);
-                    // every image reserves the same height, so a chapter's
+                    // every image reserves the same extent, so a chapter's
                     // pages depend on its text and the settings only: not on
                     // the image files, their compression or the image cache
-                    // ceiling division: ensure reserved lines fully cover image height
-                    let img_lines = img_h.div_ceil(line_h).max(1) as usize;
+                    // ceiling division: ensure reserved lines fully cover the image
+                    let mut img_lines = img_extent.div_ceil(line_h).max(1) as usize;
+                    if whole_images {
+                        img_lines = img_lines.min(max_l);
+                        if line_count > 0 && (has_image || line_count + img_lines > max_l) {
+                            return Ok((i, line_count));
+                        }
+                        has_image = true;
+                    }
 
                     if line_count < max_l {
                         lines[line_count] = LineSpan {

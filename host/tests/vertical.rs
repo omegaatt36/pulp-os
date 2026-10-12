@@ -10,10 +10,9 @@ use pulp_host::fixtures::{
     TocItem, Writing, build_epub_writing,
 };
 use pulp_host::fonts::vertical::{Setting, em_ascent, presentation_form, setting, turned_origin};
-use pulp_host::reader::{Phase, Rig};
+use pulp_host::reader::{Action, Phase, Rig};
 use pulp_host::render::{Framebuffer, render_full, render_stitched};
 use pulp_host::storage::VirtualStorage;
-use smol_epub::html_strip::{IMG_REF, MARKER};
 
 const BOOK: &str = "V.EPUB";
 const PX: u16 = BODY[2];
@@ -279,19 +278,64 @@ fn strips_and_full_bands_agree_on_a_page_of_columns() {
     assert!(full.black_count() > 0);
 }
 
-#[test]
-fn an_image_in_a_vertical_book_reserves_nothing_and_the_text_around_it_stays() {
-    let image = ImageSpec {
-        path: "images/a.png".into(),
+// a portrait picture, wider than the box an inline image is given
+fn picture(path: &str) -> ImageSpec {
+    ImageSpec {
+        path: path.into(),
         kind: ImageKind::PngGray1,
-        width: 64,
-        height: 64,
+        width: 512,
+        height: 768,
         pattern: Pattern::Black,
-    };
-    let paragraph = |t: &str| Block::Paragraph(vec![Run::Text(t.into())]);
+    }
+}
+
+fn paragraph(t: &str) -> Block {
+    Block::Paragraph(vec![Run::Text(t.into())])
+}
+
+// The book as the reader sees it from its second visit on: the images are
+// cached, so the first page it shows has its picture decoded.
+fn open_warm(bytes: &[u8]) -> Rig {
+    let mut r = open_book(bytes, "");
+    for _ in 0..400 {
+        if !r.has_bg_work() {
+            break;
+        }
+        r.idle(1);
+    }
+    assert!(!r.has_bg_work(), "the book is cached");
+    r.exit();
+    r.open(BOOK);
+    r.prepare_render();
+    assert_eq!(r.phase(), Phase::Ready);
+    r
+}
+
+// columns an inline image reserves, and the box it is decoded to fit
+fn image_columns(r: &Rig) -> usize {
+    (r.text_w() * 60 / 100).div_ceil(u32::from(r.font_line_h())) as usize
+}
+
+// (first column, columns) of the images on the page
+fn image_runs(r: &Rig) -> Vec<(usize, usize)> {
+    let mut runs: Vec<(usize, usize)> = vec![];
+    for (i, l) in r.line_infos().iter().enumerate() {
+        if l.image_origin {
+            runs.push((i, 1));
+        } else if l.image {
+            runs.last_mut()
+                .expect("a reserved column follows its image")
+                .1 += 1;
+        }
+    }
+    runs
+}
+
+#[test]
+fn an_image_in_a_vertical_book_reserves_columns_and_the_text_around_it_stays() {
     let with = epub(
         vec![paragraph("臺灣"), Block::Image(0), paragraph("繁體")],
-        vec![image],
+        vec![picture("images/a.png")],
         &VERTICAL,
     );
     let without = epub(
@@ -300,23 +344,121 @@ fn an_image_in_a_vertical_book_reserves_nothing_and_the_text_around_it_stays() {
         &VERTICAL,
     );
     let with = open_book(&with, "");
+    let without = open_book(&without, "");
     assert!(with.vertical());
-    assert!(with.line_infos().iter().all(|l| !l.image));
-    // the reference stays in the text as a column of its own, which is blank:
-    // its path (Latin text) is not drawn
-    let lines = with.lines();
-    let at = lines
-        .iter()
-        .position(|l| l.starts_with(&[MARKER, IMG_REF]))
-        .expect("the image reference is in the page text");
-    let g = Grid::of(&with);
-    let f = render_full(&|s| with.draw(s)).frame;
-    let (x0, x1) = (g.center(at) - g.pitch / 2, g.center(at) + g.pitch / 2);
-    let ink = (x0..x1)
-        .flat_map(|x| (0..800).map(move |y| (x, y)))
-        .filter(|&(x, y)| f.is_black(x as u16, y))
-        .count();
-    assert_eq!(ink, 0, "column {at} is blank");
+    let n = image_columns(&with);
+    assert!(n >= 2, "an inline image is wider than a column");
+    let runs = image_runs(&with);
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].1, n);
+    // the text of the chapter is the same: what the image takes from a page
+    // goes on to the next
+    let text = |mut r: Rig| -> Vec<String> {
+        let mut all = vec![];
+        loop {
+            let infos = r.line_infos();
+            all.extend(
+                text_lines(&r)
+                    .into_iter()
+                    .zip(infos)
+                    .filter(|(t, l)| !l.image && !t.is_empty())
+                    .map(|(t, _)| t),
+            );
+            let before = r.page();
+            r.press(Action::Next);
+            r.prepare_render();
+            if r.page() == before {
+                return all;
+            }
+        }
+    };
+    assert_eq!(text(with), text(without));
+}
+
+#[test]
+fn a_decoded_image_is_drawn_in_the_columns_it_reserved() {
+    // the first page of an open defers its image, so the picture is on a later one
+    let bytes = epub(
+        vec![
+            paragraph(&"臺灣繁體中文".repeat(200)),
+            Block::Image(0),
+            paragraph("繁體"),
+        ],
+        vec![picture("images/a.png")],
+        &VERTICAL,
+    );
+    let mut r = open_warm(&bytes);
+    while image_runs(&r).is_empty() {
+        let before = r.page();
+        r.press(Action::Next);
+        r.prepare_render();
+        assert_ne!(r.page(), before, "the book has an image page");
+    }
+    let (w, h) = r.page_image().expect("the page's image is decoded");
+    // it fits the box of an inline image: 60% of the text width, a whole column
+    assert!(u32::from(w) <= r.text_w() * 60 / 100, "width {w}");
+    assert!(h <= r.text_area_h(), "height {h}");
+    let g = Grid::of(&r);
+    let (at, n) = image_runs(&r)[0];
+    let (left, width) = (g.right - g.pitch * (at + n) as i32, g.pitch * n as i32);
+    let x = left + (width - i32::from(w)) / 2;
+    let y = g.top + (i32::from(r.text_area_h()) - i32::from(h)) / 2;
+    let f = render_full(&|s| r.draw(s)).frame;
+    // the picture is black: its rectangle is all ink, and the columns of the
+    // text on either side hold none of it
+    let black = |x0: i32, y0: i32, x1: i32, y1: i32| {
+        (x0..x1)
+            .flat_map(|x| (y0..y1).map(move |y| (x, y)))
+            .filter(|&(x, y)| f.is_black(x as u16, y as u16))
+            .count()
+    };
+    let area = usize::from(w) * usize::from(h);
+    assert_eq!(black(x, y, x + i32::from(w), y + i32::from(h)), area);
+    assert_eq!(black(left, g.top, x, g.top + i32::from(r.text_area_h())), 0);
+    assert_eq!(
+        black(
+            x + i32::from(w),
+            g.top,
+            left + width,
+            g.top + i32::from(r.text_area_h())
+        ),
+        0
+    );
+    let stitched = render_stitched(&|s| r.draw(s)).frame;
+    assert_eq!(f.to_pbm(), stitched.to_pbm(), "strips and bands agree");
+}
+
+#[test]
+fn an_image_is_never_cut_by_the_page_edge_and_a_page_holds_one() {
+    let long = "臺灣繁體中文".repeat(40);
+    let mut blocks = vec![];
+    for i in 0..5 {
+        blocks.push(paragraph(&long[..long.len() / (1 + i % 3)]));
+        blocks.push(Block::Image(i));
+        blocks.push(Block::Image((i + 1) % 5));
+    }
+    let images = (0..5)
+        .map(|i| picture(&format!("images/{i}.png")))
+        .collect();
+    let mut r = open_book(&epub(blocks, images, &VERTICAL), "");
+    let n = image_columns(&r);
+    let mut seen = 0;
+    for _ in 0..r.total_pages().max(1) * 2 {
+        let runs = image_runs(&r);
+        assert!(runs.len() <= 1, "page {}: {runs:?}", r.page());
+        for &(at, len) in &runs {
+            assert_eq!(len, n, "page {}: the image is whole", r.page());
+            assert!(at + len <= r.max_lines());
+        }
+        seen += runs.len();
+        let before = r.page();
+        r.press(Action::Next);
+        r.prepare_render();
+        if r.page() == before {
+            break;
+        }
+    }
+    assert_eq!(seen, 10, "every image of the book has its page");
 }
 
 #[test]

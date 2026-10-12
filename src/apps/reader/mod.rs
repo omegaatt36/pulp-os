@@ -123,9 +123,29 @@ pub(super) const INDENT_PX: u32 = 24;
 // shown later would disagree.
 pub(super) const INLINE_IMG_MAX_PCT: u16 = 40;
 
+// the same for a page of columns, as a fraction of the text width: a picture
+// there takes columns away from the text beside it, and a vertical book's
+// pictures are mostly page-sized
+pub(super) const INLINE_IMG_MAX_PCT_COLUMNS: u16 = 60;
+
 #[inline]
 pub(super) fn inline_img_max_h(text_area_h: u16) -> u16 {
     ((text_area_h as u32 * INLINE_IMG_MAX_PCT as u32) / 100) as u16
+}
+
+// The (width, height) box an inline image is decoded to fit. The cap applies
+// to the axis the lines of text pile up along: a page of lines is as tall as
+// the text area, a page of columns as wide as the text.
+#[inline]
+pub(super) fn inline_img_box(vertical: bool, text_w: u32, text_area_h: u16) -> (u16, u16) {
+    if vertical {
+        (
+            ((text_w * INLINE_IMG_MAX_PCT_COLUMNS as u32) / 100) as u16,
+            text_area_h,
+        )
+    } else {
+        (text_w as u16, inline_img_max_h(text_area_h))
+    }
 }
 
 // the chapter text kept in RAM is bounded by the ring profile
@@ -705,8 +725,30 @@ impl ReaderApp {
             i32::from(window.x) - OVERHANG,
             i32::from(window.x) + i32::from(window.w) + OVERHANG,
         );
+        let mut img_drawn = false;
         for i in 0..self.pg.line_count {
             let span = &self.pg.lines[i];
+            if span.is_image() {
+                // an image takes the columns it reserved, which the first
+                // of them carries; the decoded image is the page's first
+                if span.is_image_origin() && !img_drawn {
+                    img_drawn = true;
+                    let mut n = 1;
+                    while i + n < self.pg.line_count
+                        && self.pg.lines[i + n].is_image()
+                        && !self.pg.lines[i + n].is_image_origin()
+                    {
+                        n += 1;
+                    }
+                    self.draw_column_image(
+                        strip,
+                        fonts,
+                        right - pitch * (i + n) as i32,
+                        pitch * n as i32,
+                    );
+                }
+                continue;
+            }
             let col_right = right - pitch * i as i32;
             if col_right <= win_left || col_right - pitch >= win_right {
                 continue;
@@ -720,7 +762,7 @@ impl ReaderApp {
             while j < line.len() {
                 let b = line[j];
                 if b == MARKER && j + 1 < line.len() {
-                    // an image reference (wrapping skipped it): marker, length, path
+                    // an image reference left in a line: marker, length, path
                     if line[j + 1] == IMG_REF && j + 2 < line.len() {
                         j += 3 + line[j + 2] as usize;
                         continue;
@@ -745,6 +787,38 @@ impl ReaderApp {
                     ));
                 }
                 j += 1;
+            }
+        }
+    }
+
+    // The decoded image of the page, centred in the columns `left` to
+    // `left + width` and in the text height; its reference when it has none.
+    fn draw_column_image(
+        &self,
+        strip: &mut StripBuffer,
+        fonts: &fonts::cjk::LayoutFonts<'_>,
+        left: i32,
+        width: i32,
+    ) {
+        if let Some(ref img) = self.page_img {
+            let x = left + ((width - i32::from(img.width)) / 2).max(0);
+            let y = i32::from(self.text_y)
+                + ((i32::from(self.text_area_h) - i32::from(img.height)) / 2).max(0);
+            strip.blit_1bpp(
+                &img.data,
+                0,
+                img.width as usize,
+                img.height as usize,
+                img.stride,
+                x,
+                y,
+                true,
+            );
+        } else {
+            let center = left + width / 2;
+            let mut y = i32::from(self.text_y);
+            for c in "[image]".chars() {
+                y += i32::from(fonts.draw_vertical_char(strip, c, fonts::Style::Italic, center, y));
             }
         }
     }
