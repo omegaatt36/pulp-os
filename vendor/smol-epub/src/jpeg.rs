@@ -23,6 +23,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::DecodedImage;
+use crate::fit::Fit;
 
 // JPEG marker bytes
 
@@ -639,8 +640,9 @@ where
 /// Decode a JPEG (baseline or progressive) from an in-memory buffer to a
 /// 1-bit dithered bitmap.
 ///
-/// The image is integer-downscaled so the result fits within
-/// `max_w` × `max_h` pixels.
+/// The image is scaled down, keeping its aspect ratio, so the result fits
+/// within `max_w` × `max_h` pixels and fills them along one axis; it is never
+/// scaled up.
 pub fn decode_jpeg_fit(data: &[u8], max_w: u16, max_h: u16) -> Result<DecodedImage, &'static str> {
     decode_jpeg_fit_with_buffer(data, max_w, max_h, |len| {
         crate::image_buffer(len).map_err(|_| "jpeg: OOM for output")
@@ -898,7 +900,7 @@ fn validate_tables(st: &JpegState) -> Result<(), &'static str> {
 struct Plan {
     w: usize,
     h: usize,
-    scale: usize,
+    fit: Fit,
     out_w: usize,
     out_h: usize,
     out_stride: usize,
@@ -923,11 +925,8 @@ impl Plan {
             return Err("jpeg: exceeds pixel limit");
         }
 
-        let sw = w.div_ceil(max_w as usize);
-        let sh = h.div_ceil(max_h as usize);
-        let scale = sw.max(sh).max(1);
-        let out_w = (w / scale).max(1);
-        let out_h = (h / scale).max(1);
+        let fit = Fit::new(w, h, max_w as usize, max_h as usize);
+        let (out_w, out_h) = (fit.out_w, fit.out_h);
 
         let mcu_w = st.max_h as usize * 8;
         let mcu_h = st.max_v as usize * 8;
@@ -936,7 +935,7 @@ impl Plan {
         Ok(Self {
             w,
             h,
-            scale,
+            fit,
             out_w,
             out_h,
             out_stride: out_w.div_ceil(8),
@@ -998,7 +997,7 @@ impl<'a> Canvas<'a> {
             if src_y >= plan.h || self.out_y >= plan.out_h {
                 break;
             }
-            if src_y % plan.scale != 0 {
+            if src_y != plan.fit.src_y(self.out_y) {
                 continue;
             }
             let row_off = py * plan.row_w;
@@ -1006,7 +1005,7 @@ impl<'a> Canvas<'a> {
                 &mut self.pixels[self.out_y * plan.out_stride..(self.out_y + 1) * plan.out_stride];
             dither_row_grey(
                 &self.y_row[row_off..],
-                plan.scale,
+                &plan.fit,
                 plan.out_w,
                 &mut self.err_cur,
                 &mut self.err_nxt,
@@ -1032,12 +1031,11 @@ where
 {
     let plan = Plan::new(st, max_w, max_h)?;
     log::info!(
-        "jpeg: baseline {}x{} → {}x{} (scale {})",
+        "jpeg: baseline {}x{} → {}x{}",
         plan.w,
         plan.h,
         plan.out_w,
-        plan.out_h,
-        plan.scale
+        plan.out_h
     );
 
     let mut output = allocate(plan.out_stride * plan.out_h)?;
@@ -1515,12 +1513,11 @@ mod progressive {
         let whole = rows >= plan.mcus_y;
 
         log::info!(
-            "jpeg: progressive {}x{} → {}x{} (scale {}, {} pass(es) of {} MCU rows)",
+            "jpeg: progressive {}x{} → {}x{} ({} pass(es) of {} MCU rows)",
             plan.w,
             plan.h,
             plan.out_w,
             plan.out_h,
-            plan.scale,
             plan.mcus_y.div_ceil(rows),
             rows
         );
@@ -2071,15 +2068,14 @@ fn idct(block: &[i32; 64], out: &mut [u8; 64]) {
 #[inline]
 fn dither_row_grey(
     row: &[u8],
-    scale: usize,
+    fit: &Fit,
     out_w: usize,
     err_cur: &mut [i16],
     err_nxt: &mut [i16],
     out_row: &mut [u8],
 ) {
     for ox in 0..out_w {
-        let sx = ox * scale;
-        let g = row[sx] as i16;
+        let g = row[fit.src_x(ox)] as i16;
         let val = (g + err_cur[ox + 1]).clamp(0, 255);
         let black = val < 128;
         let q = if black { 0i16 } else { 255 };

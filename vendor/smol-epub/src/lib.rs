@@ -89,6 +89,9 @@ pub mod zip;
 mod utf8;
 
 #[cfg(feature = "images")]
+mod fit;
+
+#[cfg(feature = "images")]
 pub mod jpeg;
 #[cfg(feature = "images")]
 pub mod png;

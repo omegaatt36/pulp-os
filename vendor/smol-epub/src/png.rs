@@ -14,6 +14,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use crate::DecodedImage;
+use crate::fit::Fit;
 
 // PNG constants
 
@@ -46,8 +47,9 @@ pub type PngImage = DecodedImage;
 
 /// Decode a PNG from an in-memory buffer to a 1-bit dithered bitmap.
 ///
-/// The image is integer-downscaled so the result fits within
-/// `max_w` × `max_h` pixels.
+/// The image is scaled down, keeping its aspect ratio, so the result fits
+/// within `max_w` × `max_h` pixels and fills them along one axis; it is never
+/// scaled up.
 pub fn decode_png_fit(data: &[u8], max_w: u16, max_h: u16) -> Result<DecodedImage, &'static str> {
     decode_png_fit_with_buffer(data, max_w, max_h, |len| {
         crate::image_buffer(len).map_err(|_| "png: OOM for output bitmap")
@@ -101,23 +103,13 @@ where
         return Err("png: image exceeds pixel limit");
     }
 
-    // integer down-scale factor (1 = no scaling)
-    let scale = {
-        let sw = header
-            .width
-            .checked_add(max_w as u32 - 1)
-            .unwrap_or(u32::MAX)
-            / max_w as u32;
-        let sh = header
-            .height
-            .checked_add(max_h as u32 - 1)
-            .unwrap_or(u32::MAX)
-            / max_h as u32;
-        sw.max(sh).max(1) as usize
-    };
-
-    let out_w = (header.width as usize / scale).max(1);
-    let out_h = (header.height as usize / scale).max(1);
+    let fit = Fit::new(
+        header.width as usize,
+        header.height as usize,
+        max_w as usize,
+        max_h as usize,
+    );
+    let (out_w, out_h) = (fit.out_w, fit.out_h);
     let out_stride = (out_w + 7) / 8;
 
     // palette -> greyscale LUT (only used for colour type 3)
@@ -215,12 +207,12 @@ where
                 unfilter_row(filter, &mut curr_row, &prev_row, bpp);
 
                 // only dither + output rows that map to an output pixel row
-                if src_y % scale == 0 && out_y < out_h {
+                if out_y < out_h && src_y == fit.src_y(out_y) {
                     dither_row(
                         &curr_row,
                         &header,
                         &palette_grey,
-                        scale,
+                        &fit,
                         out_w,
                         &mut err_cur,
                         &mut err_nxt,
@@ -789,33 +781,24 @@ where
     drop(plte);
 
     // output dimensions
-    let scale = {
-        let sw = header
-            .width
-            .checked_add(max_w as u32 - 1)
-            .unwrap_or(u32::MAX)
-            / max_w as u32;
-        let sh = header
-            .height
-            .checked_add(max_h as u32 - 1)
-            .unwrap_or(u32::MAX)
-            / max_h as u32;
-        sw.max(sh).max(1) as usize
-    };
-    let out_w = (header.width as usize / scale).max(1);
-    let out_h = (header.height as usize / scale).max(1);
+    let fit = Fit::new(
+        header.width as usize,
+        header.height as usize,
+        max_w as usize,
+        max_h as usize,
+    );
+    let (out_w, out_h) = (fit.out_w, fit.out_h);
     let out_stride = (out_w + 7) / 8;
     let scanline_bytes = header.scanline_bytes();
     let bpp = header.bytes_per_pixel();
     let src_h = header.height as usize;
 
     log::info!(
-        "png: streaming {}x{} -> {}x{} (scale {})",
+        "png: streaming {}x{} -> {}x{}",
         header.width,
         header.height,
         out_w,
-        out_h,
-        scale
+        out_h
     );
 
     // allocate working buffers
@@ -929,12 +912,12 @@ where
 
                 unfilter_row(filter, &mut curr_row, &prev_row, bpp);
 
-                if src_y % scale == 0 && out_y < out_h {
+                if out_y < out_h && src_y == fit.src_y(out_y) {
                     dither_row(
                         &curr_row,
                         &header,
                         &palette_grey,
-                        scale,
+                        &fit,
                         out_w,
                         &mut err_cur,
                         &mut err_nxt,
@@ -1284,20 +1267,19 @@ fn unpack_sub_byte_raw(row: &[u8], x: usize, bit_depth: u8) -> u8 {
 
 // Floyd-Steinberg dithering
 
-// dither one source row into 1-bit output; pick every scale-th pixel
+// dither one source row into 1-bit output
 fn dither_row(
     src_row: &[u8],
     hdr: &PngHeader,
     pal: &[u8; 256],
-    scale: usize,
+    fit: &Fit,
     out_w: usize,
     err_cur: &mut [i16],
     err_nxt: &mut [i16],
     out_row: &mut [u8],
 ) {
     for ox in 0..out_w {
-        let sx = ox * scale;
-        let grey = pixel_to_grey(src_row, sx, hdr, pal) as i16;
+        let grey = pixel_to_grey(src_row, fit.src_x(ox), hdr, pal) as i16;
         // add accumulated error (offset by 1 for the left sentinel)
         let val = (grey + err_cur[ox + 1]).clamp(0, 255);
         // val < 128 -> black (bit set), else white (bit clear)

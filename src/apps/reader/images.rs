@@ -752,7 +752,12 @@ impl ReaderApp {
     }
 }
 
+// Changes whenever the size a picture is decoded to does: a decoded image is
+// kept if it fits its budget, so a smaller one of an earlier build would stay.
+const IMG_CACHE_SALT: u32 = 0x4649_5431; // "FIT1": fills the bounds along one axis
+
 pub(super) fn img_cache_name(hash: u32) -> [u8; 12] {
+    let hash = hash ^ IMG_CACHE_SALT;
     let mut n = *b"00000000.BIN";
     for (i, byte) in n.iter_mut().enumerate().take(8) {
         let nibble = ((hash >> (28 - i * 4)) & 0xF) as u8;

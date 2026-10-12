@@ -3,6 +3,10 @@ use smol_epub::png::*;
 use smol_epub::zip::{ZipIndex, extract_entry};
 
 fn png(kind: ImageKind, pattern: Pattern) -> Vec<u8> {
+    png_sized(kind, pattern, 19, 11)
+}
+
+fn png_sized(kind: ImageKind, pattern: Pattern, width: u16, height: u16) -> Vec<u8> {
     let book = build_epub(&EpubSpec {
         version: EpubVersion::V3,
         title: "Output".into(),
@@ -16,8 +20,8 @@ fn png(kind: ImageKind, pattern: Pattern) -> Vec<u8> {
         images: vec![ImageSpec {
             path: "test.png".into(),
             kind,
-            width: 19,
-            height: 11,
+            width,
+            height,
             pattern,
         }],
         cover: None,
@@ -51,18 +55,20 @@ fn writes_exact_borrowed_storage_on_all_routes_with_scaling_and_padding() {
         for pattern in [Pattern::Black, Pattern::White, Pattern::Checker { cell: 1 }] {
             let input = png(kind, pattern);
             let compressed = miniz_oxide::deflate::compress_to_vec(&input, 6);
-            for (max_w, max_h, width, height) in [(19, 11, 19, 11), (10, 6, 9, 5)] {
+            for (max_w, max_h, width, height) in [(19, 11, 19, 11), (10, 6, 10, 6)] {
                 let stride = (width as usize + 7) / 8;
                 let size = stride * height as usize;
                 let mut expected = vec![0; size];
-                let scale = if width == 19 { 1 } else { 2 };
                 for y in 0..height as usize {
                     for x in 0..width as usize {
                         let black = match pattern {
                             Pattern::Black => true,
                             Pattern::White => false,
                             Pattern::Checker { cell } => {
-                                ((x * scale / cell as usize) + (y * scale / cell as usize)) % 2 == 0
+                                // the 19 x 11 source pixel of this one: the
+                                // nearest neighbour of the scaled-down picture
+                                let (sx, sy) = (x * 19 / width as usize, y * 11 / height as usize);
+                                ((sx / cell as usize) + (sy / cell as usize)) % 2 == 0
                             }
                             _ => unreachable!(),
                         };
@@ -206,4 +212,38 @@ fn refuses_wrong_lengths_failed_allocation_and_zero_bounds() {
             assert_eq!(result.err(), Some("png: zero output bounds"));
         }
     }
+}
+
+// a picture a little over the bounds used to be halved (scale ceil(600 / 464) = 2)
+#[test]
+fn a_picture_over_the_bounds_fills_them_along_the_tighter_axis() {
+    let input = png_sized(ImageKind::PngGray8, Pattern::Black, 600, 900);
+    let compressed = miniz_oxide::deflate::compress_to_vec(&input, 6);
+    // 600 x 900 into 464 x 772: the width squeezes more; 900 * 464 / 600 = 696
+    let fit = decode_png_fit(&input, 464, 772).unwrap();
+    assert_eq!((fit.width, fit.height), (464, 696));
+    let stored = decode_png_streaming(
+        |off, dst| read(&input, off, dst),
+        0,
+        input.len() as u32,
+        464,
+        772,
+    )
+    .unwrap();
+    let deflated = decode_png_deflate_streaming(
+        |off, dst| read(&compressed, off, dst),
+        0,
+        compressed.len() as u32,
+        464,
+        772,
+    )
+    .unwrap();
+    assert_eq!((stored.width, stored.height), (464, 696));
+    assert_eq!((deflated.width, deflated.height), (464, 696));
+    // the height squeezes more: 600 x 900 into 464 x 500 is 333 x 500
+    let tall = decode_png_fit(&input, 464, 500).unwrap();
+    assert_eq!((tall.width, tall.height), (333, 500));
+    // a picture within the bounds is not scaled up
+    let small = decode_png_fit(&input, 1000, 1000).unwrap();
+    assert_eq!((small.width, small.height), (600, 900));
 }

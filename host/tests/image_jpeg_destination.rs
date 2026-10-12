@@ -54,11 +54,13 @@ fn all_routes_write_dirty_borrowed_storage_without_replacing_it() {
         let bytes = jpeg(pattern);
         for bounds in [(40, 24), (13, 8), (8, 5)] {
             let reference = decode_jpeg_fit(&bytes, bounds.0, bounds.1).unwrap();
+            // the 40 x 24 picture fills the bounds along the axis they squeeze
+            // more (the width in all three), and the rows follow its aspect
+            assert_eq!(reference.width, bounds.0);
+            assert!(reference.height <= bounds.1);
             assert_eq!(
-                reference.width as usize,
-                40 / (40usize
-                    .div_ceil(bounds.0 as usize)
-                    .max(24usize.div_ceil(bounds.1 as usize)))
+                usize::from(reference.height),
+                (24 * usize::from(bounds.0) * 2 + 40) / 80
             );
             for route in 0..3 {
                 let mut storage = vec![0xff; reference.data.len()];
