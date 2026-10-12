@@ -299,6 +299,46 @@ impl StripCore {
         }
     }
 
+    /// Blit a 1 bpp bitmap turned a quarter turn clockwise (vertical writing:
+    /// text that reads left to right is laid down the page, glyph tops to the
+    /// right). `gx, gy` is the top-left of the turned bitmap, which is `h`
+    /// pixels wide and `w` tall; source pixel (x, y) lands at
+    /// (`gx + h - 1 - y`, `gy + x`). Glyphs turned this way are short runs of
+    /// Latin or punctuation, so it goes pixel by pixel after one window test.
+    #[allow(clippy::too_many_arguments)]
+    pub fn blit_1bpp_cw90(
+        &mut self,
+        bitmaps: &[u8],
+        offset: usize,
+        w: usize,
+        h: usize,
+        stride: usize,
+        gx: i32,
+        gy: i32,
+        black: bool,
+    ) {
+        if w == 0 || h == 0 || offset + stride * h > bitmaps.len() {
+            return;
+        }
+        let (wx, wy, ww, wh) = self.logical_window_xywh();
+        let (wx, wy, ww, wh) = (wx as i32, wy as i32, ww as i32, wh as i32);
+        if gx >= wx + ww || gx + h as i32 <= wx || gy >= wy + wh || gy + w as i32 <= wy {
+            return;
+        }
+        for y in 0..h {
+            let lx = gx + (h - 1 - y) as i32;
+            if lx < wx || lx >= wx + ww {
+                continue;
+            }
+            let row = offset + y * stride;
+            for x in 0..w {
+                if bitmaps[row + x / 8] & (0x80 >> (x & 7)) != 0 {
+                    self.draw_pixel_logical(lx, gy + x as i32, black);
+                }
+            }
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn blit_1bpp_generic(
         &mut self,
