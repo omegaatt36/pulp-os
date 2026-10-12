@@ -8,8 +8,8 @@ vars:
   C61_PARTIAL_WIFI_ELF: '{{.ACCEPT}}/c61-partial-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61'
   IANSUI_URL: https://raw.githubusercontent.com/ButTaiwan/iansui/9d9a8e68bf1e138dd91e562eeff28d95bca33196/fonts/ttf/Iansui-Regular.ttf
   IANSUI_SHA256: 7f1aa62e9dcbf40d0ce41a5d3f1e5ea602e66c295778ac6fefb6b84d8ed08bd5
-  CJK_URL: https://github.com/tonyhuan/GuanKiapTsingKhai/releases/download/V1.20/GuanKiapTsingKhai.ttf
-  CJK_SHA256: 758632243c499e431fd0c847f5e8c431acf59a9b41a26237a819466139994d38
+  CJK_URL: https://github.com/huthief/BailuKai/releases/download/20260928/BailuKai-Medium.ttf
+  CJK_SHA256: f9ba6f763112b19342c94add915e5e6ac6dccd52e097247f3481f037b5bc21be
 
 tasks:
   default:
@@ -26,7 +26,7 @@ tasks:
       - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial-wifi cargo build --release --locked --target riscv32imac-unknown-none-elf --features partial-refresh,wifi
 
   font:
-    desc: Fetch the pinned GuanKiapTsingKhai V1.20 font and build its SD bundle
+    desc: Fetch the pinned BailuKai Medium 20260928 font and build its SD bundle
     cmds:
       - task: font-source
       - cargo run -p pulp-fontconv --release --locked --target host-tuple --config 'unstable.build-std=["std","test"]' -- bundle
@@ -34,11 +34,11 @@ tasks:
   font-source:
     desc: Fetch and verify the selected CJK source font
     status:
-      - echo "{{.CJK_SHA256}}  target/GuanKiapTsingKhai.ttf" | shasum -a 256 -c --status -
+      - echo "{{.CJK_SHA256}}  target/BailuKai-Medium.ttf" | shasum -a 256 -c --status -
     cmds:
       - mkdir -p target
-      - curl -fsSL -o target/GuanKiapTsingKhai.ttf {{.CJK_URL}}
-      - echo "{{.CJK_SHA256}}  target/GuanKiapTsingKhai.ttf" | shasum -a 256 -c -
+      - curl -fsSL -o target/BailuKai-Medium.ttf {{.CJK_URL}}
+      - echo "{{.CJK_SHA256}}  target/BailuKai-Medium.ttf" | shasum -a 256 -c -
 
   font-iansui:
     desc: Fetch the pinned Iansui fixture for the converter regression tests

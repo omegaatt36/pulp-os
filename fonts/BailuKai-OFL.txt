@@ -1,9 +1,11 @@
-Copyright 2022-2025 Tony Huang (https://github.com/tonyhuan/GuanKiapTsingKhai)
-Reserved Font Names: "原俠", "GuanKiap".
+Copyright 2022-2025 Tony Huang (https://github.com/tonyhuan/GuanKiapTsingKhai),
+with Reserved Font Names "原俠" and "GuanKiap".
+Copyright 2026 Hu Yen-Chuan, BailuKai is a modified version of GuanKiapTsingKhai.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
-https://scripts.sil.org/OFL
+https://openfontlicense.org
+
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
@@ -18,7 +20,7 @@ with others.
 
 The OFL allows the licensed fonts to be used, studied, modified and
 redistributed freely as long as they are not sold by themselves. The
-fonts, including any derivative works, can be bundled, embedded, 
+fonts, including any derivative works, can be bundled, embedded,
 redistributed and/or sold with any software provided that any reserved
 names are not used by derivative works. The fonts and derivatives,
 however, cannot be released under any other type of license. The

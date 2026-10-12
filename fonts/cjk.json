@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "name": "GuanKiapTsingKhai",
-  "version": "V1.20",
-  "upstream_url": "https://github.com/tonyhuan/GuanKiapTsingKhai",
+  "name": "BailuKai",
+  "version": "20260928",
+  "upstream_url": "https://github.com/huthief/BailuKai",
   "license_name": "SIL OFL 1.1",
   "font": {
-    "path": "../target/GuanKiapTsingKhai.ttf",
-    "sha256": "758632243c499e431fd0c847f5e8c431acf59a9b41a26237a819466139994d38"
+    "path": "../target/BailuKai-Medium.ttf",
+    "sha256": "f9ba6f763112b19342c94add915e5e6ac6dccd52e097247f3481f037b5bc21be"
   },
   "license": {
-    "path": "GuanKiapTsingKhai-OFL.txt",
-    "sha256": "0dfec4ef445da583dda157fca82f34a6398c084bd92cf16ae9f31e9806af5399"
+    "path": "BailuKai-OFL.txt",
+    "sha256": "22e6e504020ec5afcc162b5126ee7b3f18777b33f9cd8bb7cffca0c3b2589c78"
   },
   "sizes": [
     16,
