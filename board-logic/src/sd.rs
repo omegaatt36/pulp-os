@@ -27,8 +27,7 @@ pub const CD_SAMPLE_INTERVAL_MS: u32 = 20;
 /// How often a parked scheduler looks at GPIO28 while the switch agrees with
 /// the settled state. Once it disagrees the 20 ms debounce cadence applies.
 pub const CD_IDLE_POLL_MS: u32 = 250;
-/// SD init attempts and spacing: same policy as the X4 `SdStorage::init_card`
-/// (5 attempts, 50 ms apart).
+/// SD init attempts and spacing (5 attempts, 50 ms apart).
 pub const SD_INIT_ATTEMPTS: u8 = 5;
 pub const SD_INIT_RETRY_DELAY_MS: u32 = 50;
 

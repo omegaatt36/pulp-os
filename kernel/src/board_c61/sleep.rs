@@ -228,7 +228,7 @@ impl C61SleepEntry {
         );
         // SAFETY (the `steal` fallback): `lpwr` is only `None` after a previous
         // `sleep`, which never returns, so the fallback cannot run twice and
-        // nothing else holds LPWR (same reasoning as the X4 `enter_sleep`).
+        // nothing else holds LPWR.
         let lpwr = match self.lpwr.take() {
             Some(l) => l,
             None => unsafe { LPWR::steal() },

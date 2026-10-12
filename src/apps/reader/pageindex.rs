@@ -77,7 +77,7 @@ impl ReaderApp {
         })
     }
 
-    // the small profiles (X4, HR2, degraded) never touch the stored indexes
+    // the small profiles (HR2, degraded) never touch the stored indexes
     fn page_index_usable(&self) -> bool {
         self.epub.profile.persist_index
             && self.is_epub

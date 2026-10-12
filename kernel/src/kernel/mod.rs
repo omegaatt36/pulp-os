@@ -14,12 +14,8 @@ pub mod console;
 pub mod dir_cache;
 pub mod handle;
 pub mod idle;
-#[cfg(feature = "board-x4")]
-pub mod rtc_session;
 pub mod scheduler;
-#[cfg(feature = "board-onepage-c61")]
 pub(crate) mod scheduler_c61;
-#[cfg(feature = "board-onepage-c61")]
 pub(crate) mod sleep_wallpaper;
 pub mod storage_change;
 pub mod tasks;
@@ -69,38 +65,10 @@ pub struct Kernel {
     pub(crate) red_stale: bool,
 
     // OnePage C61: power rail, battery, card detect, sleep parts
-    #[cfg(feature = "board-onepage-c61")]
     pub(crate) hw: crate::board_c61::hw::C61Hw,
 }
 
 impl Kernel {
-    #[cfg(feature = "board-x4")]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        sd: SdStorage,
-        epd: Epd,
-        strip: &'static mut StripBuffer,
-        dir_cache: &'static mut DirCache,
-        bm_cache: &'static mut BookmarkCache,
-        delay: Delay,
-        sd_ok: bool,
-        battery_mv: u16,
-    ) -> Self {
-        Self {
-            sd,
-            dir_cache,
-            bm_cache,
-            epd,
-            strip,
-            delay,
-            sd_ok,
-            cached_battery_mv: battery_mv,
-            partial_refreshes: 0,
-            red_stale: false,
-        }
-    }
-
-    #[cfg(feature = "board-onepage-c61")]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         sd: SdStorage,

@@ -37,7 +37,7 @@ impl LruConfig {
         item_max: 64 * KIB,
     };
 
-    /// X4, HR2 and degraded builds keep no decoded images: their image class
+    /// HR2 and degraded builds keep no decoded images: their image class
     /// has no room to spare.
     pub const fn for_status(status: PsramStatus) -> LruConfig {
         match status {

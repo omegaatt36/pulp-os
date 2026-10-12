@@ -4,7 +4,7 @@
 //
 // Files: `_PULP/SESSA.BIN` and `_PULP/SESSB.BIN` (8.3 names, next to
 // SETTINGS.TXT / BKMK.BIN). The `_PULP` directory is created at boot by
-// `storage::ensure_pulp_dir_async` (as the X4 main does); if it is missing,
+// `storage::ensure_pulp_dir_async`; if it is missing,
 // reads report "not found" and saves report a write error, nothing panics.
 //
 // Error mapping is limited by `drivers::storage`: its file macros report every

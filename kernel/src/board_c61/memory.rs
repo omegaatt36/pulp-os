@@ -24,7 +24,7 @@
 //     (harness/tests/c61_memory_budget.rs) proves their addresses.
 //   * PSRAM failure: `init` returns `Degraded(..)`, nothing is registered, the
 //     budget switches to the internal limits and the reader keeps working
-//     offline in X4-sized memory. No panic on that path.
+//     offline in degraded memory. No panic on that path.
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::RefCell;

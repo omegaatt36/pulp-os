@@ -85,7 +85,7 @@ pub trait ZipStorage {
     fn clear(&mut self);
 }
 
-/// Host/X4 metadata: fixed entries and a fallibly allocated name pool.
+/// Inline metadata: fixed entries and a fallibly allocated name pool.
 pub struct InlineZipStorage {
     entries: [ZipEntry; MAX_ENTRIES],
     names: Vec<u8>,
@@ -132,7 +132,7 @@ impl Default for ZipIndex {
     }
 }
 impl ZipIndex {
-    /// Create an empty host/X4 index without allocating.
+    /// Create an empty index without allocating.
     pub const fn new() -> Self {
         Self::with_storage(InlineZipStorage {
             entries: [ZipEntry::EMPTY; MAX_ENTRIES],

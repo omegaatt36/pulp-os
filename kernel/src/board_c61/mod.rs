@@ -17,12 +17,15 @@
 //       against, and what the kernel owns on this board (power rail, battery,
 //       sleep parts, card detect).
 
+pub mod action;
 pub mod adc;
 pub mod api;
 pub mod battery;
+pub mod button;
 pub mod epd;
 pub mod hw;
 pub mod keys;
+pub mod layout;
 pub mod memory;
 pub mod pins;
 pub mod power;

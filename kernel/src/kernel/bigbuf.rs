@@ -1,16 +1,14 @@
 // large, long-lived byte buffers (chapter text, decoded images, zip central
 // directory): the one place where the placement differs between the boards
 //
-// X4: plain heap `Vec<u8>` (no PSRAM; behaviour and code are as they were).
-//
-// OnePage C61: budget-checked block from `board_c61::memory::alloc`, which
+// Budget-checked block from `board_c61::memory::alloc`, which
 // puts PSRAM-capable classes in PSRAM while it is `Ready` and falls back to
-// internal RAM with the (smaller, X4-sized) degraded limits otherwise. A request
+// internal RAM with the (smaller) degraded limits otherwise. A request
 // the budget refuses is an `Err`, which the callers turn into their existing
 // "too large / skipped" paths; it never panics. DMA, ISR and runtime data are
 // not expressible here (`BufClass` has no such variant).
 //
-// Contents are zero-initialised on both boards (X4 `resize(n, 0)` did the same).
+// Contents are zero-initialised.
 
 use core::ops::{Deref, DerefMut};
 
@@ -37,13 +35,8 @@ pub const FONT_GLYPHS_PSRAM_BYTES: usize = pulp_board_logic::memory::PSRAM_FONT_
 pub struct BufError;
 
 /// Layout-aware, exclusively owned decoder scratch, with fallible allocation.
-/// C61 charges it to the requested class and places it using the board policy.
+/// Charged to the requested class and placed using the board policy.
 pub struct DecoderScratch {
-    #[cfg(feature = "board-x4")]
-    ptr: core::ptr::NonNull<u8>,
-    #[cfg(feature = "board-x4")]
-    layout: core::alloc::Layout,
-    #[cfg(feature = "board-onepage-c61")]
     block: crate::board_c61::memory::MemBuf,
 }
 impl DecoderScratch {
@@ -51,66 +44,34 @@ impl DecoderScratch {
         if layout.size() == 0 {
             return Err(BufError);
         }
-        #[cfg(feature = "board-x4")]
-        {
-            let _ = class;
-            // SAFETY: valid nonempty layout; failure is returned, never aborts.
-            let ptr = core::ptr::NonNull::new(unsafe { alloc::alloc::alloc_zeroed(layout) })
-                .ok_or(BufError)?;
-            Ok(Self { ptr, layout })
-        }
-        #[cfg(feature = "board-onepage-c61")]
-        {
-            use crate::board_c61::memory::{self, MemClass};
-            let class = match class {
-                BufClass::ChapterText => MemClass::ChapterText,
-                BufClass::ImageData => MemClass::ImageData,
-                BufClass::PageTable => MemClass::PageTable,
-                BufClass::DisplayFrame => MemClass::DisplayFrame,
-                BufClass::StorageCache => MemClass::StorageCache,
-                BufClass::ZipToc => MemClass::ZipToc,
-                BufClass::FontGlyphs => MemClass::FontGlyphs,
-                BufClass::NetScratch => MemClass::NetScratch,
-            };
-            let block = memory::alloc(class, layout.size(), layout.align().max(16))
-                .map_err(|_| BufError)?;
-            Ok(Self { block })
-        }
+        use crate::board_c61::memory::{self, MemClass};
+        let class = match class {
+            BufClass::ChapterText => MemClass::ChapterText,
+            BufClass::ImageData => MemClass::ImageData,
+            BufClass::PageTable => MemClass::PageTable,
+            BufClass::DisplayFrame => MemClass::DisplayFrame,
+            BufClass::StorageCache => MemClass::StorageCache,
+            BufClass::ZipToc => MemClass::ZipToc,
+            BufClass::FontGlyphs => MemClass::FontGlyphs,
+            BufClass::NetScratch => MemClass::NetScratch,
+        };
+        let block =
+            memory::alloc(class, layout.size(), layout.align().max(16)).map_err(|_| BufError)?;
+        Ok(Self { block })
     }
     /// Stable pointer owned by this allocation, valid until it is dropped.
     pub fn ptr(&self) -> *mut u8 {
-        #[cfg(feature = "board-x4")]
-        {
-            self.ptr.as_ptr()
-        }
-        #[cfg(feature = "board-onepage-c61")]
-        {
-            self.block.addr() as *mut u8
-        }
+        self.block.addr() as *mut u8
     }
     pub fn len(&self) -> usize {
-        #[cfg(feature = "board-x4")]
-        {
-            self.layout.size()
-        }
-        #[cfg(feature = "board-onepage-c61")]
-        {
-            self.block.len()
-        }
+        self.block.len()
     }
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }
-// SAFETY: uniquely owned memory; both allocator implementations are synchronized.
+// SAFETY: uniquely owned memory; the allocator is synchronized.
 unsafe impl Send for DecoderScratch {}
-#[cfg(feature = "board-x4")]
-impl Drop for DecoderScratch {
-    fn drop(&mut self) {
-        // SAFETY: this block came from the global allocator with this layout.
-        unsafe { alloc::alloc::dealloc(self.ptr.as_ptr(), self.layout) }
-    }
-}
 
 /// Fallible board-placed storage initialized from a valid `Copy` value.
 /// Typed references are exposed only after every element has been written.
@@ -200,49 +161,6 @@ impl<T: Copy> AsMut<[T]> for TypedBuf<T> {
     }
 }
 
-#[cfg(feature = "board-x4")]
-mod imp {
-    use alloc::vec::Vec;
-
-    use super::{BufClass, BufError};
-
-    pub struct BigBuf(Vec<u8>);
-
-    impl BigBuf {
-        pub const fn empty() -> Self {
-            Self(Vec::new())
-        }
-
-        pub fn zeroed(class: BufClass, len: usize) -> Result<Self, BufError> {
-            let mut v = Vec::new();
-            v.try_reserve_exact(len).map_err(|_| BufError)?;
-            // Font cache budgets must see the full reserved backing, including
-            // any extra capacity granted by the allocator.
-            let exposed_len = if class == BufClass::FontGlyphs {
-                v.capacity()
-            } else {
-                len
-            };
-            v.resize(exposed_len, 0);
-            Ok(Self(v))
-        }
-
-        // takes over a heap block as it is (no copy)
-        pub fn from_vec(v: Vec<u8>, _class: BufClass) -> Result<Self, BufError> {
-            Ok(Self(v))
-        }
-
-        pub(super) fn as_slice(&self) -> &[u8] {
-            &self.0
-        }
-
-        pub(super) fn as_mut_slice(&mut self) -> &mut [u8] {
-            &mut self.0
-        }
-    }
-}
-
-#[cfg(feature = "board-onepage-c61")]
 mod imp {
     use alloc::vec::Vec;
 

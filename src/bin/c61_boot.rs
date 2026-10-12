@@ -78,12 +78,12 @@ use pulp_kernel::take_c61_pins;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
-/// Main-loop tick; keys are polled every tick (X4 uses 10 ms while active).
+/// Main-loop tick; keys are polled every tick (10 ms while active).
 const KEY_TICK_MS: u64 = 10;
 /// Card detect runs every this many ticks (CD_SAMPLE_INTERVAL_MS / tick).
 const CD_EVERY_TICKS: u32 = CD_SAMPLE_INTERVAL_MS / KEY_TICK_MS as u32;
 const _: () = assert!(CD_SAMPLE_INTERVAL_MS % KEY_TICK_MS as u32 == 0);
-/// Battery measurement period of this bring-up loop: 30 s, like the X4
+/// Battery measurement period of this bring-up loop: 30 s
 /// (BATTERY_INTERVAL_TICKS = 3000 x 10 ms).
 const BATTERY_EVERY_TICKS: u32 = 3000;
 /// USB poll every 20 ms (the debounce is `USB_DEBOUNCE_SAMPLES` samples).

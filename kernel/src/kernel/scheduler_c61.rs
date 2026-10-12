@@ -1,8 +1,8 @@
 // OnePage C61 half of the scheduler: boot, render, card detect, battery
 // and deep-sleep entry. The event loop itself (scheduler.rs `run`,
-// `handle_input`, `poll_housekeeping`) is shared with the X4.
+// `handle_input`, `poll_housekeeping`) lives in scheduler.rs.
 //
-// What differs from the X4 on purpose:
+// Properties:
 //   * every refresh is a FULL refresh unless the `partial-refresh` feature is
 //     on (`cargo build-c61-partial`, off by default).
 //     Without it `Redraw::Partial` is promoted, so the panel flashes on each
@@ -89,7 +89,7 @@ impl<A: AppLayer> WindowSource for AppStrips<'_, A> {
     }
 }
 
-// the sleep screen, same text and position as the X4
+// the sleep screen
 fn draw_sleep_screen(strip: &mut StripBuffer) {
     use embedded_graphics::mono_font::MonoTextStyle;
     use embedded_graphics::mono_font::ascii::FONT_9X18;

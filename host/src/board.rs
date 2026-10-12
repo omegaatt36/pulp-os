@@ -1,12 +1,13 @@
-// host stand-in for the board surface (kernel/src/board/mod.rs on the X4,
-// board_c61::api on the C61): the key / action / layout files are the real
-// ones; the display type is a placeholder.
-#[path = "../../kernel/src/board/action.rs"]
+// host stand-in for the board surface (board_c61::api): the key / action /
+// layout files are the real ones; the display type is a placeholder.
+#[path = "../../kernel/src/board_c61/action.rs"]
 pub mod action;
-#[path = "../../kernel/src/board/button.rs"]
+#[path = "../../kernel/src/board_c61/button.rs"]
 pub mod button;
-#[path = "../../kernel/src/board/layout.rs"]
+#[path = "../../kernel/src/board_c61/layout.rs"]
 pub mod layout;
+
+pub use pulp_board_logic::lifecycle;
 
 pub use crate::drivers::sdcard::SdStorage;
 pub use crate::drivers::strip::StripBuffer;

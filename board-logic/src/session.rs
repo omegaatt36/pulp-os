@@ -1,23 +1,8 @@
 // C61 session persistence on SD, HAL-free.
 //
-// The X4 keeps its session in RTC FAST memory (`kernel/src/kernel/rtc_session.rs`,
-// `#[link_section = ".rtc_fast.persistent"]`). esp-hal 1.2 has no such section
-// for the ESP32-C61, so the C61 keeps the same reading-position semantics in a
-// file on the SD card.
+// Keeps reading-position and navigation state in a binary file on the SD card.
 // This module is the format, the validation and the failure policy; the kernel
-// (`board_c61::session`) only maps `SessionStore` onto `drivers::storage`.
-//
-// Field mapping against the X4 `RtcSession` (names kept):
-//   X4 header magic "PLPS" (0x504C5053)  -> same constant, now little-endian u32
-//   X4 wake_count                        -> `wake_count` (caller owned)
-//   X4 nav_depth / nav_stack (<= 4)      -> same, validated (ids 0..=4, Home at bottom)
-//   X4 reader_* (name <= 32, epub flag, chapter, page, byte offset, font size)
-//                                        -> same fields
-//   X4 files_* / home_*                  -> same fields
-//   X4 settings cache (sleep timeout, fonts, ...)  -> NOT stored: it only existed
-//        to skip SD reads on wake; on C61 the session is already an SD read and
-//        SETTINGS.TXT stays the single source of truth.
-//   X4 `_pad`/`_reserved`                -> 3 reserved bytes that must be zero.
+// (`board_c61::session`) maps `SessionStore` onto `drivers::storage`.
 //
 // File format (80 bytes, little-endian, fixed size; CRC-32/IEEE over bytes 0..76):
 //   0  u32 magic 0x504C5053     4 u16 version (1)     6 u16 flags (0)
@@ -41,7 +26,7 @@
 use crate::power::{PeripheralPower, PowerError, RailPin, RailState};
 use core::marker::PhantomData;
 
-/// "PLPS" (PuLP Session), same value as the X4 `RTC_SESSION_MAGIC`.
+/// "PLPS" (PuLP Session) magic constant.
 pub const MAGIC: u32 = 0x504C_5053;
 pub const VERSION: u16 = 1;
 pub const RECORD_LEN: usize = 80;
@@ -50,11 +35,11 @@ pub const RECORD_LEN: usize = 80;
 pub const READ_BUF_LEN: usize = RECORD_LEN + 1;
 const CRC_OFFSET: usize = RECORD_LEN - 4;
 
-/// X4 `MAX_NAV_STACK` / `app::MAX_STACK_DEPTH`.
+/// Maximum navigation stack depth (`app::MAX_STACK_DEPTH`).
 pub const MAX_NAV_STACK: usize = 4;
-/// X4 `MAX_FILENAME_LEN`.
+/// Maximum filename length.
 pub const MAX_FILENAME_LEN: usize = 32;
-/// App ids as in the X4 session: Home=0, Files=1, Reader=2, Settings=3, Upload=4.
+/// App ids: Home=0, Files=1, Reader=2, Settings=3, Upload=4.
 pub const APP_HOME: u8 = 0;
 pub const APP_READER: u8 = 2;
 pub const APP_ID_MAX: u8 = 4;
@@ -87,7 +72,7 @@ pub fn crc32(data: &[u8]) -> u32 {
 // state + record
 // ---------------------------------------------------------------------------
 
-/// The reading position and navigation state (X4 `RtcSession` payload fields).
+/// The reading position and navigation state payload fields.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SessionState {
     pub wake_count: u32,
@@ -151,8 +136,7 @@ impl SessionState {
     }
 
     /// Value rules shared by `encode` (never write garbage) and `decode`
-    /// (never accept garbage). Each rule corresponds to an X4 `apply_session`
-    /// assumption or an array bound.
+    /// (never accept garbage). Validate rules for session payload or an array bound.
     pub fn validate(&self) -> Result<(), FieldError> {
         let depth = self.nav_depth as usize;
         if depth == 0 || depth > MAX_NAV_STACK {
@@ -826,9 +810,9 @@ mod tests {
 
     #[test]
     fn r18_format_constants_match_the_x4_session_semantics() {
-        assert_eq!(MAGIC, 0x504C_5053, "X4 RTC_SESSION_MAGIC");
-        assert_eq!(MAX_NAV_STACK, 4, "X4 MAX_NAV_STACK");
-        assert_eq!(MAX_FILENAME_LEN, 32, "X4 MAX_FILENAME_LEN");
+        assert_eq!(MAGIC, 0x504C_5053, "RTC_SESSION_MAGIC");
+        assert_eq!(MAX_NAV_STACK, 4, "MAX_NAV_STACK");
+        assert_eq!(MAX_FILENAME_LEN, 32, "MAX_FILENAME_LEN");
         assert_eq!(RECORD_LEN, 80);
         assert_eq!(READ_BUF_LEN, 81);
         assert_eq!(SLOT_A_FILE.len(), 9);

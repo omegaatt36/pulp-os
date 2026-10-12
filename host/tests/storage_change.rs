@@ -114,7 +114,7 @@ fn swap_discards_dirty_or_clean_old_bookmarks_and_reader_state() {
         assert_eq!(read_pulp(k.sd(), BOOKMARK_FILE), original);
         assert!(!k.handle().bookmark_cache().is_dirty());
 
-        let mut session = SessionData::zeroed();
+        let mut session = SessionData::home();
         apps.collect_session(&mut session);
         assert_eq!(session.nav_depth, 1);
         assert_eq!(session.reader_filename_len, 0);

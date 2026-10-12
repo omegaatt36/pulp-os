@@ -1,6 +1,6 @@
 # pulp-os
 
-A bare-metal, async e-reader operating system for RISC-V e-paper devices.
+A bare-metal, async e-reader operating system for the OnePage C61, a RISC-V e-paper device.
 
 Read EPUB and TXT books with crisp typography and zero fluff. Written in pure Rust (`no_std`), featuring no-framebuffer strip rendering, monomorphized static dispatch, class-budgeted memory hierarchy, and an async runtime powered by Embassy on `esp-rtos`.
 
@@ -8,16 +8,18 @@ Read EPUB and TXT books with crisp typography and zero fluff. Written in pure Ru
 
 ## Supported Hardware
 
-| Hardware | XTEink X4 | OnePage C61 |
-|---|---|---|
-| **MCU** | ESP32-C3 (RV32IMC @ 160 MHz) | ESP32-C61 (RV32IMAC @ 160 MHz) |
-| **Internal RAM** | 400 KB DRAM (~172 KB heap) | ~314 KB HP SRAM (~158 KB heap) |
-| **PSRAM** | None | 2–8 MiB SPI PSRAM @ 40 MHz |
-| **Flash** | 4 MB SPI Flash | 16 MB SPI Flash (DIO @ 40 MHz) |
-| **Display** | 800×480 SSD1677 Mono EPD | 800×480 SSD1677 Mono EPD |
-| **Storage** | MicroSD via SPI (FAT32) | MicroSD via SPI (FAT32, PSRAM cached) |
-| **Input** | 2 ADC ladders + Power IRQ | Front ADC ladder + 3 side keys |
-| **Power / Battery** | Li-ion ADC (GPIO0) | Li-ion ADC (GPIO5) + USB detect (GPIO11) |
+| | OnePage C61 |
+|---|---|
+| **MCU** | ESP32-C61 (RV32IMAC @ 160 MHz) |
+| **Internal RAM** | ~314 KB HP SRAM (~158 KB heap) |
+| **PSRAM** | 2–8 MiB SPI PSRAM @ 40 MHz |
+| **Flash** | 16 MB SPI Flash (DIO @ 40 MHz) |
+| **Display** | 800×480 SSD1677 Mono EPD |
+| **Storage** | MicroSD via SPI (FAT32, PSRAM cached) |
+| **Input** | Front ADC ladder + 3 side keys |
+| **Power / Battery** | Li-ion ADC (GPIO5) + USB detect (GPIO11) |
+
+The XTEink X4 (ESP32-C3) port was removed; the last commit that builds it is tagged `last-x4`.
 
 ---
 
@@ -36,17 +38,13 @@ cargo install espflash --version ">=4.4.0"
 Core targets are configured in `.cargo/config.toml` with `partial-refresh` and `wifi` enabled by default:
 
 ```sh
-# OnePage C61 (ESP32-C61, defaults to partial-refresh + wifi)
+# ESP32-C61 (defaults to partial-refresh + wifi)
 cargo build-c61               # Build release firmware
 cargo run-c61                 # Flash and monitor via scripts/run-c61.sh
 cargo run-c61-boot            # Hardware bring-up diagnostic image
 
-# XTEink X4 (ESP32-C3, defaults to wifi)
-cargo build-x4                # Build release firmware
-cargo run-x4                  # Flash and monitor via espflash
-
 # Offline or custom builds (pass explicit features)
-cargo build --release --target riscv32imac-unknown-none-elf --features board-onepage-c61
+cargo build --release --target riscv32imac-unknown-none-elf
 ```
 
 ### Tests & Verification
@@ -62,13 +60,13 @@ task acceptance               # Full CI pipeline (multi-image build, verify, fmt
 
 ## Controls
 
-| Action | XTEink X4 | OnePage C61 |
-|---|---|---|
-| **Next / Prev Page** | Right / Left Buttons | Side Next / Side Prev Keys |
-| **Open Book / Select** | Center / Confirm | Front Confirm / Enter |
-| **Quick Menu** | Power Short-Press | Enter (Long-Press in Reader) |
-| **File Browser / Home** | Back / Menu | Front Back |
-| **Power / Sleep** | Power Button | Key Wake / Power |
+| Action | Key |
+|---|---|
+| **Next / Prev Page** | Side Next / Side Prev Keys |
+| **Open Book / Select** | Front Enter |
+| **Quick Menu** | Enter (Long-Press in Reader) |
+| **File Browser / Home** | Front Back |
+| **Power / Sleep** | Key Wake / Power |
 
 ---
 
@@ -90,7 +88,7 @@ task acceptance               # Full CI pipeline (multi-image build, verify, fmt
 
 ## Acknowledgements
 
-Forked from [hansmrtn/pulp-os](https://github.com/hansmrtn/pulp-os) by Hans Martin, extending it with OnePage (ESP32-C61) board support, CJK typography rendering, and memory hierarchy optimizations.
+Forked from [hansmrtn/pulp-os](https://github.com/hansmrtn/pulp-os) by Hans Martin, replacing its XTEink X4 (ESP32-C3) board support with OnePage (ESP32-C61) support, and adding CJK typography rendering and memory hierarchy optimizations.
 
 ---
 

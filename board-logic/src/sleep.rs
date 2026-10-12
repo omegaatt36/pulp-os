@@ -159,7 +159,7 @@ pub trait DisplayPark {
 }
 
 /// Step 5: stop SD activity before the rail goes (flush and close FAT
-/// handles). No CMD0 here, unlike X4: the card loses power right after.
+/// handles). The card loses power right after.
 pub trait SdShutdown {
     fn shutdown(&mut self) -> Result<(), StepError>;
 }
@@ -436,8 +436,8 @@ impl BootPlan {
 
 /// A restart with valid persistent state restores the position. The
 /// decision depends on the session only, not on the wake cause: the session
-/// lives on the SD card, so unlike the X4 (RTC memory, zeroed on power-up) it
-/// also survives a cold boot, so a restore happens on any restart. The
+/// lives on the SD card, so it also survives a cold boot and a restore
+/// happens on any restart. The
 /// cause is carried for logging. An invalid or missing session is a normal boot
 /// for every cause (never an error, never a panic). A later change may add
 /// `clear_session` after a restore to avoid boot loops on a bad position.

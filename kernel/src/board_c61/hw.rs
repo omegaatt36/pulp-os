@@ -1,6 +1,5 @@
 // What the kernel owns on the OnePage C61 besides the display and the SD volume.
-// The X4 kernel gets these through globals in `board/` (SPI bus mutex,
-// SD CS clone, power-button static); on the C61 they are plain fields of
+// They are plain fields of
 // `Kernel`, handed over once by the firmware entry (`src/bin/main_c61.rs`), so
 // there is exactly one owner of each piece and no `static mut`.
 //

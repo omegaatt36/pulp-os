@@ -16,37 +16,17 @@ use crate::fonts::bitmap::BitmapFont;
 use crate::fonts::font_data;
 use crate::ui::{Alignment, Region};
 
-// the physical keys the overlay labels, by position: X4 Back / Confirm / Left /
-// Right on the bottom edge and Vol Up / Vol Down on the right edge; on the
+// the physical keys the overlay labels, by position: on the
 // OnePage C61 the front ladder Back / Left / Right / Enter and the side keys
 // Prev / Next
 mod keys {
     use crate::board::button::Button;
 
-    #[cfg(feature = "board-x4")]
     pub const BACK: Button = Button::Back;
-    #[cfg(feature = "board-x4")]
-    pub const CONFIRM: Button = Button::Confirm;
-    #[cfg(feature = "board-x4")]
-    pub const LEFT: Button = Button::Left;
-    #[cfg(feature = "board-x4")]
-    pub const RIGHT: Button = Button::Right;
-    #[cfg(feature = "board-x4")]
-    pub const SIDE_UP: Button = Button::VolUp;
-    #[cfg(feature = "board-x4")]
-    pub const SIDE_DOWN: Button = Button::VolDown;
-
-    #[cfg(feature = "board-onepage-c61")]
-    pub const BACK: Button = Button::Back;
-    #[cfg(feature = "board-onepage-c61")]
     pub const CONFIRM: Button = Button::Enter;
-    #[cfg(feature = "board-onepage-c61")]
     pub const LEFT: Button = Button::Left;
-    #[cfg(feature = "board-onepage-c61")]
     pub const RIGHT: Button = Button::Right;
-    #[cfg(feature = "board-onepage-c61")]
     pub const SIDE_UP: Button = Button::Prev;
-    #[cfg(feature = "board-onepage-c61")]
     pub const SIDE_DOWN: Button = Button::Next;
 }
 
@@ -131,8 +111,7 @@ fn action_label(action: Action) -> &'static str {
         Action::Prev => "Prev",
         Action::NextJump => ">>",
         Action::PrevJump => "<<",
-        Action::Select if cfg!(feature = "board-onepage-c61") => "Ok",
-        Action::Select => "OK",
+        Action::Select => "Ok",
         Action::Back => "Back",
         Action::Menu => "",
     }

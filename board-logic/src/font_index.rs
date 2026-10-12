@@ -45,8 +45,7 @@ pub const INDEX_REGISTRY_BYTES: usize = PSRAM_LARGE_FONT_GLYPHS_BYTES / 2;
 const _: () = assert!(INDEX_REGISTRY_BYTES * 2 <= PSRAM_LARGE_FONT_GLYPHS_BYTES);
 
 /// Counter of the font source: bumped when the card is replaced and when the
-/// font directory is written to. Only load and store are used (the X4 core has
-/// no atomic read-modify-write); every bump comes from the kernel and app
+/// font directory is written to. Only load and store are used; every bump comes from the kernel and app
 /// context, which does not run concurrently with itself.
 pub struct SourceGeneration(AtomicU32);
 

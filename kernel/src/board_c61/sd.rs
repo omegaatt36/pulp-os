@@ -6,7 +6,7 @@
 //
 // UI hand-off: a failed bring-up yields `SdStorage::empty()`. The existing
 // storage layer then reports `ErrorKind::NoCard` from `storage::borrow` for
-// every call (`probe_ok()` is false), which is the path the X4 Files app
+// every call (`probe_ok()` is false), which is the path the Files app
 // already renders (`FilesApp::load_failed(Error)`). `StorageHealth` adds the
 // finer status/message ("SD: no card", ...) for the UI to show. Runtime
 // read/write errors from `drivers::storage` are classified by
@@ -60,8 +60,7 @@ impl CardDetectPin {
 }
 
 /// embedded-sdmmc `SdCard` seen through the HAL-free `SdProbe` trait. Init is
-/// lazy in embedded-sdmmc, so `num_bytes()` forces and verifies it (same as the
-/// X4 `SdStorage::init_card`).
+/// lazy in embedded-sdmmc, so `num_bytes()` forces and verifies it.
 struct CardProbe<'a> {
     card: &'a SyncSdCard,
     spi: SdSpiDevice,

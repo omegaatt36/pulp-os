@@ -54,18 +54,16 @@ fn espressif_probe_control_sees_esp_hal_in_the_firmware_graph() {
         "-e",
         "normal,build",
         "--target",
-        X4_TARGET,
-        "--features",
-        "board-x4",
+        C61_TARGET,
         "--prefix",
         "none",
         "--format",
         "{p}",
     ]);
-    assert!(ok, "cargo tree for the X4 firmware failed:\n{tree}");
+    assert!(ok, "cargo tree for the firmware failed:\n{tree}");
     assert!(
         esp_packages(&tree).iter().any(|n| n == "esp-hal"),
-        "probe broken: the X4 firmware graph did not show esp-hal"
+        "probe broken: the firmware graph did not show esp-hal"
     );
 }
 

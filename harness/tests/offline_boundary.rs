@@ -1,7 +1,7 @@
 // The offline firmware (feature `wifi` off, the default) must not link any radio /
-// network stack and must not carry the upload menu entry. The X4 and C61 images built
+// network stack and must not carry the upload menu entry. The C61 images built
 // with `--features wifi` are the positive controls: the same probes must find the radio
-// there (and, on X4, the upload strings), otherwise the probes themselves are broken.
+// there, otherwise the probes themselves are broken.
 
 mod common;
 
@@ -64,15 +64,14 @@ fn assert_no_radio(name: &str, img: Image) {
 
 #[test]
 fn offline_images_link_no_radio_and_no_upload_ui() {
-    assert_no_radio("x4 offline", Image::X4);
     assert_no_radio("c61 offline", Image::C61);
     assert_no_radio("c61 boot image", Image::C61Boot);
     assert_no_radio("c61 offline partial", Image::C61Partial);
 }
 
 #[test]
-fn x4_wifi_control_finds_radio_strings_and_menu() {
-    let p = probe(Image::X4Wifi);
+fn c61_wifi_control_finds_radio_symbols() {
+    let p = probe(Image::C61Wifi);
     assert!(
         p.radio_symbols > 0,
         "probe finds no radio symbols (probe broken?)"
@@ -84,15 +83,6 @@ fn x4_wifi_control_finds_radio_strings_and_menu() {
     assert!(
         p.upload_menu,
         "probe finds no 'Upload' menu label (probe broken?)"
-    );
-}
-
-#[test]
-fn c61_wifi_control_finds_radio_symbols() {
-    let p = probe(Image::C61Wifi);
-    assert!(
-        p.radio_symbols > 0,
-        "probe finds no radio symbols (probe broken?)"
     );
 }
 
@@ -124,11 +114,7 @@ fn tree_inverse(krate: &str, target: &str, features: &str) -> String {
 
 #[test]
 fn offline_dependency_graphs_exclude_radio_crates() {
-    for (target, features) in [
-        (X4_TARGET, "board-x4"),
-        (C61_TARGET, "board-onepage-c61"),
-        (C61_TARGET, "board-onepage-c61,partial-refresh"),
-    ] {
+    for (target, features) in [(C61_TARGET, ""), (C61_TARGET, "partial-refresh")] {
         for krate in RADIO_CRATES {
             let text = tree_inverse(krate, target, features);
             assert!(
@@ -141,11 +127,7 @@ fn offline_dependency_graphs_exclude_radio_crates() {
 
 #[test]
 fn wifi_dependency_graphs_contain_esp_radio() {
-    for (target, features) in [
-        (X4_TARGET, "board-x4,wifi"),
-        (C61_TARGET, "board-onepage-c61,wifi"),
-        (C61_TARGET, "board-onepage-c61,partial-refresh,wifi"),
-    ] {
+    for (target, features) in [(C61_TARGET, "wifi"), (C61_TARGET, "partial-refresh,wifi")] {
         let text = tree_inverse("esp-radio", target, features);
         assert!(
             text.starts_with("esp-radio"),

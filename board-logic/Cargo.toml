@@ -9,6 +9,6 @@ license      = "MIT"
 # No dependencies on purpose: esp-hal cannot be built for the host, so every
 # piece of logic that needs a host `cargo test` lives in a crate like this one
 # and reaches hardware only through small traits. The firmware links this very
-# crate (pulp-kernel, feature board-onepage-c61); there is no test-only copy.
+# crate (pulp-kernel); there is no test-only copy.
 # Host test command: `cargo test-board-logic`.
 [dependencies]

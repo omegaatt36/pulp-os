@@ -43,10 +43,7 @@ pub const SAMPLE_COUNT: u32 = 16;
 /// Voltage-divider multiplier, 1:1 divider (board_c61.c:303; schematic R7/R12).
 pub const DIVIDER_MULT: u32 = 2;
 
-/// Piecewise-linear Li-ion discharge curve, descending by mV. This is the X4
-/// table verbatim (kernel/src/board/battery.rs). The BSP has no
-/// percentage curve and crosspoint's `BatteryMonitor` source is not in the
-/// tree, so the C61 reuses this one for the C61's cell.
+/// Piecewise-linear Li-ion discharge curve, descending by mV.
 pub const LIPO_DISCHARGE_CURVE: &[(u32, u8)] = &[
     (4200, 100),
     (4060, 90),
@@ -62,8 +59,7 @@ pub const LIPO_DISCHARGE_CURVE: &[(u32, u8)] = &[
     (3000, 0),
 ];
 
-/// Voltage -> percent on a descending piecewise-linear curve. Moved verbatim
-/// out of the X4 `drivers::battery::battery_percentage` (clamped at both ends,
+/// Voltage -> percent on a descending piecewise-linear curve (clamped at both ends,
 /// integer floor in between); an empty curve reads 0.
 pub fn percentage_from_curve(curve: &[(u32, u8)], mv: u32) -> u8 {
     if curve.is_empty() {
@@ -590,12 +586,10 @@ mod tests {
         assert!((40..50).contains(&p), "{}", p);
     }
 
-    // ---- X4 equivalence of the moved code ----------------------------------
+    // ---- Equivalence with reference curve ----------------------------------
 
-    /// The X4 table and algorithm exactly as they were in
-    /// kernel/src/board/battery.rs and kernel/src/drivers/battery.rs (HEAD
-    /// 3bb911af) before the move into this crate.
-    mod x4_reference {
+    /// Reference table and algorithm.
+    mod golden_reference {
         pub const CURVE: &[(u32, u8)] = &[
             (4200, 100),
             (4060, 90),
@@ -640,16 +634,16 @@ mod tests {
     }
 
     #[test]
-    fn x4_curve_table_is_unchanged() {
-        assert_eq!(LIPO_DISCHARGE_CURVE, x4_reference::CURVE);
+    fn curve_table_is_unchanged() {
+        assert_eq!(LIPO_DISCHARGE_CURVE, golden_reference::CURVE);
     }
 
     #[test]
-    fn x4_percentage_matches_the_pre_move_algorithm_for_every_u16() {
+    fn percentage_matches_the_reference_algorithm_for_every_u16() {
         for mv in 0..=u16::MAX {
             assert_eq!(
                 percentage_from_curve(LIPO_DISCHARGE_CURVE, mv as u32),
-                x4_reference::battery_percentage(mv),
+                golden_reference::battery_percentage(mv),
                 "{} mV",
                 mv
             );

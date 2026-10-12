@@ -1,14 +1,9 @@
 //! Host stand-in for `esp-hal` 1.2 behind `board-harness`: the shared seam the
 //! real kernel/board sources are host-compiled against.
 //!
-//! Superset of the per-suite seams the old script temp crates had:
-//!   * c61 adapters (board_c61/{adc,spi}.rs): ADC1 oneshot semantics,
-//!     SPI/GPIO recorder, failure injection (`adc_ready`/`fail_write`/
-//!     `take_trace`),
-//!   * x4 driver trace (drivers/{ssd1677,strip}.rs): `Delay` recording
-//!     `DELAY <ms>` lines (`log`/`take_log`),
-//!   * x4 input trace (drivers/input.rs): controllable microsecond clock
-//!     (`set_now_us`).
+//! The c61 adapters (board_c61/{adc,spi}.rs) run against it: ADC1 oneshot
+//! semantics, SPI/GPIO recorder, failure injection (`adc_ready`/`fail_write`/
+//! `take_trace`).
 //!
 //! A suite uses only part of this surface, so unused parts stay compiled and
 //! `dead_code` is allowed. All mutable state sits behind one std Mutex, and
@@ -28,8 +23,6 @@ pub struct Blocking;
 struct State {
     /// c61 adapters: adc:/clock:/write:/high:/low:/flush lines
     trace: Vec<String>,
-    /// x4 driver stim: CMD/DATA/DELAY/RST lines
-    log: Vec<String>,
     /// fake ADC: `true` lets `read_oneshot` complete the conversion
     adc_ready: bool,
     /// fake SPI: `true` makes every write fail (c61 adapter error path)
@@ -40,7 +33,6 @@ struct State {
 
 static STATE: Mutex<State> = Mutex::new(State {
     trace: Vec::new(),
-    log: Vec::new(),
     adc_ready: false,
     fail_write: false,
     now_us: 0,
@@ -79,21 +71,6 @@ pub fn fail_write(fail: bool) {
 
 fn trace(s: String) {
     with(|st| st.trace.push(s));
-}
-
-/// Record one x4 stim trace line.
-pub fn log(s: String) {
-    with(|st| st.log.push(s));
-}
-
-/// Drain the x4 stim trace.
-pub fn take_log() -> Vec<String> {
-    with(|s| std::mem::take(&mut s.log))
-}
-
-/// Set the simulated clock, in microseconds (x4 input stim).
-pub fn set_now_us(us: u64) {
-    with(|s| s.now_us = us);
 }
 
 pub mod peripherals {
@@ -265,26 +242,14 @@ pub mod time {
 }
 
 pub mod delay {
-    use super::with;
-
     #[derive(Clone, Copy)]
     pub struct Delay;
     impl Delay {
         pub fn new() -> Self {
             Delay
         }
-        /// X4 driver path: every delay is part of the wire trace and advances
-        /// the simulated clock by the same amount (microseconds here; the old
-        /// trace-only seam kept a separate unit, which nothing read back).
-        pub fn delay_millis(&mut self, ms: u32) {
-            with(|s| {
-                s.log.push(format!("DELAY {ms}"));
-                s.now_us += u64::from(ms) * 1000;
-            });
-        }
     }
-    /// C61 adapter path (run_ops' `Operation::DelayNs`): silent, like the
-    /// old seam.
+    /// run_ops' `Operation::DelayNs`: silent.
     impl embedded_hal::delay::DelayNs for Delay {
         fn delay_ns(&mut self, _: u32) {}
     }

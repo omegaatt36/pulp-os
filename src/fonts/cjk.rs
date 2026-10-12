@@ -67,18 +67,17 @@ type OwnedIndex = IndexCache<Box<[u32]>>;
 const INDEX_LEVELS: u32 = 10;
 const AUX_INDEX_LEVELS: u32 = 7;
 // Whole pack indexes held in memory (see `RamBanks`): only where there is
-// PSRAM to hold them (one is ~272 KiB per pixel size). Elsewhere the budget
-// would refuse them anyway; the cfg keeps the other builds untouched.
-const RAM_INDEX: bool = cfg!(feature = "board-onepage-c61");
+// PSRAM to hold them (one is ~272 KiB per pixel size). Without PSRAM the budget
+// refuses them and lookups search the pack on the card.
+const RAM_INDEX: bool = true;
 // Loading an index costs about 0.6 s on the C61 (70 reads) and saves roughly
 // 1.3 ms per lookup, so a size with fewer pending lookups than this is looked
 // up the old way until a window needs more of it (a later call may still load).
 const RAM_INDEX_MIN_PENDING: usize = 128;
-// Slots of `NoteCache` (a power of two; 2 bytes each) for the main state on
-// every build but the X4, so the host tests run the same path as the C61. The
-// X4 and the auxiliary surfaces keep searching (their heap is counted by
+// Slots of `NoteCache` (a power of two; 2 bytes each) for the main state. The
+// auxiliary surfaces keep searching (their heap is counted by
 // `CJK_STORAGE_BUDGET`).
-const NOTE_SLOTS: usize = if cfg!(feature = "board-x4") { 0 } else { 1024 };
+const NOTE_SLOTS: usize = 1024;
 const INDEX_BUDGET: usize = INDEX_BANKS * OwnedIndex::nodes_for_levels(INDEX_LEVELS) * 4;
 const AUX_INDEX_BUDGET: usize = INDEX_BANKS * OwnedIndex::nodes_for_levels(AUX_INDEX_LEVELS) * 4;
 const _: () = {
@@ -134,8 +133,7 @@ mod stats {
     use crate::kernel::uptime_us;
 
     pub type Tick = u64;
-    // End of the previous log line (after logging), low 32 bits of the µs clock (load/store
-    // only: the X4 core has no atomic read-modify-write)
+    // End of the previous log line (after logging), low 32 bits of the µs clock (load/store only)
     static LAST_END: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
     static LOG_US: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
     pub(super) fn log_us() -> u32 {

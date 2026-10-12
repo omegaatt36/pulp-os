@@ -3,8 +3,7 @@ members = [".", "kernel", "board-logic", "host", "fontpack", "fontconv", "harnes
 exclude = ["vendor/embedded-sdmmc-rs"]
 
 [workspace.dependencies]
-# chip selection (esp32c3 / esp32c61) is NOT set here; it comes from the
-# target-specific dependency tables of each crate (see "Board selection").
+# the chip (esp32c61) is selected by each crate's own dependency entry
 esp-hal  = { version = "=1.2.0", features = ["log-04", "unstable"] }
 embassy-executor = "0.10"
 embassy-time     = "0.5"
@@ -33,44 +32,25 @@ authors      = ["Hans Martin <https://github.com/hansmrtn>"]
 repository   = "https://github.com/hansmrtn/pulp-os"
 license      = "MIT"
 
-[[bin]]
-name = "pulp-os"
-path = "./src/bin/main.rs"
-required-features = ["board-x4"]
-
 # OnePage C61 full offline firmware
 [[bin]]
 name = "pulp-os-c61"
 path = "./src/bin/main_c61.rs"
-required-features = ["board-onepage-c61"]
 
 # OnePage C61 minimal bring-up image (pins, SD, EPD, keys, PSRAM,
 # battery/USB, session, sleep demo); kept for hardware bring-up
 [[bin]]
 name = "pulp-os-c61-boot"
 path = "./src/bin/c61_boot.rs"
-required-features = ["board-onepage-c61"]
 
-# Board selection
-# ---------------
-# Exactly one board feature must be enabled (compile_error! in
-# kernel/src/lib.rs). There is deliberately no default feature.
-#   X4: cargo build-x4   (riscv32imc,  esp32c3)
-#   C61 : cargo build-c61  (riscv32imac, esp32c61)
-# The *chip* is selected by the build target through the target-specific
-# dependency tables below, not by the board feature. Reason: Cargo features
-# are additive, so chip features driven by board features would build
-# conflicting esp-* chip crates when none/both boards are given and fail in
-# upstream build scripts with unreadable messages before our check runs.
-# With chip = f(target) every esp-* crate always builds, and the board /
-# target consistency is checked by our own compile_error!.
+# The only board is the OnePage C61 (esp32c61, riscv32imac): `cargo build-c61`.
 [features]
 default = []
 
-# Wi-Fi upload stack (optional boundary). Off by default for every board:
+# Wi-Fi upload stack (optional boundary). Off by default:
 # without it esp-radio / embassy-net / embedded-io-async are not linked, the
 # Upload app, its home-menu entry and the WIFI peripheral steal are compiled
-# out . Build with upload via `cargo build-x4-wifi` / `cargo build-c61-wifi``.
+# out. Build with upload via `cargo build-c61` (wifi is on in the aliases).
 wifi = [
   "dep:esp-radio",
   "dep:embassy-net",
@@ -80,7 +60,7 @@ wifi = [
   "pulp-kernel/wifi",
 ]
 
-# OnePage C61 partial refresh (off by default; X4 always refreshes partially).
+# Partial refresh (off by default).
 # Build with `cargo build-c61-partial`.
 partial-refresh = ["pulp-kernel/partial-refresh"]
 
@@ -107,15 +87,12 @@ progressive-jpeg = ["smol-epub/progressive-jpeg"]
 # Build with `cargo build-c61-sd-metrics`.
 sd-metrics = ["pulp-kernel/sd-metrics"]
 
-board-x4          = ["pulp-kernel/board-x4"]
-board-onepage-c61 = ["pulp-kernel/board-onepage-c61"]
-
 [dependencies]
 pulp-board-logic.workspace = true
 pulp-fontpack = { path = "fontpack" }
 pulp-kernel = { path = "kernel" }
 
-esp-hal.workspace              = true
+esp-hal                        = { workspace = true, features = ["esp32c61"] }
 embassy-executor.workspace     = true
 embassy-time.workspace         = true
 embassy-futures.workspace      = true
@@ -123,13 +100,14 @@ embedded-graphics-core.workspace = true
 embedded-graphics.workspace    = true
 static_cell.workspace          = true
 log.workspace                  = true
-esp-alloc.workspace            = true
+esp-alloc                      = { workspace = true, features = ["esp32c61"] }
 smol-epub.workspace            = true
 
-esp-rtos = { version = "=0.4.0", features = ["embassy", "log-04"] }
+esp-rtos = { version = "=0.4.0", features = ["embassy", "log-04", "esp32c61"] }
 
 # wifi / networking (used by apps/upload/); optional, enabled via `wifi`
 esp-radio = { version = "=1.0.0-beta.1", optional = true, default-features = false, features = [
+  "esp32c61",
   "wifi",
   "log-04",
   "esp-alloc",
@@ -137,31 +115,14 @@ esp-radio = { version = "=1.0.0-beta.1", optional = true, default-features = fal
 embassy-net       = { version = "0.8", optional = true, features = ["dhcpv4", "medium-ethernet", "multicast", "tcp", "udp"] }
 embedded-io-async = { version = "0.7", optional = true }
 
-esp-bootloader-esp-idf = { version = "=0.6.0", features = ["log-04"] }
+esp-bootloader-esp-idf = { version = "=0.6.0", features = ["log-04", "esp32c61"] }
 
 esp-backtrace = { version = "0.20", features = [
+  "esp32c61",
   "panic-handler",
   "println",
 ] }
 
-# chip features: X4 = esp32c3 (riscv32imc)
-[target.riscv32imc-unknown-none-elf.dependencies]
-esp-hal                = { workspace = true, features = ["esp32c3"] }
-esp-alloc              = { workspace = true, features = ["esp32c3"] }
-esp-rtos               = { version = "=0.4.0", features = ["esp32c3"] }
-esp-radio              = { version = "=1.0.0-beta.1", optional = true, default-features = false, features = ["esp32c3"] }
-esp-bootloader-esp-idf = { version = "=0.6.0", features = ["esp32c3"] }
-esp-backtrace          = { version = "0.20", features = ["esp32c3"] }
-esp-println            = { version = "0.18", features = ["esp32c3", "log-04"] }
-
-# chip features: OnePage C61 = esp32c61 (riscv32imac)
-[target.riscv32imac-unknown-none-elf.dependencies]
-esp-hal                = { workspace = true, features = ["esp32c61"] }
-esp-alloc              = { workspace = true, features = ["esp32c61"] }
-esp-rtos               = { version = "=0.4.0", features = ["esp32c61"] }
-esp-radio              = { version = "=1.0.0-beta.1", optional = true, default-features = false, features = ["esp32c61"] }
-esp-bootloader-esp-idf = { version = "=0.6.0", features = ["esp32c61"] }
-esp-backtrace          = { version = "0.20", features = ["esp32c61"] }
 # jtag-serial instead of the default `auto`: auto falls back to UART0 on a cold boot
 # without USB, and UART0's default pins GPIO10/GPIO11 are the charge-control / USB-detect
 # lines of this board. colors and critical-section are the defaults, kept explicitly.

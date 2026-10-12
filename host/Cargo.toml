@@ -14,14 +14,7 @@ build        = "build.rs"
 # the hardware edge (SD card, display, Kernel struct) is a host stand-in.
 # Host test command: `cargo test-host`.
 [features]
-default = ["board-x4"]
-# Declared so the production files' cfg(feature = "board-x4") arms select the
-# heap-backed BigBuf and the RTC session type (the C61 arms need esp-alloc /
-# PSRAM). Never changes paging, wrapping or bookmark logic.
-board-x4 = []
-# declared only so the production files' cfg(feature = "board-onepage-c61")
-# arms are known; never enabled
-board-onepage-c61 = []
+default = []
 # Enables the production measurement code for captured-log validation.
 sd-metrics = []
 

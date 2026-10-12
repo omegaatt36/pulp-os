@@ -923,7 +923,6 @@ fn selecting_a_toc_entry_lands_on_the_first_page_of_its_chapter() {
     }
 }
 
-// Expected (archived navigation.rs: "NextJump also selects (X4 right-hand key)"):
 // in the overlay NextJump picks the highlighted entry like Select does.
 #[test]
 fn next_jump_in_the_toc_also_selects_the_entry() {

@@ -5,7 +5,7 @@
 // A profile is one all-or-nothing block for the TCP receive buffer, the TCP
 // transmit buffer and the HTTP work buffer. HR8-class PSRAM tries the large one
 // first; any refusal (class limit, fragmentation) falls back to the small one,
-// which is the profile of the X4 and of degraded/HR2 builds. Only when that
+// which is the profile of degraded/HR2 builds. Only when that
 // fails too does the session end, before the radio starts.
 
 use crate::memory::{PSRAM_LARGE_MIN_BYTES, PsramStatus};
@@ -36,7 +36,7 @@ pub struct NetProfile {
 }
 
 impl NetProfile {
-    /// X4, HR2 and degraded builds (the sizes the firmware always used).
+    /// HR2 and degraded builds (the sizes the firmware always used).
     pub const SMALL: NetProfile = NetProfile {
         rx: 2048,
         tx: 1536,

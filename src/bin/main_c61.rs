@@ -1,5 +1,5 @@
 // OnePage C61 full offline firmware: hardware init, construct Kernel +
-// AppManager, boot, run. Same shape as src/bin/main.rs (X4); the board bring-up
+// AppManager, boot, run. The board bring-up
 // order is the one proven in c61_boot.rs, which stays as the minimal
 // bring-up image.
 //
@@ -54,7 +54,7 @@ use static_cell::{ConstStaticCell, StaticCell};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
-// heavy statics: kept out of the async future (same set as the X4)
+// heavy statics: kept out of the async future
 
 static STRIP: ConstStaticCell<StripBuffer> = ConstStaticCell::new(StripBuffer::new());
 static READER: ConstStaticCell<ReaderApp> = ConstStaticCell::new(ReaderApp::new());

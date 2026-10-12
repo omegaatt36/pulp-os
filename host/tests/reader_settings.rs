@@ -298,32 +298,33 @@ fn maximum_credentials_still_fit_the_apps_512_byte_buffer() {
 }
 
 #[test]
-fn swap_buttons_setting_selects_the_button_mapping_x4() {
+fn swap_buttons_setting_selects_the_button_mapping() {
     let mut m = ButtonMapper::new();
     let default = [
+        (Button::Wake, Action::Back),
         (Button::Back, Action::Back),
-        (Button::Confirm, Action::Select),
+        (Button::Enter, Action::Select),
         (Button::Left, Action::PrevJump),
         (Button::Right, Action::NextJump),
-        (Button::VolUp, Action::Prev),
-        (Button::VolDown, Action::Next),
-        (Button::Power, Action::Menu),
+        (Button::Prev, Action::Prev),
+        (Button::Next, Action::Next),
     ];
     for (b, a) in default {
-        assert_eq!(m.map_button(b), a);
+        assert_eq!(m.map_button(b), a, "{b:?}");
     }
     // AppManager::sync_button_config: mapper.set_swap(settings.swap_buttons)
     let (s, _) = parse(b"swap_buttons=1\n");
     m.set_swap(s.swap_buttons);
     assert!(m.is_swapped());
+    // front row Back<->Left, Enter<->Right; side keys and WAKE never swap
     let swapped = [
+        (Button::Wake, Action::Back),
         (Button::Back, Action::PrevJump),
-        (Button::Confirm, Action::NextJump),
+        (Button::Enter, Action::NextJump),
         (Button::Left, Action::Back),
         (Button::Right, Action::Select),
-        (Button::VolUp, Action::Prev),
-        (Button::VolDown, Action::Next),
-        (Button::Power, Action::Menu),
+        (Button::Prev, Action::Prev),
+        (Button::Next, Action::Next),
     ];
     for (b, a) in swapped {
         assert_eq!(m.map_button(b), a, "{b:?}");
@@ -331,22 +332,6 @@ fn swap_buttons_setting_selects_the_button_mapping_x4() {
     assert_eq!(
         m.map_event(Event::LongPress(Button::Left)),
         ActionEvent::LongPress(Action::Back)
-    );
-}
-
-#[test]
-fn swap_buttons_setting_selects_the_button_mapping_c61() {
-    // the same setting drives the C61 key table (pulp-board-logic::keys, pure
-    // logic, compiled unconditionally by that crate)
-    use pulp_board_logic::input::Event;
-    use pulp_board_logic::keys::{Key, map_event};
-    let (s, _) = parse(b"swap_buttons=1\n");
-    assert_eq!(Key::Back.action(false), Action::Back);
-    assert_eq!(Key::Back.action(s.swap_buttons), Action::PrevJump);
-    assert_eq!(Key::Left.action(s.swap_buttons), Action::Back);
-    assert_eq!(
-        map_event(Event::Press(Key::Left), s.swap_buttons),
-        ActionEvent::Press(Action::Back)
     );
 }
 
@@ -576,7 +561,12 @@ fn saved_font_and_theme_apply_to_generated_epub_formats() {
         let mut reader = Rig::new(settings.into_storage());
         reader.configure(saved.book_font_size_idx, saved.reading_theme);
         reader.open(fixture.name);
-        assert_eq!(reader.phase(), pulp_host::reader::Phase::Ready, "{}", fixture.name);
+        assert_eq!(
+            reader.phase(),
+            pulp_host::reader::Phase::Ready,
+            "{}",
+            fixture.name
+        );
         assert_eq!(reader.max_lines(), 10, "{}", fixture.name);
         assert_eq!(reader.text_w(), 400, "{}", fixture.name);
         assert_eq!(reader.theme_idx(), 3, "{}", fixture.name);

@@ -94,7 +94,7 @@ flowchart TD
 
 - **Fault Tolerance (Degraded Mode)**:
   - If PSRAM detection or startup self-test (`selftest`) fails, status transitions to `Degraded`.
-  - PSRAM heap is not initialized; all classes fall back to tight internal SRAM budgets (X4-equivalent) without panicking.
+  - PSRAM heap is not initialized; all classes fall back to tight internal SRAM budgets without panicking.
 
 ---
 

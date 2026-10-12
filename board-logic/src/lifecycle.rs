@@ -11,7 +11,7 @@
 //   * `post_restore`        what to do with the session file after an apply
 //                           attempt (decision: keep on success, clear on failure
 //                           so bad data can never cause a boot loop)
-//   * `opens_quick_menu`    the C61 has no Menu key (X4: Power short press); the
+//   * `opens_quick_menu`    the C61 has no dedicated Menu key; the
 //                           only function without another route is reachable by
 //                           a long press of ENTER inside the reader (apps layer
 //                           only, no new key semantic in the key driver)
@@ -110,7 +110,7 @@ impl Periodic {
     }
 }
 
-/// Battery measurement period (X4: 3000 input ticks x 10 ms).
+/// Battery measurement period (30 s).
 pub const BATTERY_INTERVAL_MS: u64 = 30_000;
 
 // ---------------------------------------------------------------------------
@@ -126,8 +126,7 @@ pub struct RestoreEnv {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RestoreReject {
-    /// The saved stack contains the Upload app but this firmware has none (the
-    /// X4 id mapper would silently turn it into a second Home).
+    /// The saved stack contains the Upload app but this firmware has none.
     UploadNotAvailable,
     /// A book is on the saved stack but the file is not on this card.
     ReaderFileMissing,
@@ -189,7 +188,7 @@ pub struct MenuKeyContext {
     pub reader_showing_toc: bool,
 }
 
-/// `Action::Menu` has no key on the C61 (X4: Power short press). Audit result:
+/// `Action::Menu` has no dedicated key on the C61. Audit result:
 /// the quick menu holds Refresh and Go Home (both have another
 /// route: refresh is always a full refresh on the C61, Back long press goes
 /// Home), the reader's Book Font (also in Settings), Prev/Next Chapter (also

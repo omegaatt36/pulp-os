@@ -5,15 +5,13 @@
 // then streamed to the controller RAM in order. Widgets draw in logical
 // (portrait 480x800 for Deg270) coordinates; this module clips and rotates.
 //
-// This file is the one implementation both firmware targets use: the X4
 // `kernel::drivers::strip::StripBuffer` is a thin newtype (embedded-graphics
 // `DrawTarget` glue + `Region`) around `StripCore`, and the OnePage C61 boot
 // image streams `StripCore` strips straight into `ssd1677::Epd`. The host
-// tests below therefore exercise the real byte/bit placement.
+// tests exercise the real byte/bit placement.
 //
 // Bit layout: one bit per pixel, MSB = leftmost, 1 = white, 0 = black; a strip
-// row is `row_bytes` bytes of the physical X axis. (Moved verbatim from the X4
-// kernel strip.rs; only the HAL-free parts live here.)
+// row is `row_bytes` bytes of the physical X axis.
 
 use crate::ssd1677::{HEIGHT, Rotation, WIDTH};
 
@@ -57,8 +55,7 @@ impl StripCore {
         self.buf[..STRIP_BUF_SIZE].fill(0xFF);
     }
 
-    /// Returns `true` when `h` was clamped to what the strip buffer holds
-    /// (the X4 wrapper logs a warning in that case).
+    /// Returns `true` when `h` was clamped to what the strip buffer holds.
     pub fn begin_window(&mut self, rotation: Rotation, x: u16, y: u16, w: u16, mut h: u16) -> bool {
         let rb = (w / 8) as usize;
         if rb == 0 {

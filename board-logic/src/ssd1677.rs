@@ -1,27 +1,21 @@
-// SSD1677 e-paper logic shared by the X4 (GDEQ0426T82) and the OnePage C61
-// (EPD0426A02) boards: geometry, rotation, command sequences, bounded BUSY
-// wait and the full-refresh driver `Epd`.
+// SSD1677 e-paper logic for the OnePage C61 (EPD0426A02 panel):
+// geometry, rotation, command sequences, bounded BUSY wait and the driver `Epd`.
 //
-// Both boards drive the same 800x480 source x gate panel size. BSP evidence for
+// Drives the 800x480 source x gate panel size. BSP evidence for
 // the C61 (../bsp_onepage_c61/board_c61.c): EPD_W 800 / EPD_H 480 (:50-51,
 // "480x800 is NOT drivable" natively), gate_scan_dir 0x02 (:211), mirror_y
 // "panel gates reversed" (:216), MOUI_ROTATION_270 -> portrait 480x800 (:222).
-// X4 has the same native size, scan direction 0x02 in DRIVER_OUTPUT_CONTROL,
-// reversed gates (Y flipped, X inc / Y dec) and Deg270 as its portrait
-// rotation, so rotation and strip layout are shared as-is (no new rotation).
+// Scan direction 0x02 in DRIVER_OUTPUT_CONTROL, reversed gates (Y flipped,
+// X inc / Y dec) and Deg270 as its portrait rotation.
 //
 // Layering: this module never touches hardware. It reaches the panel through
 // three small traits (`EpdBus` command/data, `power::DelayMs`, `BusyPin`),
-// implemented over esp-hal in the kernel (X4: drivers/ssd1677.rs, C61:
-// board_c61/epd.rs) and over recording fakes in the host tests below. Note the
-// absence of any reset-pin API: on the C61 RST is GPIO27, the SD/MIC power
-// rail, so the driver can only reset the controller with the SW_RESET command
-// (0x12); `Epd::init` additionally demands a `power::DisplayReset` token,
-// which `PeripheralPower::display_reset()` only ever hands out as `Software`.
-//
-// X4 compatibility: the sequences below are the former private methods of the
-// X4 driver, moved without reordering (the X4 adapters ignore bus errors, as
-// the old code did with `let _ =`). `x4_*` tests lock the command order.
+// implemented over esp-hal in the kernel (`board_c61/epd.rs`) and over
+// recording fakes in the host tests below. Note the absence of any reset-pin
+// API: on the C61 RST is GPIO27, the SD/MIC power rail, so the driver can only
+// reset the controller with the SW_RESET command (0x12); `Epd::init` additionally
+// demands a `power::DisplayReset` token, which `PeripheralPower::display_reset()`
+// only ever hands out as `Software`.
 
 use crate::power::{DelayMs, DisplayReset};
 use crate::strip::{STRIP_COUNT, StripCore};
@@ -36,12 +30,11 @@ pub const HEIGHT: u16 = 480;
 pub const BUSY_TIMEOUT_MS: u32 = 5000;
 /// BUSY poll interval: BSP polls with `vTaskDelay(1 ms)` (board_c61.c:148).
 pub const BUSY_POLL_MS: u32 = 1;
-/// BUSY is active high on the C61 (BSP waits while the level is 1, :147) and
-/// on X4 (driver waits for low); electrical level only, the `BusyPin` adapter
-/// maps it.
+/// BUSY is active high on the C61 (BSP waits while the level is 1, :147);
+/// electrical level only, the `BusyPin` adapter maps it.
 pub const BUSY_ACTIVE_HIGH: bool = true;
 
-/// Delay after SW_RESET before the next command (X4 value, unchanged).
+/// Delay after SW_RESET before the next command.
 pub const SOFT_RESET_DELAY_MS: u32 = 10;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -154,7 +147,7 @@ pub fn wait_busy_bounded<P: BusyPin + DelayMs>(
 }
 
 /// Source of rendered strips for a full frame: strip `idx` (0..STRIP_COUNT,
-/// 40 physical rows each) rendered with `rotation`. X4: begin_strip + the
+/// 40 physical rows each) rendered with `rotation`. begin_strip + the
 /// caller's draw closure; C61 boot: a test pattern.
 pub trait StripSource {
     fn render_strip(&mut self, rotation: Rotation, idx: u16) -> &[u8];
@@ -338,12 +331,10 @@ pub fn soft_reset<P: EpdBus + DelayMs>(p: &mut P) -> Result<(), DisplayError> {
     Ok(())
 }
 
-/// Booster soft-start (0x0C) data of the X4 panel (GDEQ0426T82).
-pub const X4_BOOSTER: [u8; 5] = [0xAE, 0xC7, 0xC3, 0xC0, 0x80];
-
 /// Booster soft-start data of the C61 panel (EPD0426A02, OTP voltages): moui
 /// `moui_drv_ssd1677.c` with `use_otp_voltages` (BSP board_c61.c:213).
 pub const C61_BOOSTER: [u8; 5] = [0xAE, 0xC7, 0xC3, 0x80, 0xC0];
+pub const BOOSTER: [u8; 5] = C61_BOOSTER;
 
 /// Everything after the reset: temperature sensor, booster (`booster`, per
 /// board), driver output (480 gates, scan 0x02), border, full RAM window.
@@ -363,14 +354,14 @@ pub fn configure<B: EpdBus>(b: &mut B, booster: &[u8; 5]) -> Result<(), DisplayE
     set_ram_area(b, 0, 0, WIDTH, HEIGHT)
 }
 
-/// X4 init body: software reset then configure, no BUSY wait (unchanged).
+/// Software reset then configure, no BUSY wait.
 pub fn init_display<P: EpdBus + DelayMs>(p: &mut P) -> Result<(), DisplayError> {
     soft_reset(p)?;
-    configure(p, &X4_BOOSTER)
+    configure(p, &C61_BOOSTER)
 }
 
 /// Full frame into RED then BW RAM, strip by strip, each RAM preceded by a
-/// full-window setup. Same order the X4 driver always used.
+/// full-window setup.
 pub fn write_full_frame<P: EpdBus + DelayMs, S: StripSource>(
     p: &mut P,
     rotation: Rotation,
@@ -458,7 +449,6 @@ pub fn start_load_temperature<B: EpdBus>(b: &mut B) -> Result<(), DisplayError> 
 /// Same value as the vendor stack on this panel: moui `update_partial`
 /// (bsp_onepage_c61's driver, EPD0426A02) sends 0xDF, and the Arduino SDK's
 /// FAST_REFRESH sends 0x1C | 0xC0 (screen off) | 0x03 (turn off) = 0xDF.
-/// The X4 driver uses 0xFC (LOAD_TEMP, analog left on).
 pub const PARTIAL_UPDATE_SEQ: u8 = 0xDF;
 
 /// Kick the partial waveform over the RAM window `rs`. RED RAM holds the frame
@@ -504,9 +494,8 @@ fn write_region<P: EpdBus, W: WindowSource>(
 }
 
 /// DEEP_SLEEP (0x10) mode 1: RAM and image retained, ~3 uA. Only a hardware
-/// reset wakes it again (the X4 comment says the same; on the C61 the reset is
-/// the GPIO27 power-up, see `Epd::enter_deep_sleep`). The X4 driver ends its
-/// own `enter_deep_sleep` with exactly these two writes.
+/// reset wakes it again (on the C61 the reset is the GPIO27 power-up,
+/// see `Epd::enter_deep_sleep`).
 pub fn deep_sleep<B: EpdBus>(b: &mut B) -> Result<(), DisplayError> {
     b.command(cmd::DEEP_SLEEP)?;
     b.data(&[0x01])
@@ -564,7 +553,7 @@ pub fn align_partial_region(
 }
 
 /// `StripSource` that renders the pattern with a closure into a `StripCore`
-/// (what both the X4 draw path and the C61 boot demo do per strip).
+/// (what the draw path and the C61 boot demo do per strip).
 pub struct CoreStrips<'a, F: FnMut(&mut StripCore)> {
     pub core: &'a mut StripCore,
     pub draw: F,
@@ -596,7 +585,7 @@ pub struct Epd<P> {
 }
 
 impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
-    /// Portrait Deg270 (480x800), like X4 and BSP `MOUI_ROTATION_270`.
+    /// Portrait Deg270 (480x800), matching BSP `MOUI_ROTATION_270`.
     pub fn new(port: P) -> Self {
         Self {
             port,
@@ -686,8 +675,7 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
     /// Controller init. `reset` is the policy from
     /// `PeripheralPower::display_reset()`; `Software` is the only value, so
     /// the controller is reset with SW_RESET and GPIO27 is not touched. BUSY
-    /// is waited (bounded) before the reset and after it, which the X4 init
-    /// does not do (conservative; the BSP init flow could not be read).
+    /// is waited (bounded) before the reset and after it.
     pub fn init(&mut self, reset: DisplayReset) -> Result<(), DisplayError> {
         match reset {
             DisplayReset::Software => {}
@@ -889,8 +877,7 @@ impl<P: EpdBus + DelayMs + BusyPin> Epd<P> {
     }
 
     /// Differential refresh of the logical region (`x`, `y`, `w`, `h`), blocking
-    /// until BUSY clears (bounded). Three steps, the X4's phase 1 / DU / phase 3
-    /// without its rapid-navigation shortcut:
+    /// until BUSY clears (bounded). Three steps (phase 1 / DU / phase 3):
     ///
     /// 1. new content of the aligned region into BW RAM (RED still holds the
     ///    frame on the panel);
@@ -1058,7 +1045,7 @@ mod tests {
             Ev::Cmd(0x18),
             Ev::Data(vec![0x80]),
             Ev::Cmd(0x0C),
-            Ev::Data(vec![0xAE, 0xC7, 0xC3, 0xC0, 0x80]),
+            Ev::Data(vec![0xAE, 0xC7, 0xC3, 0x80, 0xC0]),
             Ev::Cmd(0x01),
             Ev::Data(vec![0xDF, 0x01, 0x02]),
             Ev::Cmd(0x3C),
@@ -1077,12 +1064,9 @@ mod tests {
         ]
     }
 
-    /// C61 init trace: the X4 one with the OTP booster order.
+    /// C61 init trace with the OTP booster order.
     fn c61_init_trace_expected() -> Vec<Ev> {
-        let mut v = init_trace_expected();
-        assert_eq!(v[4], Ev::Cmd(0x0C));
-        v[5] = Ev::Data(vec![0xAE, 0xC7, 0xC3, 0x80, 0xC0]);
-        v
+        init_trace_expected()
     }
 
     /// Data bytes that follow the (single) booster command in `log`.
@@ -1140,22 +1124,10 @@ mod tests {
     // -- command trace -------------------------------------------------
 
     #[test]
-    fn x4_init_sequence_is_unchanged_golden() {
-        // The exact order the X4 driver has always used; X4 now calls the
-        // same `init_display`.
+    fn init_sequence_is_unchanged_golden() {
         let mut f = Fake::new(None);
         init_display(&mut f).unwrap();
         assert_eq!(f.log, init_trace_expected());
-    }
-
-    #[test]
-    fn r5_x4_init_booster_is_unchanged() {
-        let mut f = Fake::new(None);
-        init_display(&mut f).unwrap();
-        assert_eq!(
-            booster_data(&f.log),
-            vec![vec![0xAE, 0xC7, 0xC3, 0xC0, 0x80]]
-        );
     }
 
     #[test]
@@ -1169,7 +1141,7 @@ mod tests {
     }
 
     #[test]
-    fn x4_partial_ram_window_commands_are_unchanged_golden() {
+    fn partial_ram_window_commands_are_unchanged_golden() {
         // window (px=96, py=340, pw=88, ph=123): y_flipped = 480-340-123 = 17
         let mut f = Fake::new(None);
         set_ram_area(&mut f, 96, 340, 88, 123).unwrap();
@@ -1191,7 +1163,7 @@ mod tests {
     }
 
     #[test]
-    fn x4_full_update_sequence_is_unchanged_golden() {
+    fn full_update_sequence_is_unchanged_golden() {
         let mut f = Fake::new(None);
         start_full_update(&mut f, FullKind::Clean).unwrap();
         assert_eq!(
@@ -1207,8 +1179,7 @@ mod tests {
     }
 
     #[test]
-    fn x4_deep_sleep_sequence_is_unchanged_golden() {
-        // X4 `enter_deep_sleep` ends with DEEP_SLEEP + 0x01; it now calls this.
+    fn deep_sleep_sequence_is_unchanged_golden() {
         let mut f = Fake::new(None);
         deep_sleep(&mut f).unwrap();
         assert_eq!(f.log, vec![Ev::Cmd(0x10), Ev::Data(vec![0x01])]);
@@ -1309,7 +1280,7 @@ mod tests {
                 Ev::Busy(false)
             ]
         );
-        // everything after matches the X4 configure sequence, nothing is
+        // everything after matches the configure sequence, nothing is
         // written between the reset wait and TEMPERATURE_SENSOR
         let cfg_start = 3 + after_reset.len();
         assert_eq!(log[cfg_start..], c61_init_trace_expected()[2..]);

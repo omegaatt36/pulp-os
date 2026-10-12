@@ -2,7 +2,7 @@
 //! current / next chapter working set, the persistent page index, the
 //! decoded-image LRU, source identity and capacity-vs-EOF indexing.
 //!
-//! The host build is the X4 board (single 96 KiB chapter, no image cache); the
+//! The host build defaults to the small profile (single 96 KiB chapter, no image cache); the
 //! HR8 policy is selected explicitly with `Rig::set_profile`, the same
 //! `RingConfig` / `LruConfig` values the C61 picks for a validated 8 MiB part.
 use pulp_board_logic::chapter_ring::{HR8_SINGLE_MAX_BYTES, RingConfig};
@@ -86,7 +86,7 @@ fn hr8() -> (RingConfig, LruConfig, bool) {
     (RingConfig::HR8, LruConfig::HR8, true)
 }
 
-// the X4 profile: single chapter, no image cache, no stored page indexes
+// the small profile (HR2 / degraded): single chapter, no image cache, no stored page indexes
 fn small() -> (RingConfig, LruConfig, bool) {
     (RingConfig::SMALL, LruConfig::OFF, false)
 }
@@ -685,7 +685,7 @@ fn the_small_profile_never_creates_or_reads_a_page_index() {
     let _serial = serial();
     let bytes = epub(3, 5, 90, 'x');
 
-    // a whole book read on the X4 profile leaves no PG*.IDX behind
+    // a whole book read on the small profile leaves no PG*.IDX behind
     let mut r = open_with(card(&bytes), small());
     quiet(&mut r);
     let pages = chapter_pages(&mut r);
@@ -738,7 +738,7 @@ fn the_small_profile_shows_a_full_table_as_complete_like_before() {
         assert!(!r.fully_indexed());
     };
 
-    // X4 profile: the counters and the progress figure behave as they did when
+    // small profile: the counters and the progress figure behave as they did when
     // a full table was reported as the end of the index
     let mut r = open_with(card(&bytes), small());
     reach_cap(&mut r);

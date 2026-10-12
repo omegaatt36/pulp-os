@@ -59,8 +59,3 @@ The preview uses generated `standard_card()` memory storage. Tests also exercise
 root and survives drop. Both backends expose read counters/logs and deterministic
 short-read/error injection. Host filesystem permissions, case handling and I/O
 errors are not complete FAT/SD emulation.
-
-The separate `reader-regression/` workspace (`cargo test-reader-regression`)
-remains intentionally available: it checks the real reader sources against the
-golden trace pinned from the pre-port X4 commit; its duplicated host shims have
-not been consolidated.

@@ -1,7 +1,6 @@
 // directory listing cache: sorted entries with title resolution
 // loaded lazily from SD, held in RAM, invalidated on demand
 
-#[cfg(feature = "board-onepage-c61")]
 use super::bigbuf::{BufClass, TypedBuf};
 use crate::drivers::dir_entry::DirEntry;
 use crate::drivers::sdcard::SdStorage;
@@ -9,16 +8,12 @@ use crate::drivers::storage::{
     DirPage, PULP_DIR, TITLES_FILE, list_root_files, read_file_start_in_dir,
 };
 use crate::error::Result;
-#[cfg(feature = "board-onepage-c61")]
 use crate::error::{Error, ErrorKind};
 
 const MAX_DIR_ENTRIES: usize = 128;
 
 pub struct DirCache {
-    #[cfg(feature = "board-onepage-c61")]
     entries: TypedBuf<DirEntry>,
-    #[cfg(feature = "board-x4")]
-    entries: [DirEntry; MAX_DIR_ENTRIES],
     count: usize,
     valid: bool,
 }
@@ -32,10 +27,7 @@ impl Default for DirCache {
 impl DirCache {
     pub const fn new() -> Self {
         Self {
-            #[cfg(feature = "board-onepage-c61")]
             entries: TypedBuf::empty(),
-            #[cfg(feature = "board-x4")]
-            entries: [DirEntry::EMPTY; MAX_DIR_ENTRIES],
             count: 0,
             valid: false,
         }
@@ -47,7 +39,6 @@ impl DirCache {
         }
 
         self.count = 0;
-        #[cfg(feature = "board-onepage-c61")]
         if self.entries.is_empty() {
             self.entries = TypedBuf::filled(BufClass::ZipToc, MAX_DIR_ENTRIES, DirEntry::EMPTY)
                 .map_err(|_| Error::new(ErrorKind::OutOfMemory, "directory cache"))?;

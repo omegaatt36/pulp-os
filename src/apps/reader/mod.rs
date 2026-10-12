@@ -32,7 +32,6 @@ use crate::kernel::QuickAction;
 use crate::kernel::bookmarks;
 use crate::kernel::work_queue;
 use crate::kernel::work_queue::DecodedImage;
-#[cfg(feature = "board-onepage-c61")]
 use crate::kernel::{BufClass, TypedBuf};
 use crate::ui::{
     Alignment, BATTERY_REGION, BatteryStatus, CONTENT_TOP, Region, StackFmt, TITLE_Y_OFFSET,
@@ -86,11 +85,6 @@ pub(super) const PAGE_BUF: usize = 8192;
 // first pause) is announced on the panel before it continues
 const CJK_NOTICE_US: u64 = 1_500_000;
 
-// page-table entries of the small profile: X4, HR2, degraded builds, and an HR8
-// whose larger table was refused. the C61 HR8 table is sized at runtime
-// (`pulp_board_logic::page_index::table_plan`); the table in use is `capacity()`
-#[cfg(feature = "board-x4")]
-pub(super) const MAX_PAGES: usize = pulp_board_logic::page_index::SMALL_PAGES;
 // bytes of the page window whose scalars are staged before a page is laid out
 // (see `wrap_lines_counted_inner`): a CJK page takes ~200 bytes, a Latin-heavy
 // one ~1.2 KiB and a longer one doubles it until the page fits
@@ -246,19 +240,10 @@ impl LineSpan {
 
 // page index, content buffer, and read-ahead state
 pub(super) struct PageState {
-    #[cfg(feature = "board-onepage-c61")]
     pub(super) offsets: TypedBuf<u32>,
-    #[cfg(feature = "board-x4")]
-    pub(super) offsets: [u32; MAX_PAGES],
     // Marker state at each raw byte offset; bounded alongside the page table.
-    #[cfg(feature = "board-onepage-c61")]
     pub(super) style_flags: TypedBuf<u8>,
-    #[cfg(feature = "board-x4")]
-    pub(super) style_flags: [u8; MAX_PAGES],
-    #[cfg(feature = "board-onepage-c61")]
     pub(super) indents: TypedBuf<u8>,
-    #[cfg(feature = "board-x4")]
-    pub(super) indents: [u8; MAX_PAGES],
     pub(super) total_pages: usize,
     // the text ended and every page is in the table. never set when the table
     // filled up first: that is `truncated`
@@ -285,18 +270,9 @@ pub(super) struct PageState {
 impl PageState {
     pub(super) const fn new() -> Self {
         Self {
-            #[cfg(feature = "board-onepage-c61")]
             offsets: TypedBuf::empty(),
-            #[cfg(feature = "board-x4")]
-            offsets: [0; MAX_PAGES],
-            #[cfg(feature = "board-onepage-c61")]
             style_flags: TypedBuf::empty(),
-            #[cfg(feature = "board-x4")]
-            style_flags: [0; MAX_PAGES],
-            #[cfg(feature = "board-onepage-c61")]
             indents: TypedBuf::empty(),
-            #[cfg(feature = "board-x4")]
-            indents: [0; MAX_PAGES],
             total_pages: 0,
             fully_indexed: false,
             truncated: false,
@@ -336,18 +312,10 @@ impl PageState {
     // "table full" decision goes by this, never by `MAX_PAGES`
     #[inline]
     pub(super) fn capacity(&self) -> usize {
-        #[cfg(feature = "board-onepage-c61")]
-        {
-            self.offsets.len()
-        }
-        #[cfg(feature = "board-x4")]
-        {
-            MAX_PAGES
-        }
+        self.offsets.len()
     }
 
     fn ensure_tables(&mut self) -> crate::error::Result<()> {
-        #[cfg(feature = "board-onepage-c61")]
         if self.offsets.is_empty() {
             // the large table first where the profile allows it, the small one
             // when that is refused. all three arrays are built before any is
@@ -743,7 +711,7 @@ impl ReaderApp {
     }
 
     // what the page counters and progress show as "the whole chapter is
-    // indexed". the small profile (X4, HR2, degraded) keeps showing a table that
+    // indexed". the small profile (HR2, degraded) keeps showing a table that
     // filled up as complete, exactly as it did before the table could tell the
     // end of the text from the end of the table; other profiles show only a
     // complete index as such

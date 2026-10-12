@@ -3,7 +3,7 @@ name         = "board-harness"
 edition      = "2024"
 rust-version = "1.95"
 version      = "0.1.0"
-description  = "host-only board harness: the real C61 adapter and X4 driver/input sources against an esp-hal seam"
+description  = "host-only board harness: the real C61 adapter sources against an esp-hal seam"
 license      = "MIT"
 publish      = false
 

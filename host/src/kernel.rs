@@ -30,8 +30,6 @@ pub mod wake;
 #[allow(dead_code)]
 pub mod work_queue;
 
-#[path = "../../kernel/src/kernel/rtc_session.rs"]
-pub mod rtc_session;
 #[path = "../../kernel/src/kernel/storage_change.rs"]
 pub mod storage_change;
 

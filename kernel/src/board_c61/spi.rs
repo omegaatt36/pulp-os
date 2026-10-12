@@ -3,13 +3,12 @@
 // Wiring (BSP board_c61.c): SCK22 :38, MOSI23 :37, MISO24 :96, EPD CS25 :39,
 // SD CS26 :58. Pin numbers/timing live in pulp_board_logic (host-tested);
 // this file only maps them onto esp-hal 1.2 (`Spi` -> `SpiDma`, DMA_CH0,
-// `dma_rx_buffer!`/`dma_tx_buffer!`, same pattern as the X4 port).
+// `dma_rx_buffer!`/`dma_tx_buffer!`).
 //
 // Exclusion: the bus sits in a critical-section mutex; every device access is
 // one `SpiArbiter::transaction` (assert CS, run ops, flush, release CS) from
 // pulp_board_logic::spi, so there is no other way to move a chip select. CS
-// lines are plain esp-hal `Output`s: no raw GPIO registers (the X4
-// `board::raw_gpio` is C3-only and is not compiled for the C61).
+// lines are plain esp-hal `Output`s: no raw GPIO registers.
 //
 // NOTE: the BSP enables the MISO internal pull-up (:89); esp-hal's `with_miso`
 // resets the pad config to no-pull, so SD DO relies on the card / board pull-up.

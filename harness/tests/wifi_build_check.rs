@@ -6,8 +6,7 @@ mod common;
 
 use common::*;
 
-const C61_WIFI: (&str, &str) = (C61_TARGET, "board-onepage-c61,wifi");
-const X4_WIFI: (&str, &str) = (X4_TARGET, "board-x4,wifi");
+const C61_WIFI: (&str, &str) = (C61_TARGET, "wifi");
 
 /// (name, version, features) of every package in the normal-dependency graph.
 fn packages((target, features): (&str, &str)) -> Vec<(String, String, String)> {
@@ -91,13 +90,6 @@ fn c61_wifi_dependency_set_matches_the_pinned_set() {
     );
 }
 
-#[test]
-fn x4_wifi_does_not_fall_back_to_the_stale_radio_set() {
-    let pkgs = packages(X4_WIFI);
-    assert_eq!(version(&pkgs, "esp-radio"), "1.0.0-beta.1");
-    assert_eq!(version(&pkgs, "esp-rtos"), "0.4.0");
-}
-
 /// opt-level of every `esp_radio` library unit, from cargo's resolved unit graph.
 fn radio_opt_levels((target, features): (&str, &str)) -> Vec<String> {
     let (ok, text) = cargo(&[
@@ -140,18 +132,16 @@ fn radio_opt_levels((target, features): (&str, &str)) -> Vec<String> {
 
 #[test]
 fn esp_radio_is_compiled_with_opt_level_2_or_3() {
-    for cfg in [C61_WIFI, X4_WIFI] {
-        let levels = radio_opt_levels(cfg);
+    let levels = radio_opt_levels(C61_WIFI);
+    assert!(
+        !levels.is_empty(),
+        "{C61_WIFI:?}: no esp_radio unit in the unit graph"
+    );
+    for lvl in &levels {
         assert!(
-            !levels.is_empty(),
-            "{cfg:?}: no esp_radio unit in the unit graph"
+            lvl == "2" || lvl == "3",
+            "{C61_WIFI:?}: esp_radio opt-level {lvl} (want 2 or 3)"
         );
-        for lvl in &levels {
-            assert!(
-                lvl == "2" || lvl == "3",
-                "{cfg:?}: esp_radio opt-level {lvl} (want 2 or 3)"
-            );
-        }
     }
 }
 

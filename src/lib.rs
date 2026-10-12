@@ -1,12 +1,11 @@
-// pulp-os - e-reader firmware for the XTEink X4
+// pulp-os - e-reader firmware for the OnePage C61
 
 #![no_std]
 
 extern crate alloc;
 
-// Both boards build the full firmware library. The board-specific parts
-// are behind `pulp_kernel::board` (X4: kernel/src/board/, C61:
-// kernel/src/board_c61/api.rs); the apps are written against that surface.
+// The board-specific parts are behind `pulp_kernel::board`
+// (kernel/src/board_c61/api.rs); the apps are written against that surface.
 pub use pulp_kernel::error;
 pub use pulp_kernel::{board, drivers, kernel};
 

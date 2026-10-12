@@ -1,10 +1,9 @@
-// Semantic UI actions, shared by every board.
+// Semantic UI actions.
 //
-// These two enums used to live in kernel/src/board/action.rs (X4 only). They
-// are plain data with no HAL dependency, so they live here and the X4 module
-// re-exports them: there is exactly one definition, and the OnePage C61 key
+// These two enums are plain data with no HAL dependency:
+// there is exactly one definition, and the OnePage C61 key
 // mapping (`keys::Key::action`) is tested on the host against the very same
-// type the apps match on. No action was added or removed.
+// type the apps match on.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {

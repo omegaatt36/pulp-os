@@ -7,7 +7,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-pub const X4_TARGET: &str = "riscv32imc-unknown-none-elf";
 pub const C61_TARGET: &str = "riscv32imac-unknown-none-elf";
 /// build-std override of the host-side cargo commands (std + test instead of core + alloc)
 pub const HOST_BUILD_STD: &str = "unstable.build-std=[\"std\",\"test\"]";
@@ -21,8 +20,6 @@ pub fn workspace_root() -> PathBuf {
 
 #[derive(Clone, Copy)]
 pub enum Image {
-    X4,
-    X4Wifi,
     C61,
     C61Boot,
     C61Wifi,
@@ -33,8 +30,6 @@ pub enum Image {
 /// Path of a built image; panics when it has not been built.
 pub fn image(img: Image) -> PathBuf {
     let (dir, target, bin) = match img {
-        Image::X4 => ("x4", X4_TARGET, "pulp-os"),
-        Image::X4Wifi => ("x4-wifi", X4_TARGET, "pulp-os"),
         Image::C61 => ("c61", C61_TARGET, "pulp-os-c61"),
         Image::C61Boot => ("c61", C61_TARGET, "pulp-os-c61-boot"),
         Image::C61Wifi => ("c61-wifi", C61_TARGET, "pulp-os-c61"),

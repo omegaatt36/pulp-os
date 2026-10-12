@@ -11,6 +11,6 @@ pub mod sdcard;
 pub mod storage;
 
 pub mod input {
-    // C61 key event (kernel/src/drivers/mod.rs); the X4 one needs esp-hal
+    // Key event (kernel/src/drivers/mod.rs)
     pub type Event = pulp_board_logic::input::Event<crate::board::button::Button>;
 }

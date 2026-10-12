@@ -95,29 +95,6 @@ fn is_upload(id: AppId) -> bool {
     }
 }
 
-// the board's session record: X4 RtcSession (RTC FAST memory) or the C61
-// SessionState (SD card); the two differ only in how the epub flag is stored
-mod session_fields {
-    use crate::kernel::app::SessionData;
-
-    #[cfg(feature = "board-x4")]
-    pub fn set_epub(s: &mut SessionData, v: bool) {
-        s.reader_is_epub = v as u8;
-    }
-    #[cfg(feature = "board-x4")]
-    pub fn is_epub(s: &SessionData) -> bool {
-        s.reader_is_epub != 0
-    }
-    #[cfg(feature = "board-onepage-c61")]
-    pub fn set_epub(s: &mut SessionData, v: bool) {
-        s.reader_is_epub = v;
-    }
-    #[cfg(feature = "board-onepage-c61")]
-    pub fn is_epub(s: &SessionData) -> bool {
-        s.reader_is_epub
-    }
-}
-
 #[allow(unused_imports)]
 pub(crate) use with_app;
 #[allow(unused_imports)]
@@ -259,7 +236,7 @@ impl AppManager {
         session.reader_filename_len = self.reader.filename_len() as u8;
         let len = session.reader_filename_len as usize;
         session.reader_filename[..len].copy_from_slice(self.reader.filename_bytes());
-        session_fields::set_epub(session, self.reader.is_epub());
+        session.reader_is_epub = self.reader.is_epub();
         session.reader_chapter = self.reader.chapter();
         session.reader_page = self.reader.page() as u16;
         session.reader_byte_offset = self.reader.byte_offset();
@@ -273,18 +250,6 @@ impl AppManager {
         session.home_selected = self.home.selected() as u8;
         session.home_bm_selected = self.home.bm_selected() as u8;
         session.home_bm_scroll = self.home.bm_scroll() as u8;
-
-        // save settings cache (X4 RTC record only; the C61 record has no such
-        // fields, settings are always read from the SD card)
-        #[cfg(feature = "board-x4")]
-        {
-            let ss = self.settings.system_settings();
-            session.settings_sleep_timeout = ss.sleep_timeout;
-            session.settings_ghost_clear = ss.ghost_clear_every;
-            session.settings_book_font = ss.book_font_size_idx;
-            session.settings_ui_font = ss.ui_font_size_idx;
-            session.settings_valid = 1;
-        }
 
         log::info!(
             "session: collected nav_depth={} active={:?}",
@@ -337,7 +302,7 @@ impl AppManager {
             let filename = &session.reader_filename[..session.reader_filename_len as usize];
             self.reader.restore_state(
                 filename,
-                session_fields::is_epub(session),
+                session.reader_is_epub,
                 session.reader_chapter,
                 session.reader_page as usize,
                 session.reader_byte_offset,
@@ -426,23 +391,20 @@ impl AppManager {
         })
     }
 
-    // X4: Power short press = Action::Menu. The OnePage C61 has no Menu key; the
-    // only quick-menu function without another route (Contents) is reached by a
-    // long press of ENTER inside the reader (pulp_board_logic::lifecycle).
+    // The C61 has no Menu key; the only quick-menu function without another
+    // route (Contents) is reached by a long press of ENTER inside the reader
+    // (pulp_board_logic::lifecycle).
     #[inline]
     fn opens_quick_menu(&self, event: ActionEvent) -> bool {
-        #[cfg(feature = "board-onepage-c61")]
-        {
-            use crate::board::lifecycle::{MenuKeyContext, opens_quick_menu};
-            let ctx = MenuKeyContext {
-                reader_active: self.launcher.active() == AppId::Reader,
-                files_active: self.launcher.active() == AppId::Files,
-                quick_menu_open: self.quick_menu.open,
-                reader_showing_toc: self.reader.showing_toc(),
-            };
-            if opens_quick_menu(event, ctx) {
-                return true;
-            }
+        use crate::board::lifecycle::{MenuKeyContext, opens_quick_menu};
+        let ctx = MenuKeyContext {
+            reader_active: self.launcher.active() == AppId::Reader,
+            files_active: self.launcher.active() == AppId::Files,
+            quick_menu_open: self.quick_menu.open,
+            reader_showing_toc: self.reader.showing_toc(),
+        };
+        if opens_quick_menu(event, ctx) {
+            return true;
         }
         matches!(event, ActionEvent::Press(Action::Menu))
     }

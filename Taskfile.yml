@@ -18,14 +18,12 @@ tasks:
     silent: true
 
   build:
-    desc: Build the X4 and C61 release matrix (offline, Wi-Fi, partial, partial+Wi-Fi) into target/accept/
+    desc: Build the C61 release matrix (offline, Wi-Fi, partial, partial+Wi-Fi) into target/accept/
     cmds:
-      - CARGO_TARGET_DIR={{.ACCEPT}}/x4 cargo build --release --locked --target riscv32imc-unknown-none-elf --features board-x4
-      - CARGO_TARGET_DIR={{.ACCEPT}}/x4-wifi cargo build --release --locked --target riscv32imc-unknown-none-elf --features board-x4,wifi
-      - CARGO_TARGET_DIR={{.ACCEPT}}/c61 cargo build --release --locked --target riscv32imac-unknown-none-elf --features board-onepage-c61
-      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-wifi cargo build --release --locked --target riscv32imac-unknown-none-elf --features board-onepage-c61,wifi
-      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial cargo build --release --locked --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh
-      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial-wifi cargo build --release --locked --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi
+      - CARGO_TARGET_DIR={{.ACCEPT}}/c61 cargo build --release --locked --target riscv32imac-unknown-none-elf
+      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-wifi cargo build --release --locked --target riscv32imac-unknown-none-elf --features wifi
+      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial cargo build --release --locked --target riscv32imac-unknown-none-elf --features partial-refresh
+      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial-wifi cargo build --release --locked --target riscv32imac-unknown-none-elf --features partial-refresh,wifi
 
   font:
     desc: Fetch the pinned GuanKiapTsingKhai V1.20 font and build its SD bundle

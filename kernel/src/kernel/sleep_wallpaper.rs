@@ -7,8 +7,6 @@
 // Any failure (no file, wrong format, read error, no PSRAM budget) gives
 // `None` and one log line, and the caller draws the text sleep screen.
 //
-// The X4 has no PSRAM for a 48 KB image and keeps the text screen.
-//
 // With the `gray-wallpaper` feature the file is decoded to 4 gray levels instead
 // (`load_gray`): two 48 KB plane images (96 KB, PSRAM) that the 4-gray waveform
 // (pulp_board_logic::gray) streams to the panel's two RAMs.

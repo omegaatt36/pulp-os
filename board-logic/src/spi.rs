@@ -16,15 +16,13 @@
 // reviewable (and tested) off-target.
 
 /// SD cards must be probed at <= 400 kHz (SD spec; ESP-IDF sdspi probes at
-/// SDMMC_FREQ_PROBING = 400 kHz). Same value the X4 port uses.
+/// SDMMC_FREQ_PROBING = 400 kHz).
 pub const SPI_INIT_KHZ: u32 = 400;
 /// Operating clock for both EPD and SD after init: BSP `SPI_FREQ_HZ`
 /// (10 MHz, board_c61.c:44) and SD `host.max_freq_khz = 10000` (:391,
-/// "10MHz stable clock for shared SPI bus"). (X4 runs 20 MHz; not carried
-/// over.)
+/// "10MHz stable clock for shared SPI bus").
 pub const SPI_OPERATING_KHZ: u32 = 10_000;
-/// DMA buffer per direction, internal RAM. Same sizing rationale as X4:
-/// SD sector 512 B, EPD strip well below 4 KiB.
+/// DMA buffer per direction, internal RAM (SD sector 512 B, EPD strip well below 4 KiB).
 pub const SPI_DMA_BUF_BYTES: usize = 4096;
 /// SD spec: >= 74 clocks with CS high before CMD0. 10 bytes = 80 clocks.
 pub const SD_PRELUDE_BYTES: usize = 10;

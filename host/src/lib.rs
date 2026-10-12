@@ -34,6 +34,7 @@ mod kernel_ui;
 
 pub mod apps;
 pub mod board;
+pub mod board_c61;
 pub mod drivers;
 pub mod fixtures;
 pub mod kernel;

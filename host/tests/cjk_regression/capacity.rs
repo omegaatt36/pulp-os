@@ -134,6 +134,8 @@ fn large_pack_page(sliced: bool) {
     cjk_support::install(&card, PX, &bytes);
     let mut kernel = Kernel::new(SdStorage::new(card));
     let mut state = CjkState::new();
+    // these figures are the SD index reads; the RAM index needs PSRAM
+    state.set_ram_index(false);
     state.set_pace(tick, 3);
     let latin = FontSet::for_size(0);
 

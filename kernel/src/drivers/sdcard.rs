@@ -12,31 +12,22 @@
 use core::future::Future;
 use core::pin::pin;
 use core::task::{Context, Poll, Waker};
-#[cfg(feature = "board-x4")]
-use embedded_hal::delay::DelayNs;
 
-#[cfg(feature = "board-onepage-c61")]
 use core::sync::atomic::{AtomicBool, Ordering};
 use embedded_sdmmc::{
     AsyncBlockDevice, AsyncVolumeManager, Block, BlockCount, BlockDevice, BlockIdx, RawDirectory,
     RawFile, RawVolume, SdCard, TimeSource, Timestamp, VolumeIdx,
 };
 use log::info;
-#[cfg(feature = "board-onepage-c61")]
 use pulp_board_logic::sd_cache::{
     CachedDevice, Meta, SECTOR_BYTES, Sector, SectorCacheStats, SectorDevice, build_cache,
     sd_cache_budget,
 };
 
-#[cfg(feature = "board-onepage-c61")]
 use crate::kernel::bigbuf::{BufClass, TypedBuf};
 use crate::util::{CloseBorrow, CloseCell, CloseHandle, CloseToken};
 
-// the SPI device type is board-specific (X4: CriticalSectionDevice over a raw
-// GPIO12 CS; C61: arbiter-managed device, see board_c61::spi)
-#[cfg(feature = "board-x4")]
-use crate::board::SdSpiDevice;
-#[cfg(feature = "board-onepage-c61")]
+// the SPI device type: arbiter-managed device, see board_c61::spi
 use crate::board_c61::spi::SdSpiDevice;
 
 // sync BlockDevice -> AsyncBlockDevice adapter
@@ -45,9 +36,7 @@ use crate::board_c61::spi::SdSpiDevice;
 // methods; we delegate AsyncBlockDevice &mut self to the inner &self
 // methods. All resolve immediately since SPI is DMA-blocking
 //
-// X4: a plain pass-through, exactly as before.
-//
-// C61: a bounded read cache (pulp_board_logic::sd_cache) sits in this adapter,
+// A bounded read cache (pulp_board_logic::sd_cache) sits in this adapter,
 // below the volume manager (FAT ownership is untouched). Write-through, one
 // cache per adapter, so a mount (card insertion) always starts with a fresh,
 // empty cache. Backing is `BufClass::StorageCache` (PSRAM, fallible, tags and
@@ -56,47 +45,10 @@ use crate::board_c61::spi::SdSpiDevice;
 // driver is internal and unrelated to this cache. Every operation still
 // completes inside one poll.
 
-#[cfg(feature = "board-x4")]
-pub(crate) struct BlockDeviceAdapter<D: BlockDevice>(D);
-
-#[cfg(feature = "board-x4")]
-impl<D: BlockDevice> BlockDeviceAdapter<D> {
-    fn new(card: D) -> Self {
-        Self(card)
-    }
-}
-
-#[cfg(feature = "board-x4")]
-impl<D: BlockDevice> AsyncBlockDevice for BlockDeviceAdapter<D> {
-    type Error = D::Error;
-
-    async fn read(
-        &mut self,
-        blocks: &mut [Block],
-        start_block_idx: BlockIdx,
-    ) -> Result<(), Self::Error> {
-        self.0.read(blocks, start_block_idx)
-    }
-
-    async fn write(
-        &mut self,
-        blocks: &[Block],
-        start_block_idx: BlockIdx,
-    ) -> Result<(), Self::Error> {
-        self.0.write(blocks, start_block_idx)
-    }
-
-    async fn num_blocks(&mut self) -> Result<BlockCount, Self::Error> {
-        self.0.num_blocks()
-    }
-}
-
 // the sync card as a `SectorDevice` (Block is Clone, not Copy, and has no layout
 // guarantee: access goes through its `contents`)
-#[cfg(feature = "board-onepage-c61")]
 struct SdIo<D: BlockDevice>(D);
 
-#[cfg(feature = "board-onepage-c61")]
 impl<D: BlockDevice> SectorDevice for SdIo<D> {
     type Elem = Block;
     type Error = D::Error;
@@ -118,24 +70,19 @@ impl<D: BlockDevice> SectorDevice for SdIo<D> {
     }
 }
 
-#[cfg(feature = "board-onepage-c61")]
 type CacheTags = TypedBuf<Meta>;
-#[cfg(feature = "board-onepage-c61")]
 type CacheData = TypedBuf<Sector>;
 
 // set by a failed write; the volume manager keeps the (modified) sector of a
 // failed write in its own one-block cache, so the next storage borrow, or the
 // failing write site itself, must drop that block (see
 // `SdStorageInner::discard_block_cache`)
-#[cfg(feature = "board-onepage-c61")]
 static WRITE_FAILED: AtomicBool = AtomicBool::new(false);
 
-#[cfg(feature = "board-onepage-c61")]
 pub(crate) struct BlockDeviceAdapter<D: BlockDevice> {
     io: CachedDevice<SdIo<D>, CacheTags, CacheData>,
 }
 
-#[cfg(feature = "board-onepage-c61")]
 impl<D: BlockDevice> BlockDeviceAdapter<D> {
     fn new(card: D) -> Self {
         let budget = sd_cache_budget(crate::board_c61::memory::status());
@@ -163,7 +110,6 @@ impl<D: BlockDevice> BlockDeviceAdapter<D> {
     }
 }
 
-#[cfg(feature = "board-onepage-c61")]
 impl<D: BlockDevice> AsyncBlockDevice for BlockDeviceAdapter<D> {
     type Error = D::Error;
 
@@ -243,10 +189,9 @@ impl SdStorageInner {
     /// whose write-back failed; `device()` clears it (the next access re-reads
     /// the card, through the sector cache, which dropped the sector too).
     /// Call right after a failed write and at the start of every storage
-    /// borrow. No-op on X4.
+    /// borrow.
     #[inline]
     pub(crate) fn discard_block_cache(&mut self) {
-        #[cfg(feature = "board-onepage-c61")]
         if WRITE_FAILED.load(Ordering::Acquire) {
             WRITE_FAILED.store(false, Ordering::Release);
             let _ = self.mgr.device();
@@ -319,39 +264,6 @@ impl SdStorage {
         Self { inner: None }
     }
 
-    // init SD card at 400 kHz (SD spec init frequency)
-    //
-    // sync SdCard auto-initialises on first method call; we call
-    // num_bytes() to force init and verify the card responds
-    //
-    // pub so Board::init can run this before other SPI peripherals
-    // touch the bus - SD spec requires a clean 400 kHz bus for CMD0
-    //
-    // X4 only: the C61 init goes through board_c61::sd::init (requires the
-    // GPIO27 SdInitPermit and classifies failures instead of returning None)
-    #[cfg(feature = "board-x4")]
-    pub fn init_card(spi_device: SdSpiDevice) -> Option<SyncSdCard> {
-        let sd = SdCard::new(spi_device, esp_hal::delay::Delay::new());
-
-        for attempt in 1..=5 {
-            match sd.num_bytes() {
-                Ok(size) => {
-                    info!("SD card: initialised (attempt {})", attempt);
-                    info!("SD card: {} bytes ({} MB)", size, size / 1024 / 1024);
-                    return Some(sd);
-                }
-                Err(e) => {
-                    info!("SD card: init attempt {} failed: {:?}", attempt, e);
-                    sd.mark_card_uninit();
-                    esp_hal::delay::Delay::new().delay_ms(50);
-                }
-            }
-        }
-
-        info!("SD card: all init attempts failed");
-        None
-    }
-
     // mount FAT filesystem on an already-initialised SD card
     //
     // opens volume 0 (first MBR partition) and keeps the root
@@ -395,10 +307,8 @@ impl SdStorage {
         self.inner.is_some()
     }
 
-    /// Sector read cache counters (C61 with the cache enabled); `None` on X4,
-    /// without a mounted volume, with the cache off, or while a storage
+    /// Sector read cache counters (C61 with the cache enabled); `None` without a mounted volume, with the cache off, or while a storage
     /// operation holds the volume.
-    #[cfg(feature = "board-onepage-c61")]
     pub fn cache_stats(&self) -> Option<SectorCacheStats> {
         // `device()` also drops the volume manager's one-block cache: harmless
         // (a re-read at worst, served by the sector cache)

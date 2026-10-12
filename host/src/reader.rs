@@ -270,7 +270,7 @@ impl Rig {
     }
 
     // Fix the working-set policy (chapter ring, image LRU) that the next `open`
-    // would otherwise detect from the board's PSRAM state (X4: single chapter,
+    // would otherwise detect from the board's PSRAM state (degraded: single chapter,
     // no image cache, no stored page indexes). Call before `open`.
     pub fn set_profile(
         &mut self,

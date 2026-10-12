@@ -26,7 +26,7 @@
 use crate::memory::{KIB, MIB, PSRAM_LARGE_CHAPTER_TEXT_BYTES, PSRAM_LARGE_MIN_BYTES, PsramStatus};
 use crate::source_id::SourceId;
 
-/// Largest chapter text kept in RAM on X4, HR2 and degraded builds (the size
+/// Largest chapter text kept in RAM on HR2 and degraded builds (the size
 /// the single-chapter buffer always had).
 pub const SMALL_SINGLE_MAX_BYTES: usize = 98_304;
 /// HR8: largest chapter text of a slot.

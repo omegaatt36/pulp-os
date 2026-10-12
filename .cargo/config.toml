@@ -1,23 +1,16 @@
-# Boards (exactly one board feature per build; see README.md):
-#   X4  : cargo build-x4   -> riscv32imc,  esp32c3 (defaults to wifi upload)
-#   C61 : cargo build-c61  -> riscv32imac, esp32c61 (defaults to partial-refresh + wifi)
+# Board: OnePage C61 (riscv32imac, esp32c61); `cargo build-c61` defaults to
+# partial-refresh + wifi.
 #
 # Custom features (e.g. offline, sd-metrics) can be specified via `cargo build --features ...`.
 [alias]
-# OnePage C61 (Default: partial-refresh + wifi enabled)
-build-c61    = "build --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi"
-run-c61      = "run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi --bin pulp-os-c61"
-check-c61    = "check --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi"
-build-c61-gray-wp = "build --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi,gray-wallpaper"
-run-c61-gray-wp = "run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi,gray-wallpaper --bin pulp-os-c61"
-check-c61-gray-wp = "check --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,partial-refresh,wifi,gray-wallpaper"
-run-c61-gray = "run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61,gray-probe --bin pulp-os-c61-boot"
-run-c61-boot = "run --release --target riscv32imac-unknown-none-elf --features board-onepage-c61 --bin pulp-os-c61-boot"
-
-# XTEink X4 (Default: wifi enabled)
-build-x4     = "build --release --target riscv32imc-unknown-none-elf --features board-x4,wifi"
-run-x4       = "run --release --target riscv32imc-unknown-none-elf --features board-x4,wifi"
-check-x4     = "check --release --target riscv32imc-unknown-none-elf --features board-x4,wifi"
+build-c61    = "build --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi"
+run-c61      = "run --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi --bin pulp-os-c61"
+check-c61    = "check --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi"
+build-c61-gray-wp = "build --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper"
+run-c61-gray-wp = "run --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper --bin pulp-os-c61"
+check-c61-gray-wp = "check --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper"
+run-c61-gray = "run --release --target riscv32imac-unknown-none-elf --features gray-probe --bin pulp-os-c61-boot"
+run-c61-boot = "run --release --target riscv32imac-unknown-none-elf --bin pulp-os-c61-boot"
 
 # Host-side workspace testing
 test-all     = ["test", "--workspace", "--exclude", "pulp-os", "--exclude", "pulp-kernel", "--features", "pulp-fontpack/builder", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
@@ -27,10 +20,7 @@ test-tools   = ["test", "-p", "pulp-fontpack", "-p", "pulp-fontconv", "--feature
 test-harness = ["test", "-p", "board-harness", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
 host-preview = ["run", "--locked", "-p", "pulp-host", "--bin", "host-preview", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
 
-[target.riscv32imc-unknown-none-elf]
-runner = "espflash flash --monitor --chip esp32c3"
-
-# OnePage C61: scripts/run-c61.sh writes only the app into ota_0 (0x10000) and keeps
+# scripts/run-c61.sh writes only the app into ota_0 (0x10000) and keeps
 # the board's factory bootloader + partition table (`espflash flash` would replace
 # them with its bundled ESP-IDF v6.1 bootloader, with which the app panics on boot).
 # It builds the image for flash 40 MHz DIO / 16 MB (80 MHz causes image-hash boot
@@ -47,7 +37,7 @@ rustflags = [
   "-C", "force-frame-pointers",
 ]
 
-target = "riscv32imc-unknown-none-elf"
+target = "riscv32imac-unknown-none-elf"
 
 [unstable]
 build-std = ["alloc", "core"]

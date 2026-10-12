@@ -69,8 +69,8 @@ impl Key {
 
     /// Existing semantic action for this key (no new `Action`s).
     ///
-    /// Default table, from the BSP moui map (board_keys_moui.c:21-29) read
-    /// through the X4 `ButtonMapper` (UP/prev -> `Prev`, DOWN/next -> `Next`,
+    /// Default table, from the BSP moui map (board_keys_moui.c:21-29)
+    /// (UP/prev -> `Prev`, DOWN/next -> `Next`,
     /// LEFT/RIGHT -> `PrevJump`/`NextJump`, ENTER -> `Select`):
     ///
     /// | key   | action     |
@@ -83,9 +83,8 @@ impl Key {
     /// | RIGHT | NextJump   |
     /// | ENTER | Select     |
     ///
-    /// `swap` is the X4 left-handed layout (Back<->Left, Enter<->Right on the
-    /// front row). Side keys and WAKE never swap, like the X4 volume/power keys.
-    /// `Action::Menu` has no key on the C61 (X4 uses Power for it).
+    /// `swap` is the left-handed layout (Back<->Left, Enter<->Right on the
+    /// front row). Side keys and WAKE never swap.
     pub const fn action(self, swap: bool) -> Action {
         match (self, swap) {
             (Key::Wake, _) => Action::Back,
@@ -156,7 +155,7 @@ pub fn decode_front_ladder(mv: u16) -> Option<Key> {
 }
 
 /// GPIO keys; several down at once resolve by fixed priority WAKE > PREV > NEXT
-/// (the input path is single-key, like the X4 where Power wins over the ladder).
+/// (the input path is single-key, where Wake wins over the ladder).
 pub fn decode_gpio(wake_low: bool, prev_low: bool, next_low: bool) -> Option<Key> {
     if wake_low {
         Some(Key::Wake)
@@ -519,7 +518,7 @@ mod tests {
     fn r12_key_to_action_table_swapped_layout() {
         use Action::*;
         let got: Vec<(Key, Action)> = Key::ALL.iter().map(|k| (*k, k.action(true))).collect();
-        // X4 ButtonMapper swap: Back<->Left, Confirm<->Right; side keys fixed
+        // Left-handed swap: Back<->Left, Confirm<->Right; side keys fixed
         assert_eq!(
             got,
             vec![

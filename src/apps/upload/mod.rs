@@ -75,7 +75,7 @@ struct Scratch<'a> {
 
 // One zeroed block on the board's scratch placement, taken before the radio
 // starts so that running out of memory ends the session cleanly. The HR8
-// profile is tried first; if it is refused the small one (the X4 sizes) is
+// profile is tried first; if it is refused the small one (the HR2/degraded sizes) is
 // tried, and only when that fails too does the session end.
 struct ScratchBlock {
     block: DecoderScratch,
@@ -94,10 +94,7 @@ impl ScratchBlock {
     }
 
     fn new() -> Result<Self, ConnectError> {
-        #[cfg(feature = "board-onepage-c61")]
         let status = pulp_kernel::board_c61::memory::status();
-        #[cfg(not(feature = "board-onepage-c61"))]
-        let status = pulp_board_logic::memory::PsramStatus::NotInitialised;
 
         let (profile, block) = upload::acquire(status, |profile| {
             DecoderScratch::zeroed(BufClass::NetScratch, Self::layout(profile)).inspect_err(|_| {

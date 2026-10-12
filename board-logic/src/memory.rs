@@ -1,8 +1,7 @@
 // Memory placement policy and allocation budgets.
 //
 // The OnePage C61 has 320 KiB of HP SRAM ("internal") and 2 or 8 MiB PSRAM
-// mapped through the flash cache MMU ("external"). The X4 has internal RAM
-// only. This module holds everything that can be decided without a HAL, so the
+// mapped through the flash cache MMU ("external"). This module holds everything that can be decided without a HAL, so the
 // firmware and the host tests run the same code:
 //
 //   * the C61 address map the placement rules are written against;
@@ -162,8 +161,7 @@ const _: () = assert!(
 const _: () = assert!(PSRAM_LARGE_MIN_BYTES <= PSRAM_MAX_BYTES);
 
 /// Internal heap plan (what the `heap_allocator!` calls add up to): a
-/// main-RAM part and the bootloader-reclaimed dram2 part, like the X4's
-/// 110_592 + 64_000.
+/// main-RAM part and the bootloader-reclaimed dram2 part.
 ///
 /// `INTERNAL_HEAP_MAIN_BYTES` / `INTERNAL_HEAP_BYTES` are the offline build.
 /// The Wi-Fi build links the radio's static RAM (+68 KB on the C61), so it
@@ -190,8 +188,7 @@ pub const fn internal_heap_bytes(wifi: bool) -> usize {
 }
 
 /// Internal limits per class. `Dma`/`IsrData`/`Runtime` are internal-only;
-/// the other classes use degraded-mode limits (PSRAM unavailable): the X4
-/// runs the same reader inside a 172 KB heap, so these are X4-sized.
+/// the other classes use degraded-mode limits (PSRAM unavailable).
 pub const INTERNAL_DMA_BYTES: usize = 16 * KIB;
 pub const INTERNAL_ISR_BYTES: usize = 4 * KIB;
 pub const INTERNAL_RUNTIME_BYTES: usize = 32 * KIB;
@@ -205,7 +202,7 @@ pub const INTERNAL_DISPLAY_FRAME_BYTES: usize = 0;
 pub const INTERNAL_STORAGE_CACHE_BYTES: usize = 16 * KIB;
 
 /// Smallest main stack the image must keep after all statics (esp-hal's own
-/// link-time minimum is 8 KiB; the X4 firmware comments plan ~56 KB). The
+/// link-time minimum is 8 KiB). The
 /// stack is `_stack_start - _stack_end`, i.e. whatever internal RAM the
 /// statics leave over; esp-rtos runs the main (embassy) task on it.
 pub const STACK_MIN_BYTES: usize = 48 * 1024;
@@ -1014,7 +1011,7 @@ pub const INVENTORY: &[InventoryItem] = &[
     // --- internal, required ---
     item(
         "SPI DMA RX buffer",
-        "kernel/src/board_c61/spi.rs dma_rx_buffer!(4096); X4 board/mod.rs:213",
+        "kernel/src/board_c61/spi.rs dma_rx_buffer!(4096)",
         Static,
         4096,
         DmaBuffer,
@@ -1023,7 +1020,7 @@ pub const INVENTORY: &[InventoryItem] = &[
     ),
     item(
         "SPI DMA TX buffer",
-        "kernel/src/board_c61/spi.rs dma_tx_buffer!(4096); X4 board/mod.rs:214",
+        "kernel/src/board_c61/spi.rs dma_tx_buffer!(4096)",
         Static,
         4096,
         DmaBuffer,
@@ -1058,31 +1055,13 @@ pub const INVENTORY: &[InventoryItem] = &[
         "64,000 B in both profiles; global allocator, dram2_seg (.dram2_uninit), outside main static span",
     ),
     item(
-        "X4 main heap",
-        "src/bin/main.rs heap_allocator!(110_592)",
-        Static,
-        110_592,
-        Runtime,
-        Required,
-        "X4 only",
-    ),
-    item(
-        "X4 reclaimed heap",
-        "src/bin/main.rs heap_allocator!(#[ram(reclaimed)] 64_000)",
-        Static,
-        64_000,
-        Runtime,
-        Required,
-        "X4 only; dram2 on both chips",
-    ),
-    item(
         "embassy executor task arena",
         "src/bin/main_c61.rs __embassy_main POOL (final release ELF)",
         Static,
         14_688,
         Runtime,
         Required,
-        "measured C61 main-task POOL, offline and combined 14,688 B; X4 offline 12,864 B; internal, included in the ELF static span; other task pools are separate",
+        "measured C61 main-task POOL, offline and combined 14,688 B; internal, included in the ELF static span; other task pools are separate",
     ),
     item(
         "main stack (.stack)",
@@ -1123,7 +1102,7 @@ pub const INVENTORY: &[InventoryItem] = &[
     // --- internal, kept ---
     item(
         "StripBuffer STRIP",
-        "src/bin/main.rs STRIP (X4 nm: 4,014 B)",
+        "src/bin/main_c61.rs STRIP (4,014 B)",
         Static,
         4014,
         Runtime,
@@ -1137,7 +1116,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         14_144,
         Runtime,
         Keep,
-        "measured C61 static control/hot state, including the inline page text below; typed directory/page/ZIP/TOC backing is separate and must not be counted inside READER; X4 retains its inline metadata layout",
+        "measured C61 static control/hot state, including the inline page text below; typed directory/page/ZIP/TOC backing is separate and must not be counted inside READER",
     ),
     item(
         "page text buffer (in READER)",
@@ -1155,7 +1134,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         10_752,
         ZipToc,
         Candidate,
-        "C61 backing capacity: 128 x 84 B DirEntry = 10,752 B, lazy ZipToc typed allocation; measured DIR_CACHE static control is 36 B, separate from backing; X4 keeps inline array",
+        "C61 backing capacity: 128 x 84 B DirEntry = 10,752 B, lazy ZipToc typed allocation; measured DIR_CACHE static control is 36 B, separate from backing",
     ),
     // --- PSRAM candidates ---
     item(
@@ -1183,7 +1162,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         98_304,
         ChapterText,
         Candidate,
-        "largest reader allocation; read-mostly. This is the X4 / HR2 / degraded profile (current chapter only). A validated HR8 part keeps a previous/current/next ring instead: 3 x 256 KiB slots (RingConfig::HR8) inside its 1 MiB chapter class, leaving 256 KiB for the inflate window, strip buffers and prefetch",
+        "largest reader allocation; read-mostly. This is the HR2 / degraded profile (current chapter only). A validated HR8 part keeps a previous/current/next ring instead: 3 x 256 KiB slots (RingConfig::HR8) inside its 1 MiB chapter class, leaving 256 KiB for the inflate window, strip buffers and prefetch",
     ),
     item(
         "page prefetch Vec",
@@ -1210,7 +1189,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         4096 * 6,
         MemClass::PageTable,
         Candidate,
-        "HR8 capacity: 4,096 x (4+1+1) B = 24,576 B; C61 typed PageTable backing, outside READER. HR2/degraded/refused HR8 use 512 x 6 B = 3,072 B; X4 keeps those small arrays inline in its own READER",
+        "HR8 capacity: 4,096 x (4+1+1) B = 24,576 B; C61 typed PageTable backing, outside READER. HR2/degraded/refused HR8 use 512 x 6 B = 3,072 B",
     ),
     item(
         "ZIP entry index backing",
@@ -1219,7 +1198,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         512 * 20,
         ZipToc,
         Candidate,
-        "capacity estimate: HR8 up to 512 entries, HR2/degraded 256, at 20 B per entry on 32-bit targets; C61 TypedBuf<ZipEntry> charged to ZipToc, allocated for the actual parsed count, outside READER; X4 keeps 256 inline entries",
+        "capacity estimate: HR8 up to 512 entries, HR2/degraded 256, at 20 B per entry on 32-bit targets; C61 TypedBuf<ZipEntry> charged to ZipToc, allocated for the actual parsed count, outside READER",
     ),
     item(
         "ZIP name pool",
@@ -1228,7 +1207,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         65_535,
         ZipToc,
         Candidate,
-        "format cap: u16 offsets permit at most 65,535 B, not a preallocation; C61 BigBuf charged to ZipToc allocates the actual accepted names; X4 retains its global-heap pool",
+        "format cap: u16 offsets permit at most 65,535 B, not a preallocation; C61 BigBuf charged to ZipToc allocates the actual accepted names",
     ),
     item(
         "EPUB TOC",
@@ -1237,7 +1216,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         512 * 52,
         ZipToc,
         Candidate,
-        "backing capacity: HR8 512 x 52 B = 26,624 B; HR2/degraded 256 x 52 B = 13,312 B. C61 class-accounted ZipToc typed backing, outside READER; X4 retains Box<EpubToc>; control bytes are separate",
+        "backing capacity: HR8 512 x 52 B = 26,624 B; HR2/degraded 256 x 52 B = 13,312 B. C61 class-accounted ZipToc typed backing, outside READER; control bytes are separate",
     ),
     item(
         "central directory buffer",
@@ -1255,7 +1234,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         12_032,
         MemClass::NetScratch,
         Candidate,
-        "one block per Wi-Fi session, taken before the radio starts; Wi-Fi builds only. Small profile (X4, degraded, HR2, refused HR8 block); an HR8 part takes 43,264 B (rx 16 KiB, tx 4 KiB, work 16 KiB) from its larger class, see upload::NetProfile",
+        "one block per Wi-Fi session, taken before the radio starts; Wi-Fi builds only. Small profile (degraded, HR2, refused HR8 block); an HR8 part takes 43,264 B (rx 16 KiB, tx 4 KiB, work 16 KiB) from its larger class, see upload::NetProfile",
     ),
     item(
         "decoded page image",
@@ -1273,7 +1252,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         384 * KIB,
         ImageData,
         Candidate,
-        "HR8 only (disabled on X4, HR2, degraded): up to 8 decoded page images of at most 64 KiB, 384 KiB in all, charged to the image class next to the decoder scratch",
+        "HR8 only (disabled on HR2, degraded): up to 8 decoded page images of at most 64 KiB, 384 KiB in all, charged to the image class next to the decoder scratch",
     ),
     item(
         "PNG decode dictionary",

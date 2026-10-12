@@ -89,12 +89,9 @@ pub fn new(spi: EpdSpiDevice, dc: GPIO8<'static>, busy: GPIO29<'static>) -> Epd 
     })
 }
 
-/// Display failure as the kernel-wide error type. The X4 display path has no
-/// error reporting at all (every EPD call is infallible and bus errors are
-/// dropped), so there is no existing display error screen to reuse:
-/// `ErrorKind` has no display variant (it is shared with X4 and left alone), so
-/// this is `ErrorKind::Other` with the failure text as the source tag
-/// (`Display` prints "error [display busy timeout]").
+/// Display failure as the kernel-wide error type.
+/// EPD calls wrap DisplayError as `ErrorKind::Other` with the failure text as
+/// the source tag (`Display` prints "error [display busy timeout]").
 pub fn display_error(e: DisplayError) -> Error {
     Error::new(ErrorKind::Other, e.as_str())
 }

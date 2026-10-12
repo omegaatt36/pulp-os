@@ -1,24 +1,16 @@
 // Debounce / long-press / repeat state machine for single-key input.
 //
-// Extracted from the X4 `kernel/src/drivers/input.rs` so that the OnePage C61
-// and the X4 run the same code. The X4 driver is now a thin wrapper that
-// supplies `RawSource` (ADC ladders + power button); its event stream is locked
-// by the board-harness `x4_input_trace` test (real input.rs compiled on the
-// host and compared byte-for-byte with the committed pre-extraction golden).
-// The logic is deliberately a
-// line-for-line move: same comparison operators (`>=`), same hold-timer
-// restart when the raw reading deviates from the stable key, same event queue,
-// same order of operations (raw is read only when the queue is empty, and the
-// clock is read after the raw sample).
+// Comparison operators (`>=`), hold-timer restart when the raw reading
+// deviates from the stable key, event queue, and operation ordering
+// (raw is read only when the queue is empty, and the clock is read after the raw sample).
 //
-// Time is microseconds from any monotonic clock, so X4's `Instant` stays exact
-// (no millisecond truncation).
+// Time is microseconds from any monotonic clock (no millisecond truncation).
 
-/// Raw input must stay unchanged this long before it counts (ms). X4 value.
+/// Raw input must stay unchanged this long before it counts (ms).
 pub const DEBOUNCE_MS: u64 = 15;
-/// Holding a key this long produces `LongPress` (ms). X4 value.
+/// Holding a key this long produces `LongPress` (ms).
 pub const LONG_PRESS_MS: u64 = 1000;
-/// After a long press, `Repeat` is produced at this interval (ms). X4 value.
+/// After a long press, `Repeat` is produced at this interval (ms).
 pub const REPEAT_MS: u64 = 150;
 /// ADC samples averaged per reading.
 pub const ADC_OVERSAMPLE: u32 = 4;
@@ -47,12 +39,12 @@ impl InputTiming {
         }
     }
 
-    /// The constants both boards use (the existing X4 behavior).
+    /// Standard input timing constants.
     pub const PULP: Self = Self::from_ms(DEBOUNCE_MS, LONG_PRESS_MS, REPEAT_MS);
 }
 
-/// Hardware side of one poll. `read_raw` is called first, then `now_us`
-/// (X4 order); neither is called when an event is still queued.
+/// Hardware side of one poll. `read_raw` is called first, then `now_us`;
+/// neither is called when an event is still queued.
 pub trait RawSource<K> {
     /// The single key currently down, already prioritised by the board.
     fn read_raw(&mut self) -> Option<K>;

@@ -31,7 +31,7 @@ use crate::source_id::{Fnv64, SourceId};
 // ---------------------------------------------------------------------------
 // capacity
 
-/// Pages of the small profile: X4, HR2, degraded builds and an HR8 whose
+/// Pages of the small profile: HR2, degraded builds and an HR8 whose
 /// larger table was refused.
 pub const SMALL_PAGES: usize = 512;
 /// Pages of the HR8 profile (6 B per page: 24 KiB of the page-table class).

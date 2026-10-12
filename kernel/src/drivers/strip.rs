@@ -3,9 +3,8 @@
 // widgets draw to logical coords, clipped here
 //
 // The byte/bit layout, rotation math, blits and fills live in
-// pulp_board_logic::strip::StripCore (host-tested, shared with the OnePage C61
-// image). This file only adds the embedded-graphics DrawTarget glue and the
-// `ui::Region` view, so X4 behavior is the same code that the host tests cover.
+// pulp_board_logic::strip::StripCore (host-tested). This file only adds
+// the embedded-graphics DrawTarget glue and the `ui::Region` view.
 
 use core::ops::{Deref, DerefMut};
 
