@@ -489,6 +489,7 @@ impl ReaderApp {
             &mut self.epub.spine,
         )
         .map_err(|_| Error::new(ErrorKind::ParseFailed, "epub_init_opf: OPF parse"))?;
+        self.set_vertical(self.epub.meta.vertical);
 
         // defer TOC to NeedToc to avoid stack overflow while OPF is live
         self.epub.toc_source = epub::find_toc_source(&opf_data, opf_dir, &self.epub.zip);

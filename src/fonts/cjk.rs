@@ -793,6 +793,9 @@ pub struct CjkState {
     metric_budget: usize,
     slot_budget: usize,
     bitmap_budget: usize,
+    // columns instead of lines: the vertical presentation forms of the window's
+    // scalars are staged and prepared with them (see `fonts::vertical`)
+    vertical: bool,
 }
 impl CjkState {
     pub const fn new() -> Self {
@@ -811,6 +814,7 @@ impl CjkState {
             metric_budget: METRIC_BUDGET,
             slot_budget: SLOT_BUDGET,
             bitmap_budget: BITMAP_BUDGET,
+            vertical: false,
         }
     }
     /// Auxiliary visible labels have smaller, independent allocation ceilings
@@ -831,6 +835,7 @@ impl CjkState {
             metric_budget: AUX_METRIC_BUDGET,
             slot_budget: AUX_SLOT_BUDGET,
             bitmap_budget: AUX_BITMAP_BUDGET,
+            vertical: false,
         }
     }
     pub fn clear(&mut self) {
@@ -841,6 +846,11 @@ impl CjkState {
         self.body = None;
         self.heading = None;
         self.ready = false;
+    }
+    /// Set text in columns. Survives `clear`: it is the book's writing mode,
+    /// not prepared data.
+    pub fn set_vertical(&mut self, vertical: bool) {
+        self.vertical = vertical;
     }
     pub fn set_ram_index(&mut self, enabled: bool) {
         self.ram_index = enabled;
@@ -936,12 +946,26 @@ impl CjkState {
         }
         let mut collection = Ok(());
         let mut any = false;
+        let vertical = self.vertical;
         scan_at(text, initial_flags, |at, ch, sty| {
             if at < prefix {
                 if collection.is_ok() && needs(latin, ch, sty) {
                     any = true;
-                    let key = (pixel_size(sty, body_px, heading_px), ch);
-                    collection = note(&mut self.metrics, self.metric_budget, key, &mut self.note);
+                    let px = pixel_size(sty, body_px, heading_px);
+                    collection = note(
+                        &mut self.metrics,
+                        self.metric_budget,
+                        (px, ch),
+                        &mut self.note,
+                    );
+                    if let Some(form) = vertical_form(vertical, ch).filter(|_| collection.is_ok()) {
+                        collection = note(
+                            &mut self.metrics,
+                            self.metric_budget,
+                            (px, form),
+                            &mut self.note,
+                        );
+                    }
                 }
                 true
             } else if any {
@@ -1058,12 +1082,18 @@ impl CjkState {
         heading_px: u16,
     ) -> Result<()> {
         let mut valid = true;
+        let vertical = self.vertical;
         scan(text, initial_flags, |ch, sty| {
             if needs(latin, ch, sty) {
-                let key = (pixel_size(sty, body_px, heading_px), ch);
-                match self.metrics.binary_search_by_key(&key, Entry::key) {
-                    Ok(i) if self.metrics[i].needed() => self.metrics[i].word |= VISIBLE,
-                    _ => valid = false,
+                let px = pixel_size(sty, body_px, heading_px);
+                for c in [Some(ch), vertical_form(vertical, ch)]
+                    .into_iter()
+                    .flatten()
+                {
+                    match self.metrics.binary_search_by_key(&(px, c), Entry::key) {
+                        Ok(i) if self.metrics[i].needed() => self.metrics[i].word |= VISIBLE,
+                        _ => valid = false,
+                    }
                 }
             }
         });
@@ -1243,6 +1273,7 @@ impl CjkState {
             state: self,
             body_px,
             heading_px,
+            vertical: self.vertical,
         }
     }
     pub fn get(&self, px: u16, ch: char) -> Option<Glyph<'_>> {
@@ -1255,6 +1286,13 @@ impl CjkState {
             .find(|(size, _)| *size == px)?
             .1
             .get(ch)
+    }
+    /// Whether the pack of size `px` has a glyph for `ch`, as far as staging
+    /// looked it up. `get` cannot tell: it answers a missing glyph's box.
+    fn found(&self, px: u16, ch: char) -> bool {
+        self.metrics
+            .binary_search_by_key(&(px, ch), Entry::key)
+            .is_ok_and(|i| self.metrics[i].has(FOUND))
     }
     /// Whether the staged window holds a scalar that needs a fallback glyph.
     pub fn has_fallback(&self) -> bool {
@@ -1276,6 +1314,7 @@ pub struct LayoutFonts<'a> {
     state: &'a CjkState,
     body_px: u16,
     heading_px: u16,
+    vertical: bool,
 }
 pub type PreparedFonts<'a> = LayoutFonts<'a>;
 impl LayoutFonts<'_> {
@@ -1293,6 +1332,9 @@ impl LayoutFonts<'_> {
         self.state.has_fallback()
     }
     pub fn advance(&self, ch: char, sty: Style) -> u16 {
+        if self.vertical {
+            return self.vertical_advance(ch, sty);
+        }
         if !needs(self.latin, ch, sty) {
             return if super::font_data::HAS_REGULAR {
                 self.latin.advance(ch, sty).into()
@@ -1312,6 +1354,118 @@ impl LayoutFonts<'_> {
             })
             .unwrap_or_else(|| missing_glyph_metrics(&fallback_info(key.0)))
             .advance
+    }
+
+    pub fn vertical(&self) -> bool {
+        self.vertical
+    }
+    /// Advance along a column. Everything the pack supplies is one em, and so
+    /// are the dashes and ellipsis of the Latin set (turned into an em cell);
+    /// other Latin-set scalars are turned sideways on their own advance.
+    fn vertical_advance(&self, ch: char, sty: Style) -> u16 {
+        if needs(self.latin, ch, sty) || super::vertical::presentation_form(ch).is_some() {
+            return pixel_size(sty, self.body_px, self.heading_px);
+        }
+        if super::font_data::HAS_REGULAR {
+            self.latin.advance(ch, sty).into()
+        } else {
+            9
+        }
+    }
+    /// Set `ch` in a column whose centre line is `center_x`, with its em box
+    /// starting at `top`. Returns the advance down the column, the same
+    /// `advance` gave the layout.
+    pub fn draw_vertical_char(
+        &self,
+        s: &mut StripBuffer,
+        ch: char,
+        sty: Style,
+        center_x: i32,
+        top: i32,
+    ) -> u16 {
+        use super::vertical::{Setting, em_ascent, presentation_form, setting, turned_origin};
+        let px = pixel_size(sty, self.body_px, self.heading_px);
+        let left = center_x - i32::from(px) / 2;
+        let ascent = em_ascent(px);
+        if !needs(self.latin, ch, sty) {
+            // Latin set: turned on its own advance, or into an em cell for the
+            // dashes and ellipsis
+            let advance = self.vertical_advance(ch, sty);
+            if super::font_data::HAS_REGULAR {
+                let r = self.latin.font(sty).resolve(ch);
+                let g = r.glyph;
+                let (gx, gy) = turned_origin(
+                    left,
+                    top,
+                    px,
+                    i32::from(g.offset_x),
+                    i32::from(g.offset_y),
+                    i32::from(g.height),
+                );
+                s.blit_1bpp_cw90(
+                    r.bitmaps,
+                    g.bitmap_offset as usize,
+                    g.width.into(),
+                    g.height.into(),
+                    usize::from(g.width).div_ceil(8),
+                    gx,
+                    gy,
+                    true,
+                );
+            }
+            return advance;
+        }
+        let form = presentation_form(ch)
+            .filter(|&f| self.state.found(px, f))
+            .and_then(|f| self.state.get(px, f));
+        let (glyph, turn) = match (form, setting(ch)) {
+            (Some(form), _) => (Some(form), false),
+            (None, Setting::Form { turn_if_absent, .. }) => {
+                (self.state.get(px, ch), turn_if_absent)
+            }
+            (None, Setting::Turned) => (self.state.get(px, ch), true),
+            (None, Setting::Upright) => (self.state.get(px, ch), false),
+        };
+        let Some(g) = glyph else {
+            draw_missing_box(s, px, BinaryColor::On, left, top + ascent);
+            return px;
+        };
+        let m = g.metrics;
+        let stride = usize::from(m.width).div_ceil(8);
+        if turn {
+            let (gx, gy) = turned_origin(
+                left,
+                top,
+                px,
+                m.offset_x.into(),
+                m.offset_y.into(),
+                m.height.into(),
+            );
+            s.blit_1bpp_cw90(
+                g.bitmap,
+                0,
+                m.width.into(),
+                m.height.into(),
+                stride,
+                gx,
+                gy,
+                true,
+            );
+        } else {
+            // the advance box, not the em box, is centred on the column
+            let x = left + (i32::from(px) - i32::from(m.advance)) / 2;
+            s.blit_1bpp(
+                g.bitmap,
+                0,
+                m.width.into(),
+                m.height.into(),
+                stride,
+                x + i32::from(m.offset_x),
+                top + ascent + i32::from(m.offset_y),
+                true,
+            );
+        }
+        px
     }
 
     pub fn draw_char(
@@ -1354,20 +1508,7 @@ impl LayoutFonts<'_> {
         }
         let px = pixel_size(sty, self.body_px, self.heading_px);
         let Some(g) = self.state.get(px, ch) else {
-            // An invariant failure remains drawable without reaching a source.
-            // Preparation validates visible keys before the reader publishes Ready.
-            use embedded_graphics::{
-                prelude::*,
-                primitives::{PrimitiveStyle, Rectangle},
-            };
-            let m = missing_glyph_metrics(&fallback_info(px));
-            let _ = Rectangle::new(
-                Point::new(x + i32::from(m.offset_x), baseline + i32::from(m.offset_y)),
-                Size::new(m.width.into(), m.height.into()),
-            )
-            .into_styled(PrimitiveStyle::with_stroke(fg, 1))
-            .draw(s);
-            return m.advance;
+            return draw_missing_box(s, px, fg, x, baseline);
         };
         let m = g.metrics;
         s.blit_1bpp(
@@ -1381,6 +1522,30 @@ impl LayoutFonts<'_> {
             fg == BinaryColor::On,
         );
         m.advance
+    }
+}
+// An invariant failure remains drawable without reaching a source.
+// Preparation validates visible keys before the reader publishes Ready.
+fn draw_missing_box(s: &mut StripBuffer, px: u16, fg: BinaryColor, x: i32, baseline: i32) -> u16 {
+    use embedded_graphics::{
+        prelude::*,
+        primitives::{PrimitiveStyle, Rectangle},
+    };
+    let m = missing_glyph_metrics(&fallback_info(px));
+    let _ = Rectangle::new(
+        Point::new(x + i32::from(m.offset_x), baseline + i32::from(m.offset_y)),
+        Size::new(m.width.into(), m.height.into()),
+    )
+    .into_styled(PrimitiveStyle::with_stroke(fg, 1))
+    .draw(s);
+    m.advance
+}
+// the presentation form staged beside `ch` when text is set in columns
+fn vertical_form(vertical: bool, ch: char) -> Option<char> {
+    if vertical {
+        super::vertical::presentation_form(ch)
+    } else {
+        None
     }
 }
 fn fallback_info(pixel_size: u16) -> pulp_fontpack::FontInfo {

@@ -6,6 +6,7 @@
 
 pub mod bitmap;
 pub mod cjk;
+pub mod vertical;
 
 #[allow(clippy::all)]
 pub mod font_data {

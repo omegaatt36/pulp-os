@@ -46,6 +46,7 @@ impl ReaderApp {
             text_area_h: self.text_area_h,
             line_h: self.font_line_h,
             max_lines: self.max_lines,
+            vertical: self.vertical,
         })
     }
 
@@ -193,14 +194,20 @@ impl ReaderApp {
                 );
                 let carried = view.has_fallback() || initial_flags & CARRIED_FALLBACK != 0;
                 let mut examined = 0;
+                let line_len = self.line_len_px();
                 let laid_out = wrap_proportional(
                     &self.pg.buf,
                     n,
                     &view,
                     &mut self.pg.lines,
                     self.max_lines as usize,
-                    self.text_w,
-                    inline_img_max_h(self.text_area_h),
+                    line_len,
+                    // columns carry no images yet: 0 skips their references
+                    if self.vertical {
+                        0
+                    } else {
+                        inline_img_max_h(self.text_area_h)
+                    },
                     if carried { initial_flags } else { 0 },
                     if carried { initial_indent } else { 0 },
                     at_eof,
@@ -917,6 +924,10 @@ pub(super) fn wrap_proportional(
                 let path_len = buf[i + 2] as usize;
                 let path_start = i + 3;
                 if path_start + path_len <= n && path_len > 0 {
+                    if img_h == 0 {
+                        i = path_start + path_len;
+                        continue;
+                    }
                     if line_start < i {
                         emit!(line_start, i);
                         if line_count >= max_l {

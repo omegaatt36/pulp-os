@@ -70,6 +70,26 @@ task acceptance               # Full CI pipeline (multi-image build, verify, fmt
 
 ---
 
+## Vertical Writing
+
+An EPUB whose spine declares `page-progression-direction="rtl"` and whose `dc:language` is Chinese, Japanese or Korean is set in vertical columns: top to bottom, columns right to left. Everything else stays horizontal.
+
+- **CJK ideographs, kana, fullwidth forms:** upright, one em per step down the column.
+- **Brackets, dashes, ellipsis, stops:** the pack's vertical presentation form (`U+FE10..FE48`) when it has one. Otherwise brackets and dashes are the horizontal glyph turned a quarter clockwise; `，、。：；` stay upright.
+- **Latin text and digits:** turned a quarter clockwise, on their own advance.
+- **Not yet:** images (references are skipped), ruby, tate-chu-yoko, emphasis marks.
+
+Render pages from the real reader without hardware:
+
+```sh
+cargo run -p pulp-host --bin vertical-preview --target host-tuple \
+  --config 'unstable.build-std=["std","test"]' -- OUT_DIR PACK_DIR [FONT_IDX [PAGES]]
+```
+
+`PACK_DIR` holds the `F000nn.PFN` packs from `pulp-fontconv`; `pulp-fontconv pbm-to-png OUT_DIR` converts the PBMs to PNG.
+
+---
+
 ## Local Date and FAT Timestamps
 
 The device has no battery-backed calendar clock. The firmware records the source of its local date:

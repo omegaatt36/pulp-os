@@ -81,6 +81,7 @@ fn key() -> LayoutKey {
         text_area_h: 440,
         line_h: 22,
         max_lines: 20,
+        vertical: false,
     }
 }
 
@@ -226,6 +227,13 @@ fn every_key_field_invalidates() {
             "lines per page",
             LayoutKey {
                 max_lines: 19,
+                ..key()
+            },
+        ),
+        (
+            "writing mode",
+            LayoutKey {
+                vertical: true,
                 ..key()
             },
         ),

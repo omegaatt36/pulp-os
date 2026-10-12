@@ -74,6 +74,7 @@ impl ReaderApp {
             text_area_h: self.text_area_h,
             line_h: self.font_line_h,
             max_lines: self.max_lines,
+            vertical: self.vertical,
         })
     }
 
@@ -190,6 +191,7 @@ impl ReaderApp {
             text_area_h: want.text_area_h,
             line_h: want.line_h,
             max_lines: want.max_lines,
+            vertical: want.vertical,
         });
         self.pg.index_counts.loaded = self.pg.index_counts.loaded.saturating_add(1);
         log::info!(

@@ -37,7 +37,11 @@ fn u32le(out: &mut Vec<u8>, n: u32) {
 /// Glyph metrics: advance px+1, bearing (0,-3), width 8, height 3.
 /// The optional wide glyph proves the integration cannot narrow advance to u8.
 pub fn pack(px: u16, wide: bool) -> Vec<u8> {
-    let chars = alphabet();
+    pack_of(px, wide, alphabet())
+}
+
+/// `pack` over any sorted, distinct alphabet.
+pub fn pack_of(px: u16, wide: bool, chars: Vec<char>) -> Vec<u8> {
     let n = chars.len() as u32;
     let base = 44 + 22 * n;
     let region = 3 * n;

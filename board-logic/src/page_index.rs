@@ -105,7 +105,7 @@ const FLAG_COMPLETE: u16 = 1;
 
 /// Bytes of one page entry: offset (u32), style flags (u8), indent (u8).
 pub const ENTRY_BYTES: usize = 6;
-pub const KEY_BYTES: usize = 50;
+pub const KEY_BYTES: usize = 51;
 
 /// `LayoutKey::banks` bits: the layout used the body / heading fallback pack
 /// (bits 0, 1) and that pack was installed (bits 2, 3).
@@ -145,6 +145,9 @@ pub struct LayoutKey {
     pub text_area_h: u16,
     pub line_h: u16,
     pub max_lines: u8,
+    /// Set in columns (vertical writing): the lines are columns of the same
+    /// text, so the geometry above means something else.
+    pub vertical: bool,
 }
 
 impl LayoutKey {
@@ -168,6 +171,7 @@ impl LayoutKey {
         put(&self.text_area_h.to_le_bytes());
         put(&self.line_h.to_le_bytes());
         put(&[self.max_lines]);
+        put(&[self.vertical as u8]);
         debug_assert_eq!(at, KEY_BYTES);
     }
 }

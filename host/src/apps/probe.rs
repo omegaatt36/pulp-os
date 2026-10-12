@@ -59,6 +59,10 @@ pub fn offsets(a: &ReaderApp) -> Vec<u32> {
     a.pg.offsets[..a.pg.total_pages].to_vec()
 }
 
+pub fn vertical(a: &ReaderApp) -> bool {
+    a.vertical
+}
+
 pub fn max_lines(a: &ReaderApp) -> usize {
     a.max_lines as usize
 }

@@ -329,6 +329,11 @@ impl Rig {
         probe::lines(&self.app)
     }
 
+    // the open book is set in columns
+    pub fn vertical(&self) -> bool {
+        probe::vertical(&self.app)
+    }
+
     pub fn max_lines(&self) -> usize {
         probe::max_lines(&self.app)
     }

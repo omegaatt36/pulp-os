@@ -42,7 +42,7 @@ use pulp_board_logic::image_lru::{ImageLru, LruConfig};
 use pulp_board_logic::source_id::SourceId;
 use smol_epub::cache;
 use smol_epub::epub::{self, EpubMeta, EpubSpine, TocSource};
-use smol_epub::html_strip::MARKER;
+use smol_epub::html_strip::{IMG_REF, MARKER};
 use smol_epub::zip;
 
 struct DecoderScratch(crate::kernel::bigbuf::DecoderScratch);
@@ -527,6 +527,7 @@ pub(super) struct LayoutIdentity {
     text_area_h: u16,
     line_h: u16,
     max_lines: u8,
+    vertical: bool,
 }
 
 // Where a CJK preparation paused between slices (fonts::cjk::SLICE_US) resumes:
@@ -604,6 +605,9 @@ pub struct ReaderApp {
     pub(super) font_line_h: u16,
     pub(super) font_ascent: u16,
     pub(super) max_lines: u8,
+    // set in columns, top to bottom and right to left (vertical writing); a
+    // line of the page is then a column, `line_len_px` tall
+    pub(super) vertical: bool,
 
     // reading theme: runtime layout derived from READING_THEMES
     pub(super) text_margin: u16, // horizontal margin for text content (from theme)
@@ -665,6 +669,7 @@ impl ReaderApp {
             font_line_h: LINE_H,
             font_ascent: LINE_H,
             max_lines: LINES_PER_PAGE as u8,
+            vertical: false,
 
             text_margin: MARGIN,
             text_y: TEXT_Y,
@@ -683,6 +688,81 @@ impl ReaderApp {
 
             qa_buf: [QuickAction::trigger(0, "", ""); QA_MAX],
             qa_count: 0,
+        }
+    }
+
+    // The page as columns: the first line of the page is the rightmost
+    // column and the grid of `max_lines` columns is centred in the text width.
+    // A strip is about 40 px of page width, so most columns lie outside it.
+    fn draw_columns(&self, strip: &mut StripBuffer, fonts: &fonts::cjk::LayoutFonts<'_>) {
+        // glyphs of a larger style (headings) hang over their column
+        const OVERHANG: i32 = 16;
+        let pitch = i32::from(self.font_line_h);
+        let grid_w = pitch * i32::from(self.max_lines);
+        let right = i32::from(self.text_margin) + (self.text_w as i32 + grid_w) / 2;
+        let window = strip.logical_window();
+        let (win_left, win_right) = (
+            i32::from(window.x) - OVERHANG,
+            i32::from(window.x) + i32::from(window.w) + OVERHANG,
+        );
+        for i in 0..self.pg.line_count {
+            let span = &self.pg.lines[i];
+            let col_right = right - pitch * i as i32;
+            if col_right <= win_left || col_right - pitch >= win_right {
+                continue;
+            }
+            let center = col_right - pitch / 2;
+            let start = span.start as usize;
+            let line = &self.pg.buf[start..start + span.len as usize];
+            let mut y = i32::from(self.text_y) + INDENT_PX as i32 * i32::from(span.indent);
+            let mut styles = fonts::StyleState::from_flags(span.flags);
+            let mut j = 0usize;
+            while j < line.len() {
+                let b = line[j];
+                if b == MARKER && j + 1 < line.len() {
+                    // an image reference (wrapping skipped it): marker, length, path
+                    if line[j + 1] == IMG_REF && j + 2 < line.len() {
+                        j += 3 + line[j + 2] as usize;
+                        continue;
+                    }
+                    styles.apply_marker(line[j + 1]);
+                    j += 2;
+                    continue;
+                }
+                if b >= 0x80 {
+                    let (ch, seq_len) = decode_utf8_char(line, j);
+                    y += i32::from(fonts.draw_vertical_char(strip, ch, styles.style(), center, y));
+                    j += seq_len;
+                    continue;
+                }
+                if b >= bitmap::FIRST_CHAR {
+                    y += i32::from(fonts.draw_vertical_char(
+                        strip,
+                        b as char,
+                        styles.style(),
+                        center,
+                        y,
+                    ));
+                }
+                j += 1;
+            }
+        }
+    }
+
+    // Writing mode of the open book. Changes what a page holds, so it is set
+    // before the first page is laid out (book open) or followed by a re-layout.
+    pub fn set_vertical(&mut self, vertical: bool) {
+        self.vertical = vertical;
+        self.cjk.set_vertical(vertical);
+        self.apply_font_metrics();
+    }
+
+    // length of a line in px: what the wrapping fills before it breaks
+    pub(super) fn line_len_px(&self) -> u32 {
+        if self.vertical {
+            u32::from(self.text_area_h)
+        } else {
+            self.text_w
         }
     }
 
@@ -1200,8 +1280,14 @@ impl ReaderApp {
             // apply line spacing: scale native line height by theme percentage
             self.font_line_h = ((native_h as u32 * spacing_pct as u32) / 100).max(1) as u16;
             self.font_ascent = fs.ascent(fonts::Style::Regular);
-            self.max_lines =
-                ((self.text_area_h / self.font_line_h) as usize).min(LINES_PER_PAGE) as u8;
+            // a line is as long as the text is wide, a column as the text is
+            // tall; the other axis holds as many of them as fit
+            let lines = if self.vertical {
+                self.text_w / u32::from(self.font_line_h)
+            } else {
+                u32::from(self.text_area_h / self.font_line_h)
+            };
+            self.max_lines = (lines as usize).min(LINES_PER_PAGE) as u8;
             log::info!(
                 "font: size_idx={} line_h={} (native {} x {}%) ascent={} max_lines={} margin={}",
                 self.book_font_size_idx,
@@ -1515,6 +1601,8 @@ impl App<AppId> for ReaderApp {
         self.is_epub = epub::is_epub_filename(self.name());
         self.rebuild_quick_actions();
         self.apply_theme_layout();
+        // horizontal until the package says otherwise
+        self.set_vertical(false);
         self.reset_paging();
         self.paused = Paused::NONE;
         // a new open starts with an empty working set under the profile the
@@ -2135,6 +2223,8 @@ impl App<AppId> for ReaderApp {
                         true,
                     );
                 }
+            } else if self.vertical {
+                self.draw_columns(strip, &prepared);
             } else {
                 let mut img_rendered = false;
                 for i in 0..self.pg.line_count {
