@@ -236,6 +236,16 @@ impl<'k> KernelHandle<'k> {
         uptime_secs()
     }
 
+    /// Current local date and provenance. `FatMtime` is an offline estimate.
+    pub fn current_datetime(
+        &self,
+    ) -> Option<(
+        pulp_board_logic::calendar::DateTime,
+        pulp_board_logic::calendar::Source,
+    )> {
+        self.kernel.sd.current_datetime()
+    }
+
     #[inline]
     pub fn sd_ok(&self) -> bool {
         self.kernel.sd_ok

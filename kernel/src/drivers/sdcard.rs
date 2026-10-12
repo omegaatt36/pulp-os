@@ -16,7 +16,7 @@ use core::task::{Context, Poll, Waker};
 use core::sync::atomic::{AtomicBool, Ordering};
 use embedded_sdmmc::{
     AsyncBlockDevice, AsyncVolumeManager, Block, BlockCount, BlockDevice, BlockIdx, RawDirectory,
-    RawFile, RawVolume, SdCard, TimeSource, Timestamp, VolumeIdx,
+    RawFile, RawVolume, SdCard, VolumeIdx,
 };
 use log::info;
 use pulp_board_logic::sd_cache::{
@@ -138,22 +138,8 @@ impl<D: BlockDevice> AsyncBlockDevice for BlockDeviceAdapter<D> {
     }
 }
 
-// no RTC on this board
-
-pub(crate) struct NullTimeSource;
-
-impl TimeSource for NullTimeSource {
-    fn get_timestamp(&self) -> Timestamp {
-        Timestamp {
-            year_since_1970: 0,
-            zero_indexed_month: 0,
-            zero_indexed_day: 0,
-            hours: 0,
-            minutes: 0,
-            seconds: 0,
-        }
-    }
-}
+use crate::drivers::datetime::{self, LocalTimeSource};
+use pulp_board_logic::calendar::{DateTime, Source};
 
 // type aliases
 
@@ -163,7 +149,7 @@ pub(crate) type SdBlockDev = BlockDeviceAdapter<SyncSdCard>;
 // the transient handles of one operation need up to 3 more. 8 files: up to
 // `HELD_SLOTS` held read-only files plus the one an operation opens itself
 pub(crate) const OPEN_FILES: usize = 8;
-pub(crate) type VolMgr = AsyncVolumeManager<SdBlockDev, NullTimeSource, 6, OPEN_FILES, 1>;
+pub(crate) type VolMgr = AsyncVolumeManager<SdBlockDev, LocalTimeSource, 6, OPEN_FILES, 1>;
 pub(crate) type StorageBorrow<'a> = CloseBorrow<'a, SdStorageInner, OPEN_FILES>;
 pub(crate) type WriterHandle<'a> = CloseToken<'a, SdStorageInner, OPEN_FILES>;
 
@@ -271,7 +257,7 @@ impl SdStorage {
     pub async fn mount(sd: SyncSdCard) -> Self {
         let adapter = BlockDeviceAdapter::new(sd);
         // the limits of `VolMgr`; 5000 is the id offset `AsyncVolumeManager::new` uses
-        let mut mgr: VolMgr = AsyncVolumeManager::new_with_limits(adapter, NullTimeSource, 5000);
+        let mut mgr: VolMgr = AsyncVolumeManager::new_with_limits(adapter, LocalTimeSource, 5000);
 
         let vol = match mgr.open_raw_volume(VolumeIdx(0)).await {
             Ok(v) => v,
@@ -290,7 +276,45 @@ impl SdStorage {
             }
         };
 
-        info!("SD card: filesystem mounted");
+        // Scan before any firmware writes. Only a complete scan contributes
+        // a seed; an unreadable directory must not produce a partial result.
+        let mut newest = None;
+        match mgr
+            .iterate_dir(root, |entry| {
+                if !entry.attributes.is_volume()
+                    && newest.is_none_or(|timestamp| entry.mtime > timestamp)
+                {
+                    // Ignore malformed calendar fields before comparing entries.
+                    let t = entry.mtime;
+                    if DateTime::new(
+                        u16::from(t.year_since_1970) + 1970,
+                        t.zero_indexed_month.saturating_add(1),
+                        t.zero_indexed_day.saturating_add(1),
+                        t.hours,
+                        t.minutes,
+                        t.seconds,
+                    )
+                    .is_some()
+                    {
+                        newest = Some(t);
+                    }
+                }
+                core::ops::ControlFlow::Continue(())
+            })
+            .await
+        {
+            Ok(()) => {
+                if let Some(timestamp) = newest {
+                    datetime::observe_mtime(timestamp);
+                }
+            }
+            Err(e) => info!("SD card: date scan failed: {}", e),
+        }
+
+        info!(
+            "SD card: filesystem mounted; date {:?}",
+            datetime::current()
+        );
         Self {
             inner: Some(CloseCell::new(SdStorageInner {
                 mgr,
@@ -305,6 +329,16 @@ impl SdStorage {
     #[inline]
     pub fn probe_ok(&self) -> bool {
         self.inner.is_some()
+    }
+
+    /// Local date and its source; FAT metadata supplies only an estimate.
+    pub fn current_datetime(&self) -> Option<(DateTime, Source)> {
+        datetime::current()
+    }
+
+    /// Calibrate from the upload browser's local calendar time.
+    pub fn set_local_time(&self, date: DateTime) {
+        datetime::calibrate(date);
     }
 
     /// Sector read cache counters (C61 with the cache enabled); `None` without a mounted volume, with the cache off, or while a storage

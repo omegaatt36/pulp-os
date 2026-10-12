@@ -77,6 +77,12 @@
             #status.ok {
                 color: #2a2;
             }
+            #time-status {
+                font-size: 0.8em;
+                color: #666;
+                margin-bottom: 12px;
+            }
+            #time-status.err { color: #c33; }
             table {
                 width: 100%;
                 border-collapse: collapse;
@@ -128,6 +134,7 @@
         <input type="file" id="fin" multiple onchange="upload(this.files)" />
         <div id="bar"><div id="fill"></div></div>
         <div id="status"></div>
+        <div id="time-status" role="status"></div>
 
         <table>
             <thead>
@@ -149,7 +156,9 @@
                 st = D.getElementById("status"),
                 empty = D.getElementById("empty"),
                 queue = [],
-                busy = 0;
+                busy = 0,
+                timeReady = false,
+                timeStatus = D.getElementById("time-status");
 
             function s(msg, cls) {
                 st.textContent = msg;
@@ -248,7 +257,7 @@
             }
 
             function pump() {
-                if (busy || !queue.length) return;
+                if (!timeReady || busy || !queue.length) return;
                 busy = 1;
                 var f = queue.shift(),
                     rest = queue.length,
@@ -304,6 +313,29 @@
                 x.send(fd);
             }
 
+            function calibrateTime() {
+                var now = new Date();
+                function pad(n) { return (n < 10 ? "0" : "") + n; }
+                var local = now.getFullYear() + "-" + pad(now.getMonth() + 1) +
+                    "-" + pad(now.getDate()) + "T" + pad(now.getHours()) +
+                    ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+                var x = new XMLHttpRequest();
+                x.open("POST", "/time");
+                x.timeout = 5000;
+                x.setRequestHeader("Content-Type", "text/plain");
+                function finish(ok) {
+                    timeStatus.textContent = ok ? "Device time set from this browser" :
+                        "Device time could not be set";
+                    timeStatus.className = ok ? "" : "err";
+                    timeReady = true;
+                    if (queue.length) pump();
+                    else load();
+                }
+                x.onload = function () { finish(x.status === 200); };
+                x.onerror = x.ontimeout = function () { finish(false); };
+                x.send(local);
+            }
+
             // drag and drop
             drop.ondragover = drop.ondragenter = function (e) {
                 e.preventDefault();
@@ -320,9 +352,9 @@
             };
 
             // wait for page to fully load so the GET / TCP connection is
-            // closed and the single-connection server can accept /files
+            // closed and the single-connection server can accept /time
             window.onload = function () {
-                load();
+                calibrateTime();
             };
         </script>
     </body>

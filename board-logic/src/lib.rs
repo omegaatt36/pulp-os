@@ -8,6 +8,7 @@
 
 pub mod action;
 pub mod battery;
+pub mod calendar;
 pub mod chapter_ring;
 pub mod font_index;
 pub mod gray;

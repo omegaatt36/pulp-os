@@ -70,6 +70,27 @@ task acceptance               # Full CI pipeline (multi-image build, verify, fmt
 
 ---
 
+## Local Date and FAT Timestamps
+
+The device has no battery-backed calendar clock. The firmware records the source of its local date:
+
+- **Unknown:** No usable date exists. The date API returns `None`, and FAT writes use the 1980-01-01 epoch.
+- **FatMtime:** The latest valid modification time in the SD root directory supplies an estimate. Older timestamps cannot move this estimate backward.
+- **Browser:** The Wi-Fi upload page sets the local date from the browser clock before file uploads start.
+
+The firmware advances the date with its monotonic uptime clock. New FAT files and file modifications use this date, with two-second FAT precision.
+FAT timestamps contain no timezone. Browser calibration uses local time, and its accuracy depends on the computer clock.
+
+Open the Wi-Fi upload page to set the date. The page reports whether calibration succeeds.
+The calibration endpoint accepts `POST /time` with a 19-byte body in `YYYY-MM-DDTHH:MM:SS` format and `Content-Length: 19`.
+Invalid dates return HTTP 400 and preserve the current date.
+
+After a reset or deep sleep, browser calibration is lost. The next SD mount supplies an estimate again.
+SD metadata cannot establish today's date or account for elapsed time while the device is off.
+Apps can read the date and its source through `KernelHandle::current_datetime()`.
+
+---
+
 ## Architecture Highlights
 
 - **Kernel / App Split**: Clean abstraction separation. The kernel provides drivers, async scheduling, storage, bookmarks, and font rasterization. Apps never touch raw hardware.

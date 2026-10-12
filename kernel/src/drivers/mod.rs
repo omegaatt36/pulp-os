@@ -4,6 +4,7 @@
 // state machines are shared through pulp_board_logic. The thin modules below
 // give the scheduler, tasks and apps the `drivers::input::Event` /
 // `drivers::battery::*` names.
+pub(crate) mod datetime;
 pub mod dir_entry;
 pub mod sdcard;
 pub mod storage;

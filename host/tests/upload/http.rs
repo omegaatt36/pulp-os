@@ -19,6 +19,7 @@ use std::time::Duration as StdDuration;
 
 use embassy_futures::block_on;
 use embedded_io_async::{ErrorKind as IoErrorKind, ErrorType, Read, Write};
+use pulp_board_logic::calendar::DateTime;
 use pulp_board_logic::upload::NetProfile;
 use pulp_host::ErrorKind;
 use pulp_host::apps::upload_http::{HttpScratch, ServerEvent, serve_request};
@@ -140,6 +141,7 @@ struct Scenario {
     injections: Vec<(StorageOp, String, usize, ErrorKind)>,
     watch: Vec<String>,
     host_dir: bool,
+    local_time: Option<DateTime>,
 }
 
 impl Scenario {
@@ -155,6 +157,7 @@ impl Scenario {
             injections: Vec::new(),
             watch: Vec::new(),
             host_dir: false,
+            local_time: None,
         }
     }
 
@@ -209,6 +212,7 @@ impl Scenario {
 }
 
 struct Outcome {
+    local_time: Option<DateTime>,
     response: Vec<u8>,
     event: ServerEvent,
     flushes: usize,
@@ -315,6 +319,9 @@ fn run_inner(s: Scenario) -> Outcome {
         VirtualStorage::memory_with(&seeds)
     };
     let mut sd = SdStorage::new(card);
+    if let Some(date) = s.local_time {
+        sd.set_local_time(date);
+    }
     for (op, name, nth, kind) in &s.injections {
         sd.card.inject_error(*op, name, *nth, *kind);
     }
@@ -347,6 +354,7 @@ fn run_inner(s: Scenario) -> Outcome {
         let _ = std::fs::remove_dir_all(&sandbox);
     }
     Outcome {
+        local_time: sd.local_time(),
         response: sock.out,
         event,
         flushes: sock.flushes,
@@ -1569,6 +1577,78 @@ fn delete_failures_are_reported_and_change_nothing() {
             if label.contains("prefix") {
                 assert_eq!(out.file("BOO"), Some(&b"x"[..]), "{ctx}: BOO changed");
             }
+        }
+    }
+}
+
+#[test]
+fn browser_time_accepts_fragmented_local_timestamp() {
+    let body = b"2026-10-12T18:47:09";
+    let req = http_post("/time", Some("text/plain"), body.len(), body);
+    for slice in [1, 7, WHOLE] {
+        let out = run(Scenario::new(req.clone())
+            .slice(slice)
+            .seed("KEEP.TXT", b"unchanged"));
+        assert_200(&out, None, b"OK", "time calibration");
+        assert_eq!(
+            out.local_time,
+            Some(DateTime {
+                year: 2026,
+                month: 10,
+                day: 12,
+                hour: 18,
+                minute: 47,
+                second: 9
+            })
+        );
+        assert_eq!(out.event, ServerEvent::Nothing);
+        assert_unchanged(&out, &[("KEEP.TXT", b"unchanged")], "time calibration");
+    }
+}
+
+#[test]
+fn browser_time_rejects_invalid_or_truncated_body() {
+    let good = b"2026-10-12T18:47:09";
+    let mut requests = vec![
+        http_post("/time", Some("text/plain"), 19, b"2026-02-30T18:47:09"),
+        http_post("/time", Some("text/plain"), 19, b"2026-10-12T25:47:09"),
+        http_post("/time", Some("text/plain"), 19, b"2026-10-12T18:47"),
+        http_post("/time", Some("text/plain"), 18, good),
+        http_post("/time", Some("text/plain"), 20, good),
+        b"POST /time HTTP/1.0\r\n\r\n2026-10-12T18:47:09".to_vec(),
+        b"POST /time HTTP/1.0\r\nContent-Length: 19oops\r\n\r\n2026-10-12T18:47:09".to_vec(),
+        b"POST /time HTTP/1.0\r\nContent-Length: 19\r\nContent-Length: 19\r\n\r\n2026-10-12T18:47:09".to_vec(),
+    ];
+    requests.push(http_post(
+        "/time",
+        Some("text/plain"),
+        19,
+        b"2026/10/12T18:47:09",
+    ));
+    for req in requests {
+        for slice in [1, 7, WHOLE] {
+            let previous = DateTime {
+                year: 2025,
+                month: 1,
+                day: 2,
+                hour: 3,
+                minute: 4,
+                second: 5,
+            };
+            let mut scenario = Scenario::new(req.clone())
+                .slice(slice)
+                .end(End::Zero)
+                .seed("KEEP.TXT", b"unchanged");
+            scenario.local_time = Some(previous);
+            let out = run(scenario);
+            assert_eq!(out.local_time, Some(previous));
+            assert!(
+                out.response.starts_with(b"HTTP/1.0 400 Bad Request\r\n"),
+                "{:?}",
+                out.response
+            );
+            assert_eq!(out.event, ServerEvent::Nothing);
+            assert_unchanged(&out, &[("KEEP.TXT", b"unchanged")], "bad time calibration");
         }
     }
 }

@@ -1,9 +1,10 @@
-// HTTP layer of the upload app: GET / and /files, POST /upload and /delete
+// HTTP layer of the upload app: GET / and /files, POST /upload, /delete and /time
 // over any async byte stream. No networking or hardware types here; the
 // caller owns accept, timeouts and closing the connection.
 
 use embassy_futures::yield_now;
 use embedded_io_async::{Read, Write};
+use pulp_board_logic::calendar::DateTime;
 use pulp_board_logic::upload::{
     FLUSH_SLICE_BYTES, HTTP_FIXED_MAX_BYTES, MIN_WORK_BYTES, sector_aligned,
 };
@@ -20,6 +21,8 @@ const HTTP_200_TEXT: &[u8] =
     b"HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n";
 const HTTP_500_TEXT: &[u8] =
     b"HTTP/1.0 500 Internal Server Error\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n";
+const HTTP_400_TEXT: &[u8] =
+    b"HTTP/1.0 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n";
 const HTTP_404: &[u8] = b"HTTP/1.0 404 Not Found\r\nConnection: close\r\n\r\nNot Found";
 const HTTP_431: &[u8] = b"HTTP/1.0 431 Headers Too Large\r\n\r\n";
 
@@ -162,6 +165,36 @@ where
             let _ = socket.write_all(&json_buf[..pos]).await;
         }
         let _ = socket.write_all(b"]").await;
+        let _ = socket.flush().await;
+        return ServerEvent::Nothing;
+    }
+
+    if is_post && path == b"/time" {
+        // Browser sends local wall time, matching FAT's timezone-free calendar.
+        // Read only this fixed body, including bytes received with the headers.
+        let mut body = [0u8; 19];
+        if time_content_length(headers) != Some(body.len()) || initial_body.len() > body.len() {
+            send_bad_time(socket).await;
+            return ServerEvent::Nothing;
+        }
+        let mut have = initial_body.len();
+        body[..have].copy_from_slice(initial_body);
+        while have < body.len() {
+            match socket.read(&mut body[have..]).await {
+                Ok(n) if n > 0 => have += n,
+                _ => {
+                    send_bad_time(socket).await;
+                    return ServerEvent::Nothing;
+                }
+            }
+        }
+        let Some(date) = DateTime::parse_local(&body) else {
+            send_bad_time(socket).await;
+            return ServerEvent::Nothing;
+        };
+        sd.set_local_time(date);
+        let _ = socket.write_all(HTTP_200_TEXT).await;
+        let _ = socket.write_all(b"OK").await;
         let _ = socket.flush().await;
         return ServerEvent::Nothing;
     }
@@ -613,5 +646,49 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 async fn send_error_response<S: Write>(socket: &mut S, msg: &str) {
     let _ = socket.write_all(HTTP_500_TEXT).await;
     let _ = socket.write_all(msg.as_bytes()).await;
+    let _ = socket.flush().await;
+}
+
+// Require a complete decimal field and reject ambiguous duplicate lengths.
+fn time_content_length(headers: &[u8]) -> Option<usize> {
+    let mut value = None;
+    for line in headers.split(|&b| b == b'\n') {
+        let line = line.strip_suffix(b"\r").unwrap_or(line);
+        let Some(colon) = line.iter().position(|&b| b == b':') else {
+            continue;
+        };
+        if !line[..colon].eq_ignore_ascii_case(b"content-length") {
+            continue;
+        }
+        if value.is_some() {
+            return None;
+        }
+        let mut digits = &line[colon + 1..];
+        while digits.first().is_some_and(|b| matches!(b, b' ' | b'\t')) {
+            digits = &digits[1..];
+        }
+        while digits.last().is_some_and(|b| matches!(b, b' ' | b'\t')) {
+            digits = &digits[..digits.len() - 1];
+        }
+        if digits.is_empty() {
+            return None;
+        }
+        let mut length = 0usize;
+        for &digit in digits {
+            if !digit.is_ascii_digit() {
+                return None;
+            }
+            length = length
+                .checked_mul(10)?
+                .checked_add((digit - b'0') as usize)?;
+        }
+        value = Some(length);
+    }
+    value
+}
+
+async fn send_bad_time<S: Write>(socket: &mut S) {
+    let _ = socket.write_all(HTTP_400_TEXT).await;
+    let _ = socket.write_all(b"Invalid local time").await;
     let _ = socket.flush().await;
 }
