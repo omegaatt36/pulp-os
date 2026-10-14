@@ -70,6 +70,17 @@ task acceptance               # Full CI pipeline (multi-image build, verify, fmt
 
 ---
 
+## Reading Progress
+
+Reading positions are kept for the 16 most recently saved books in `_PULP/BKMK.BIN`.
+Saving a book again moves it to the front of recent reading lists. When all slots are occupied, the oldest position is replaced.
+The ordering survives a reboot and generation-counter exhaustion without changing the bookmark file format.
+
+File writes, appends, and positioned writes report success only after the file closes successfully, including FAT metadata flush.
+If writing or seeking fails, that original error is preserved even if closing also fails.
+
+---
+
 ## Vertical Writing
 
 An EPUB whose spine declares `page-progression-direction="rtl"` and whose `dc:language` is Chinese, Japanese or Korean is set in vertical columns: top to bottom, columns right to left. Everything else stays horizontal.
@@ -88,6 +99,25 @@ cargo run -p pulp-host --bin vertical-preview --target host-tuple \
 ```
 
 `PACK_DIR` holds the `F000nn.PFN` packs from `pulp-fontconv`; `pulp-fontconv pbm-to-png OUT_DIR` converts the PBMs to PNG.
+
+---
+
+## EPUB Streaming Limits
+
+Text chapters use bounded streaming rather than the 192 KiB in-memory extraction limit:
+
+| Resource | Limit |
+|---|---|
+| Compressed chapter | 16 MiB |
+| Decompressed chapter | 8 MiB |
+| Stripped text per chapter | 8 MiB |
+| Chapters in the text cache | 256 |
+| Book text-cache file, including header and chapter table | 64 MiB |
+| Streaming time per chapter | 120 seconds |
+
+Stored entries must declare matching compressed and decompressed sizes.
+DEFLATE streams must produce exactly their declared decompressed size; excess output is rejected before it reaches the text stripper.
+An interrupted or failed chapter is never marked cached, and incomplete caches are regenerated when the book is reopened.
 
 ---
 
@@ -114,6 +144,11 @@ An existing file remains protected by the create-only upload policy.
 
 The server limits each read, write, and flush wait to 30 seconds.
 The total request limit is 600 seconds after the server accepts the connection.
+
+The browser serializes time calibration, listing, uploads, and deletion through one request queue.
+It waits 100 ms between requests so the single-connection server can finish closing the previous connection.
+It refreshes the file list after a batch finishes. List and time requests wait up to 5 seconds, deletion up to 35 seconds, and an upload up to 610 seconds.
+Only failed file-list reads are retried automatically. Reconnecting cancels work from the previous browser session, and late callbacks from that session are ignored.
 
 ---
 

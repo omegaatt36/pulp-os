@@ -34,6 +34,7 @@ embedded-io-async = "0.7"
 miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
 
 [dev-dependencies]
+embedded-sdmmc.workspace = true
 fontdue = "0.9"
 
 [build-dependencies]

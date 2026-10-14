@@ -14,6 +14,10 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::html_strip::HtmlStripStream;
+pub use crate::stream_limits::{
+    MAX_COMPRESSED_CHAPTER_SIZE, MAX_DECOMPRESSED_CHAPTER_SIZE, MAX_STRIPPED_CHAPTER_SIZE,
+};
+use crate::stream_limits::{advance, decompressed_next, read_count, validate_entry, written_next};
 use crate::zip::{METHOD_DEFLATE, METHOD_STORED, ZipEntry, ZipIndex};
 
 const CACHE_MAGIC: u32 = 0x504C_5043; // "PLPC"
@@ -502,6 +506,11 @@ pub fn parse_cache_meta(
 /// `read_fn(offset, buf)` reads raw bytes from the underlying store.
 /// `output_fn(chunk)` receives stripped plain-text output incrementally.
 ///
+/// Enforces [`MAX_COMPRESSED_CHAPTER_SIZE`], [`MAX_DECOMPRESSED_CHAPTER_SIZE`],
+/// and [`MAX_STRIPPED_CHAPTER_SIZE`]. Decompressed sizes must match the entry's
+/// declaration exactly. Checks the compressed range with one final-byte read
+/// before allocating inflate scratch; callbacks need not expose file length.
+///
 /// Returns the total number of bytes written through `output_fn`.
 /// Peak temporary memory ≈ 47 KB (decompressor + sliding window + strip
 /// buffers).
@@ -511,11 +520,32 @@ pub fn stream_strip_entry<E>(
     mut read_fn: impl FnMut(u32, &mut [u8]) -> Result<usize, E>,
     mut output_fn: impl FnMut(&[u8]) -> Result<(), &'static str>,
 ) -> Result<u32, &'static str> {
-    // skip local file header to reach entry data
+    validate_entry(entry)?;
+    // Validate the complete compressed range before allocating inflate scratch.
+    advance(local_offset, 30)?;
     let mut header = [0u8; 30];
-    read_fn(local_offset, &mut header).map_err(|_| "cache: read local header failed")?;
+    let mut pos = 0;
+    while pos < header.len() {
+        let n = read_fn(advance(local_offset, pos)?, &mut header[pos..])
+            .map_err(|_| "cache: read local header failed")?;
+        read_count(n, header.len() - pos)?;
+        if n == 0 {
+            return Err("cache: truncated local header");
+        }
+        pos += n;
+    }
     let skip = ZipIndex::local_header_data_skip(&header)?;
-    let data_offset = local_offset + skip;
+    let data_offset = advance(local_offset, skip as usize)?;
+    let data_end = advance(data_offset, entry.comp_size as usize)?;
+    // The callback has no source-size API; probe the last declared byte so a
+    // short compressed range is rejected even if DEFLATE finishes early.
+    if data_end > 0 {
+        let mut last = [0];
+        if read_fn(data_end - 1, &mut last).map_err(|_| "cache: compressed range unreadable")? != 1
+        {
+            return Err("cache: compressed range out of bounds");
+        }
+    }
 
     match entry.method {
         METHOD_STORED => stream_stored(entry, data_offset, &mut read_fn, &mut output_fn),
@@ -550,8 +580,11 @@ fn stream_stored<E>(
         if n == 0 {
             return Err("cache: unexpected EOF in stored entry");
         }
-        file_pos += n as u32;
-        remaining -= n as u32;
+        read_count(n, want)?;
+        file_pos = advance(file_pos, n)?;
+        remaining = remaining
+            .checked_sub(n as u32)
+            .ok_or("cache: byte count overflow")?;
 
         feed_and_flush(
             &mut stripper,
@@ -567,8 +600,9 @@ fn stream_stored<E>(
     let trailing = stripper.finish(&mut strip_buf[strip_pos..]);
     strip_pos += trailing;
     if strip_pos > 0 {
+        let next = written_next(total_written, strip_pos)?;
         output_fn(&strip_buf[..strip_pos])?;
-        total_written += strip_pos as u32;
+        total_written = next;
     }
 
     Ok(total_written)
@@ -624,6 +658,7 @@ fn stream_deflate<E>(
     let mut file_pos = data_offset;
     let mut comp_left = comp_size;
     let mut out_pos: usize = 0; // write position in circular window
+    let mut total_decompressed = 0;
 
     loop {
         // top up read buffer
@@ -632,9 +667,14 @@ fn stream_deflate<E>(
             let want = space.min(comp_left);
             match read_fn(file_pos, &mut rbuf[in_avail..in_avail + want]) {
                 Ok(n) if n > 0 => {
-                    file_pos += n as u32;
-                    comp_left -= n;
-                    in_avail += n;
+                    read_count(n, want)?;
+                    file_pos = advance(file_pos, n)?;
+                    comp_left = comp_left
+                        .checked_sub(n)
+                        .ok_or("cache: byte count overflow")?;
+                    in_avail = in_avail
+                        .checked_add(n)
+                        .ok_or("cache: byte count overflow")?;
                 }
                 Ok(_) => {
                     comp_left = 0;
@@ -658,16 +698,16 @@ fn stream_deflate<E>(
         let (status, consumed, produced) =
             decompress(&mut decomp, &rbuf[..in_avail], &mut window, out_pos, flags);
 
+        // Reject excess decompressed bytes before the stripper sees this chunk.
+        total_decompressed = decompressed_next(total_decompressed, produced, uncomp_size)?;
+        let end = old_out_pos
+            .checked_add(produced)
+            .ok_or("cache: byte count overflow")?;
+        if end > WINDOW_SIZE || consumed > in_avail {
+            return Err("cache: invalid decompressor count");
+        }
         // feed new output to HTML stripper; always contiguous within window
         if produced > 0 {
-            let end = old_out_pos + produced;
-            debug_assert!(
-                end <= WINDOW_SIZE,
-                "deflate produced past window boundary: {} > {}",
-                end,
-                WINDOW_SIZE
-            );
-
             feed_and_flush(
                 &mut stripper,
                 &window[old_out_pos..end],
@@ -678,7 +718,7 @@ fn stream_deflate<E>(
             )?;
         }
 
-        out_pos += produced;
+        out_pos = end;
 
         if consumed > 0 && consumed < in_avail {
             rbuf.copy_within(consumed..in_avail, 0);
@@ -686,7 +726,12 @@ fn stream_deflate<E>(
         in_avail -= consumed;
 
         match status {
-            TINFLStatus::Done => break,
+            TINFLStatus::Done => {
+                if total_decompressed != uncomp_size {
+                    return Err("cache: decompressed size mismatch");
+                }
+                break;
+            }
 
             TINFLStatus::HasMoreOutput => {
                 // window full; reset write pos, data stays for back-references
@@ -709,8 +754,9 @@ fn stream_deflate<E>(
     let trailing = stripper.finish(&mut strip_buf[strip_pos..]);
     strip_pos += trailing;
     if strip_pos > 0 {
+        let next = written_next(total_written, strip_pos)?;
         output_fn(&strip_buf[..strip_pos])?;
-        total_written += strip_pos as u32;
+        total_written = next;
     }
 
     Ok(total_written)
@@ -782,8 +828,9 @@ fn feed_and_flush(
         let avail_out = STRIP_BUF_SIZE - *strip_pos;
         if avail_out == 0 {
             // output buffer full; flush before continuing
+            let next = written_next(*total_written, *strip_pos)?;
             output_fn(&strip_buf[..*strip_pos])?;
-            *total_written += *strip_pos as u32;
+            *total_written = next;
             *strip_pos = 0;
             continue;
         }
@@ -798,8 +845,9 @@ fn feed_and_flush(
         if consumed == 0 && written == 0 {
             // no progress: flush pending data, or skip byte to break deadlock
             if *strip_pos > 0 {
+                let next = written_next(*total_written, *strip_pos)?;
                 output_fn(&strip_buf[..*strip_pos])?;
-                *total_written += *strip_pos as u32;
+                *total_written = next;
                 *strip_pos = 0;
             } else {
                 ip += 1;
@@ -809,8 +857,9 @@ fn feed_and_flush(
 
         // flush when buffer is sufficiently full
         if *strip_pos >= FLUSH_THRESHOLD {
+            let next = written_next(*total_written, *strip_pos)?;
             output_fn(&strip_buf[..*strip_pos])?;
-            *total_written += *strip_pos as u32;
+            *total_written = next;
             *strip_pos = 0;
         }
     }

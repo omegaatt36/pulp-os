@@ -86,6 +86,7 @@ pub mod scratch;
 pub mod xml;
 pub mod zip;
 
+mod stream_limits;
 mod utf8;
 
 #[cfg(feature = "images")]

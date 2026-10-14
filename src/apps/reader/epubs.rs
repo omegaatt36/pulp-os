@@ -6,6 +6,9 @@
 // impl ReaderApp (epub_init_opf, epub_index_chapter, bg_cache_step).
 
 use core::cell::RefCell;
+use core::future::Future;
+
+use embassy_time::{Duration, with_timeout};
 
 use smol_epub::cache;
 use smol_epub::epub;
@@ -23,7 +26,63 @@ use super::{BgCacheState, EOCD_TAIL, EpubState, PAGE_BUF, ReaderApp, WARM_CHUNK,
 // stream_strip_entry_async never borrows both simultaneously
 struct CellReader<'a, 'k>(&'a RefCell<&'a mut KernelHandle<'k>>, &'a str);
 // CellWriter appends to a flat cache file in _PULP/ (v3 format)
-struct CellWriter<'a, 'k>(&'a RefCell<&'a mut KernelHandle<'k>>, &'a str);
+struct CellWriter<'a, 'k> {
+    kernel: &'a RefCell<&'a mut KernelHandle<'k>>,
+    name: &'a str,
+    size: u32,
+}
+
+// Includes the v3 header and chapter table, as well as chapter text.
+const MAX_TEXT_CACHE_SIZE: u32 = 64 * 1024 * 1024;
+const CHAPTER_STREAM_TIMEOUT: Duration = Duration::from_secs(120);
+
+fn cache_append_end(size: u32, bytes: usize) -> Result<u32, &'static str> {
+    let end = size
+        .checked_add(u32::try_from(bytes).map_err(|_| "cache: byte count overflow")?)
+        .ok_or("cache: byte count overflow")?;
+    if end > MAX_TEXT_CACHE_SIZE {
+        return Err("cache: book text cache too large");
+    }
+    Ok(end)
+}
+
+fn validate_text_cache(
+    file_size: u32,
+    data_offset: u32,
+    chapters: &[(u32, u32)],
+) -> Result<(), &'static str> {
+    cache_append_end(file_size, 0)?;
+    if file_size < data_offset {
+        return Err("cache: chapter table truncated");
+    }
+    for (i, &(offset, size)) in chapters.iter().enumerate() {
+        if size > cache::MAX_STRIPPED_CHAPTER_SIZE || offset < data_offset {
+            return Err("cache: invalid chapter range");
+        }
+        let end = cache_append_end(offset, size as usize)?;
+        if end > file_size {
+            return Err("cache: chapter range out of bounds");
+        }
+        // Completed chapters cannot share text ranges. Zero-length chapters
+        // occupy no bytes and may have the same offset as their neighbor.
+        for &(other_offset, other_size) in &chapters[..i] {
+            let other_end = cache_append_end(other_offset, other_size as usize)?;
+            if size != 0 && other_size != 0 && offset < other_end && other_offset < end {
+                return Err("cache: overlapping chapter ranges");
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn chapter_with_deadline<F>(limit: Duration, stream: F) -> Result<u32, &'static str>
+where
+    F: Future<Output = Result<u32, &'static str>>,
+{
+    with_timeout(limit, stream)
+        .await
+        .map_err(|_| "cache: chapter streaming timed out")?
+}
 
 impl smol_epub::async_io::AsyncReadAt for CellReader<'_, '_> {
     async fn read_at(&mut self, offset: u32, buf: &mut [u8]) -> Result<usize, &'static str> {
@@ -36,10 +95,13 @@ impl smol_epub::async_io::AsyncReadAt for CellReader<'_, '_> {
 
 impl smol_epub::async_io::AsyncWriteChunk for CellWriter<'_, '_> {
     async fn write_chunk(&mut self, data: &[u8]) -> Result<(), &'static str> {
-        self.0
+        let next = cache_append_end(self.size, data.len())?;
+        self.kernel
             .borrow_mut()
-            .append_cache(self.1, data)
-            .map_err(|e: Error| -> &'static str { e.into() })
+            .append_cache(self.name, data)
+            .map_err(|e: Error| -> &'static str { e.into() })?;
+        self.size = next;
+        Ok(())
     }
 }
 
@@ -110,9 +172,19 @@ impl EpubState {
         k: &mut KernelHandle<'_>,
         scratch: &mut [u8],
     ) -> crate::error::Result<bool> {
+        // Every check must establish validity afresh, including when called
+        // again after a cache hit on the same state.
+        self.chapters_cached = false;
+        self.cache_started = false;
+        self.ch_cached.fill(false);
+        self.chapter_table.fill((0, 0));
+        if self.spine.len() > self.chapter_table.len() {
+            return Err(Error::from("cache: too many chapters"));
+        }
         let cf = self.cache_file;
         let cf_str = cache::cache_filename_str(&cf);
 
+        let file_size = k.cache_file_size(cf_str).ok();
         // try reading v3 header
         let hdr_cap = cache::HEADER_SIZE.min(scratch.len());
         if let Ok(n) = k.read_cache_chunk(cf_str, 0, &mut scratch[..hdr_cap])
@@ -128,6 +200,7 @@ impl EpubState {
                     self.spine.len(),
                 )
                 .is_ok()
+                    && hdr.chapter_count as usize <= self.chapter_table.len()
                     && cache::validate_v3_source(&hdr, self.source.raw()).is_ok()
                     && hdr.chapters_complete()
                 {
@@ -146,6 +219,14 @@ impl EpubState {
                                 &mut self.chapter_table,
                             )
                             .is_ok()
+                                && file_size.is_some_and(|size| {
+                                    validate_text_cache(
+                                        size,
+                                        hdr.data_offset(),
+                                        &self.chapter_table[..count],
+                                    )
+                                    .is_ok()
+                                })
                             {
                                 self.chapters_cached = true;
                                 self.cache_started = true;
@@ -165,6 +246,8 @@ impl EpubState {
             }
         }
 
+        // A parsed table may have failed validation; never retain its ranges.
+        self.chapter_table.fill((0, 0));
         log::info!("epub: building v3 cache for {} chapters", self.spine.len());
         // ensure image subdir exists (images stay in _PULP/_XXXXXXX/)
         let dir_buf = self.cache_dir;
@@ -185,6 +268,21 @@ impl EpubState {
         let cf_str = cache::cache_filename_str(&cf);
         let spine_len = self.spine.len();
 
+        if spine_len > self.chapter_table.len() || spine_len > self.ch_cached.len() {
+            return Err(Error::from("cache: too many chapters"));
+        }
+        if !self.cache_started || !self.ch_cached[..spine_len].iter().all(|&cached| cached) {
+            return Err(Error::from("cache: chapters incomplete"));
+        }
+        let data_offset =
+            cache::HEADER_SIZE as u32 + (spine_len * cache::CHAPTER_ENTRY_SIZE) as u32;
+        validate_text_cache(
+            k.cache_file_size(cf_str)?,
+            data_offset,
+            &self.chapter_table[..spine_len],
+        )
+        .map_err(Error::from)?;
+
         // build v3 header with chapters_complete flag
         let mut hdr = cache::CacheHeader::empty();
         hdr.version = cache::CACHE_V3;
@@ -203,8 +301,7 @@ impl EpubState {
 
         let mut hdr_buf = [0u8; cache::HEADER_SIZE];
         cache::encode_v3_header(&hdr, &mut hdr_buf);
-        k.write_cache_at(cf_str, 0, &hdr_buf)?;
-
+        // Write the table before publishing the completion flag.
         // write chapter table
         let tbl_size = spine_len * cache::CHAPTER_ENTRY_SIZE;
         // encode in chunks to avoid large stack buffers
@@ -215,6 +312,7 @@ impl EpubState {
             k.write_cache_at(cf_str, offset, &tbl_buf[..cache::CHAPTER_ENTRY_SIZE])?;
         }
         let _ = tbl_size; // used for clarity above
+        k.write_cache_at(cf_str, 0, &hdr_buf)?;
 
         self.chapters_cached = true;
         log::info!("epub: v3 cache complete ({} chapters)", spine_len);
@@ -229,6 +327,20 @@ impl EpubState {
         ch: usize,
         epub_name: &str,
     ) -> crate::error::Result<()> {
+        self.cache_chapter_with_deadline(k, ch, epub_name, CHAPTER_STREAM_TIMEOUT)
+            .await
+    }
+
+    async fn cache_chapter_with_deadline(
+        &mut self,
+        k: &mut KernelHandle<'_>,
+        ch: usize,
+        epub_name: &str,
+        limit: Duration,
+    ) -> crate::error::Result<()> {
+        if self.spine.len() > self.chapter_table.len() || self.spine.len() > self.ch_cached.len() {
+            return Err(Error::from("cache: too many chapters"));
+        }
         if ch >= self.spine.len() || self.ch_cached[ch] {
             return Ok(());
         }
@@ -254,6 +366,7 @@ impl EpubState {
             hdr.name_hash = self.name_hash;
             hdr.source_id = self.source.raw();
             cache::encode_v3_header(&hdr, &mut init_buf);
+            let mut cache_size = cache_append_end(0, init_buf.len()).map_err(Error::from)?;
             k.write_cache(cf_str, &init_buf)?;
             // pad with zeroes for the chapter table
             let tbl_size = spine_len * cache::CHAPTER_ENTRY_SIZE;
@@ -261,7 +374,9 @@ impl EpubState {
             let mut remaining = tbl_size;
             while remaining > 0 {
                 let chunk = remaining.min(zeros.len());
+                let next = cache_append_end(cache_size, chunk).map_err(Error::from)?;
                 k.append_cache(cf_str, &zeros[..chunk])?;
+                cache_size = next;
                 remaining -= chunk;
             }
             self.cache_started = true;
@@ -269,19 +384,26 @@ impl EpubState {
 
         // record the offset where this chapter's data starts
         let ch_offset = k.cache_file_size(cf_str)?;
-        self.chapter_table[ch].0 = ch_offset;
+        cache_append_end(ch_offset, 0).map_err(Error::from)?;
 
         let k_cell = RefCell::new(&mut *k);
 
         let mut reader = CellReader(&k_cell, epub_name);
-        let mut writer = CellWriter(&k_cell, cf_str);
+        let mut writer = CellWriter {
+            kernel: &k_cell,
+            name: cf_str,
+            size: ch_offset,
+        };
 
-        let text_size = smol_epub::async_io::stream_strip_entry_async_with_scratch(
-            &entry,
-            entry.local_offset,
-            &mut reader,
-            &mut writer,
-            |layout| super::allocate_decoder_scratch(BufClass::ChapterText, layout),
+        let text_size = chapter_with_deadline(
+            limit,
+            smol_epub::async_io::stream_strip_entry_async_with_scratch(
+                &entry,
+                entry.local_offset,
+                &mut reader,
+                &mut writer,
+                |layout| super::allocate_decoder_scratch(BufClass::ChapterText, layout),
+            ),
         )
         .await
         .map_err(|msg| Error::from(msg).with_source("cache_chapter_async: stream"))?;
@@ -651,5 +773,305 @@ impl ReaderApp {
             },
             BgCacheState::Idle => {}
         }
+    }
+}
+
+#[cfg(all(test, not(target_os = "none")))]
+mod limit_tests {
+    use super::*;
+    use crate::drivers::sdcard::SdStorage;
+    use crate::kernel::Kernel;
+    use crate::storage::{StorageOp, VirtualStorage};
+    use smol_epub::async_io::AsyncWriteChunk;
+    use smol_epub::zip::{METHOD_DEFLATE, METHOD_STORED};
+    use std::task::{Context, Poll, Waker};
+
+    fn block_on<F: Future>(f: F) -> F::Output {
+        let mut f = std::pin::pin!(f);
+        let mut cx = Context::from_waker(Waker::noop());
+        loop {
+            if let Poll::Ready(value) = f.as_mut().poll(&mut cx) {
+                return value;
+            }
+        }
+    }
+
+    fn state_and_kernel(method: u16, declared: u32) -> (EpubState, Kernel) {
+        let input = vec![b'x'; 512 * 1024];
+        let compressed = if method == METHOD_STORED {
+            input
+        } else {
+            miniz_oxide::deflate::compress_to_vec(&input, 6)
+        };
+        let mut bytes = vec![0u8; 30];
+        bytes[..4].copy_from_slice(&0x0403_4b50u32.to_le_bytes());
+        bytes.extend_from_slice(&compressed);
+        let mut cd = [0u8; 47];
+        cd[..4].copy_from_slice(&0x0201_4b50u32.to_le_bytes());
+        cd[10..12].copy_from_slice(&method.to_le_bytes());
+        cd[20..24].copy_from_slice(&(compressed.len() as u32).to_le_bytes());
+        cd[24..28].copy_from_slice(&declared.to_le_bytes());
+        cd[28..30].copy_from_slice(&1u16.to_le_bytes());
+        cd[46] = b'c';
+        let mut state = EpubState::new();
+        state.zip.parse_central_directory(&cd).unwrap();
+        state.spine.count = 1;
+        state.spine.items[0] = 0;
+        state.archive_size = bytes.len() as u32;
+        state.name_hash = cache::fnv1a(b"TEST.EPUB");
+        state.cache_file = cache::cache_filename(state.name_hash);
+        state.source = SourceId::from_archive(state.archive_size, 0, &cd);
+        state.cache_dir = cache::dir_name_for_hash(state.source.dir_hash());
+        let card = VirtualStorage::memory_with(&[("TEST.EPUB", &bytes)]);
+        card.ensure_pulp_dir().unwrap();
+        (state, Kernel::new(SdStorage::new(card)))
+    }
+
+    fn header(kernel: &mut Kernel, file: &str) -> cache::CacheHeader {
+        let mut bytes = [0; cache::HEADER_SIZE];
+        assert_eq!(
+            kernel
+                .handle()
+                .read_cache_chunk(file, 0, &mut bytes)
+                .unwrap(),
+            bytes.len()
+        );
+        cache::parse_v3_header(&bytes).unwrap()
+    }
+
+    #[test]
+    fn cell_writer_checks_cumulative_budget_before_storage_append() {
+        let card = VirtualStorage::memory();
+        card.ensure_pulp_dir().unwrap();
+        card.write_in_pulp("LIMIT.BIN", b"").unwrap();
+        let mut kernel = Kernel::new(SdStorage::new(card));
+        let mut handle = kernel.handle();
+        let cell = RefCell::new(&mut handle);
+        let mut writer = CellWriter {
+            kernel: &cell,
+            name: "LIMIT.BIN",
+            size: MAX_TEXT_CACHE_SIZE - 1,
+        };
+        block_on(writer.write_chunk(b"a")).unwrap();
+        assert_eq!(writer.size, MAX_TEXT_CACHE_SIZE);
+        // Leave a pending fault to prove a refused append never reached storage.
+        kernel_fault(&cell, "LIMIT.BIN");
+        assert_eq!(
+            block_on(writer.write_chunk(b"b")),
+            Err("cache: book text cache too large")
+        );
+        assert_eq!(cell.borrow_mut().cache_file_size("LIMIT.BIN").unwrap(), 1);
+        writer.size = MAX_TEXT_CACHE_SIZE - 1;
+        assert!(
+            block_on(writer.write_chunk(b"b")).is_err(),
+            "the unused storage fault must still fire"
+        );
+        assert_eq!(
+            writer.size,
+            MAX_TEXT_CACHE_SIZE - 1,
+            "failed writes cannot advance accounting"
+        );
+        assert_eq!(cell.borrow_mut().cache_file_size("LIMIT.BIN").unwrap(), 1);
+    }
+
+    fn kernel_fault(cell: &RefCell<&mut KernelHandle<'_>>, file: &str) {
+        cell.borrow().kernel.sd.card.inject_error(
+            StorageOp::Append,
+            &format!("_PULP/{file}"),
+            1,
+            ErrorKind::WriteFailed,
+        );
+    }
+
+    #[test]
+    fn book_budget_includes_header_table_and_all_previous_chapters() {
+        let mut size =
+            cache_append_end(0, cache::HEADER_SIZE + 8 * cache::CHAPTER_ENTRY_SIZE).unwrap();
+        for _ in 0..7 {
+            size = cache_append_end(size, cache::MAX_STRIPPED_CHAPTER_SIZE as usize).unwrap();
+        }
+        let remaining = MAX_TEXT_CACHE_SIZE - size;
+        assert!(remaining < cache::MAX_STRIPPED_CHAPTER_SIZE);
+        assert_eq!(
+            cache_append_end(size, remaining as usize),
+            Ok(MAX_TEXT_CACHE_SIZE)
+        );
+        assert_eq!(
+            cache_append_end(size, remaining as usize + 1),
+            Err("cache: book text cache too large")
+        );
+        assert!(cache_append_end(u32::MAX, 1).is_err());
+    }
+
+    #[test]
+    fn failed_or_timed_out_chapters_cannot_be_published_complete() {
+        for (method, declared, limit) in [
+            (METHOD_DEFLATE, 1, CHAPTER_STREAM_TIMEOUT),
+            (METHOD_STORED, 512 * 1024, Duration::from_ticks(0)),
+        ] {
+            let (mut state, mut kernel) = state_and_kernel(method, declared);
+            let error = block_on(state.cache_chapter_with_deadline(
+                &mut kernel.handle(),
+                0,
+                "TEST.EPUB",
+                limit,
+            ))
+            .unwrap_err();
+            if method == METHOD_STORED {
+                assert_eq!(error.source_tag(), "cache_chapter_async: stream");
+                assert!(
+                    kernel
+                        .handle()
+                        .cache_file_size(state.cache_file_str())
+                        .unwrap()
+                        > 136,
+                    "timeout interrupts after a partial append"
+                );
+            }
+            assert!(!state.ch_cached[0]);
+            assert_eq!(state.chapter_table[0], (0, 0));
+            assert!(
+                state
+                    .finish_cache(&mut kernel.handle(), b"Test", b"TEST.EPUB")
+                    .is_err()
+            );
+            assert!(!state.chapters_cached);
+            assert!(!header(&mut kernel, state.cache_file_str()).chapters_complete());
+        }
+    }
+
+    #[test]
+    fn valid_large_chapter_completes_and_preexisting_invalid_ranges_are_rejected() {
+        let (mut state, mut kernel) = state_and_kernel(METHOD_STORED, 512 * 1024);
+        block_on(state.cache_chapter_async(&mut kernel.handle(), 0, "TEST.EPUB")).unwrap();
+        assert!(state.ch_cached[0]);
+        state
+            .finish_cache(&mut kernel.handle(), b"Test", b"TEST.EPUB")
+            .unwrap();
+        assert!(header(&mut kernel, state.cache_file_str()).chapters_complete());
+        let mut scratch = [0; 2048];
+        assert!(
+            state
+                .check_cache(&mut kernel.handle(), &mut scratch)
+                .unwrap()
+        );
+        let cf = state.cache_file;
+        let file = cache::cache_filename_str(&cf);
+        // Keep a valid completed header, but forge a range outside the file.
+        let mut table = [0; cache::CHAPTER_ENTRY_SIZE];
+        cache::encode_chapter_table(&[(u32::MAX, 1)], &mut table);
+        kernel
+            .handle()
+            .write_cache_at(file, cache::HEADER_SIZE as u32, &table)
+            .unwrap();
+        // Reject immediately after the valid hit, with all cached state intact.
+        assert!(state.chapters_cached && state.cache_started && state.ch_cached[0]);
+        assert_ne!(state.chapter_table[0], (0, 0));
+        assert!(
+            !state
+                .check_cache(&mut kernel.handle(), &mut scratch)
+                .unwrap()
+        );
+        assert!(!state.chapters_cached);
+        assert!(!state.cache_started);
+        assert!(state.ch_cached.iter().all(|&cached| !cached));
+        assert!(state.chapter_table.iter().all(|&range| range == (0, 0)));
+    }
+
+    #[test]
+    fn preexisting_oversized_cache_is_not_a_hit() {
+        let (mut state, mut kernel) = state_and_kernel(METHOD_STORED, 512 * 1024);
+        block_on(state.cache_chapter_async(&mut kernel.handle(), 0, "TEST.EPUB")).unwrap();
+        state
+            .finish_cache(&mut kernel.handle(), b"Test", b"TEST.EPUB")
+            .unwrap();
+        let cf = state.cache_file;
+        let file = cache::cache_filename_str(&cf);
+        let mut valid_prefix = [0; cache::HEADER_SIZE + cache::CHAPTER_ENTRY_SIZE];
+        kernel
+            .handle()
+            .read_cache_chunk(file, 0, &mut valid_prefix)
+            .unwrap();
+        // A sparse host file exercises the real file-size guard without
+        // allocating 64 MiB of chapter text just to reject it.
+        let root = std::env::temp_dir().join(format!("pulp-epub-limit-{}", std::process::id()));
+        let pulp = root.join("_PULP");
+        std::fs::create_dir_all(&pulp).unwrap();
+        let cache_path = pulp.join(file);
+        let mut output = std::fs::File::create(&cache_path).unwrap();
+        std::io::Write::write_all(&mut output, &valid_prefix).unwrap();
+        output.set_len(MAX_TEXT_CACHE_SIZE as u64 + 1).unwrap();
+        drop(output);
+        let card = VirtualStorage::host_dir(&root);
+        let mut kernel = Kernel::new(SdStorage::new(card));
+        let result = state
+            .check_cache(&mut kernel.handle(), &mut [0; 2048])
+            .unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+        assert!(!result);
+        assert!(!state.chapters_cached);
+        assert!(!state.cache_started);
+        assert!(state.ch_cached.iter().all(|&cached| !cached));
+        assert!(state.chapter_table.iter().all(|&range| range == (0, 0)));
+    }
+
+    #[test]
+    fn short_positive_deadline_cancels_ready_stored_io() {
+        struct ReadyReader {
+            header: [u8; 30],
+        }
+        impl smol_epub::async_io::AsyncReadAt for ReadyReader {
+            async fn read_at(
+                &mut self,
+                offset: u32,
+                bytes: &mut [u8],
+            ) -> Result<usize, &'static str> {
+                // Synchronous work remains Ready, but consumes real elapsed time.
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                if offset == 0 {
+                    bytes.copy_from_slice(&self.header);
+                } else {
+                    bytes.fill(b'x');
+                }
+                Ok(bytes.len())
+            }
+        }
+        struct Output(usize);
+        impl AsyncWriteChunk for Output {
+            async fn write_chunk(&mut self, bytes: &[u8]) -> Result<(), &'static str> {
+                self.0 += bytes.len();
+                Ok(())
+            }
+        }
+        let mut reader = ReadyReader { header: [0; 30] };
+        reader.header[..4].copy_from_slice(&0x0403_4b50u32.to_le_bytes());
+        let mut output = Output(0);
+        let entry = smol_epub::zip::ZipEntry {
+            comp_size: 128 * 1024,
+            uncomp_size: 128 * 1024,
+            method: METHOD_STORED,
+            ..smol_epub::zip::ZipEntry::EMPTY
+        };
+        let result = block_on(chapter_with_deadline(
+            Duration::from_millis(1),
+            smol_epub::async_io::stream_strip_entry_async(&entry, 0, &mut reader, &mut output),
+        ));
+        assert_eq!(result, Err("cache: chapter streaming timed out"));
+        assert!(output.0 > 0 && output.0 < entry.uncomp_size as usize);
+    }
+
+    #[test]
+    fn unsupported_chapter_count_fails_normally_before_cache_slices() {
+        let (mut state, mut kernel) = state_and_kernel(METHOD_STORED, 512 * 1024);
+        state.spine.count = (cache::MAX_CACHE_CHAPTERS + 1) as u16;
+        assert!(
+            block_on(state.cache_chapter_async(&mut kernel.handle(), 256, "TEST.EPUB")).is_err()
+        );
+        assert!(state.finish_cache(&mut kernel.handle(), b"", b"").is_err());
+        assert!(
+            state
+                .check_cache(&mut kernel.handle(), &mut [0; 2048])
+                .is_err()
+        );
     }
 }

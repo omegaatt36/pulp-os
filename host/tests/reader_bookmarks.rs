@@ -30,8 +30,8 @@
 //            BookmarkCache::find(...) on the kernel's cache.
 //       pub fn bookmark_list_into(&self, out: &mut [bookmarks::BmListEntry]) -> usize;
 //            BookmarkCache::load_all(out): fills `out` with at most out.len()
-//            entries in the cache's list order and returns how many were
-//            written (the baseline short-buffer behaviour included).
+//            entries, newest first, and returns how many were written. A
+//            short output buffer receives the newest out.len() bookmarks.
 //       pub fn bookmarks_flush(&mut self);
 //            BookmarkCache::flush(&mut self, &SdStorage): the scheduler's
 //            housekeeping save (writes _PULP/BKMK.BIN when dirty).
@@ -164,19 +164,15 @@ fn list_is_most_recently_saved_first() {
         ]
     );
     assert_eq!(out[0].chapter, 4);
-    // a short output buffer receives the first N slots in file order (not the
-    // N newest), sorted by recency among themselves
+    // a short output buffer receives the newest bookmarks
     let mut two = [BmListEntry::EMPTY; 2];
     assert_eq!(bm.load_all(&mut two), 2);
-    assert_eq!(two[0].filename_str(), "BOOK01.TXT");
-    assert_eq!(two[1].filename_str(), "BOOK00.TXT");
+    assert_eq!(two[0].filename_str(), "BOOK04.TXT");
+    assert_eq!(two[1].filename_str(), "BOOK03.TXT");
 }
 
 #[test]
-fn resaving_an_early_slot_does_not_always_make_it_the_newest() {
-    // the generation of an updated slot is max(generation of the slots up to
-    // and including it) + 1, because the scan stops at the match: re-saving
-    // BOOK01 (slot 1) gets generation 3 and only ties with BOOK02.
+fn resaving_an_early_slot_makes_it_the_newest() {
     let mut k = kernel_with(card());
     k.bookmarks_load();
     let mut h = k.handle();
@@ -186,7 +182,9 @@ fn resaving_an_early_slot_does_not_always_make_it_the_newest() {
     }
     assert_eq!(bm.find(b"BOOK04.TXT").unwrap().generation, 5);
     bm.save(b"BOOK01.TXT", 111, 0);
-    assert_eq!(bm.find(b"BOOK01.TXT").unwrap().generation, 3);
+    let saved = bm.find(b"BOOK01.TXT").unwrap();
+    assert_eq!(saved.generation, 6);
+    assert_eq!(saved.byte_offset, 111);
     let mut out = [BmListEntry::EMPTY; 16];
     let n = bm.load_all(&mut out);
     let order: Vec<_> = out[..n]
@@ -196,13 +194,30 @@ fn resaving_an_early_slot_does_not_always_make_it_the_newest() {
     assert_eq!(
         order,
         [
+            "BOOK01.TXT",
             "BOOK04.TXT",
             "BOOK03.TXT",
-            "BOOK01.TXT",
             "BOOK02.TXT",
             "BOOK00.TXT"
         ]
     );
+}
+
+#[test]
+fn resaving_the_oldest_book_keeps_it_out_of_the_next_eviction() {
+    let mut r = Rig::new(card());
+    let all = names(SLOTS + 1);
+    for n in &all[..SLOTS] {
+        r.bookmark_save(n.as_bytes(), 1, 0);
+    }
+    r.bookmark_save(all[0].as_bytes(), 99, 3);
+    r.bookmark_save(all[SLOTS].as_bytes(), 2, 0);
+    assert!(r.bookmark_find(all[1].as_bytes()).is_none());
+    assert_eq!(r.bookmark_find(all[0].as_bytes()).unwrap().byte_offset, 99);
+    let mut out = [BmListEntry::EMPTY; 2];
+    assert_eq!(r.bookmark_list_into(&mut out), 2);
+    assert_eq!(out[0].filename_str(), all[SLOTS]);
+    assert_eq!(out[1].filename_str(), all[0]);
 }
 
 #[test]
@@ -367,8 +382,8 @@ fn persisted_bookmarks_survive_a_reboot_exactly() {
     r2.bookmark_save(b"NEW.TXT", 1, 0);
     assert_eq!(
         r2.bookmark_find(b"NEW.TXT").unwrap().generation,
-        17,
-        "max remaining generation was 16"
+        18,
+        "resaving the first slot assigned generation 17"
     );
 }
 
@@ -390,6 +405,219 @@ fn record(name: &[u8], off: u32, ch: u16, flags: u16, generation: u16, name_len:
     rec[14] = name_len;
     rec[16..16 + name.len()].copy_from_slice(name);
     rec
+}
+
+#[test]
+fn short_lists_select_the_newest_named_valid_books() {
+    let mut file = record(b"OLD.TXT", 1, 1, 1, 1, 7);
+    file.extend_from_slice(&record(b"GONE.TXT", 2, 2, 0, u16::MAX, 8));
+    file.extend_from_slice(&record(b"", 3, 3, 1, 10, 0));
+    file.extend_from_slice(&record(b"NEW.TXT", 4, 4, 1, 9, 7));
+    file.extend_from_slice(&record(b"MID.TXT", 5, 5, 1, 5, 7));
+    let r = rig_from(&file);
+    assert_eq!(r.bookmark_list_into(&mut []), 0);
+    let mut out = [BmListEntry::EMPTY; 2];
+    assert_eq!(r.bookmark_list_into(&mut out), 2);
+    assert_eq!(out[0].filename_str(), "NEW.TXT");
+    assert_eq!(out[0].chapter, 4);
+    assert_eq!(out[1].filename_str(), "MID.TXT");
+    assert_eq!(out[1].chapter, 5);
+}
+
+#[test]
+fn resaving_at_generation_exhaustion_preserves_recency_after_reboot() {
+    // Physical order differs from recency, and the resaved slot comes first.
+    let mut file = record(b"B.TXT", 10, 1, 1, u16::MAX - 2, 5);
+    file.extend_from_slice(&record(b"A.TXT", 20, 2, 1, u16::MAX, 5));
+    file.extend_from_slice(&record(b"C.TXT", 30, 3, 1, u16::MAX - 1, 5));
+    let mut r = rig_from(&file);
+    r.bookmark_save(b"B.TXT", 40, 4);
+    assert_eq!(r.bookmark_find(b"B.TXT").unwrap().generation, 4);
+    assert_eq!(r.bookmark_find(b"A.TXT").unwrap().generation, 3);
+    assert_eq!(r.bookmark_find(b"C.TXT").unwrap().generation, 2);
+    r.bookmarks_flush();
+    assert_eq!(
+        r.storage().file_size_in_pulp(BOOKMARK_FILE).unwrap(),
+        3 * RECORD_LEN as u32
+    );
+
+    let mut rebooted = Rig::new(r.into_storage());
+    let mut out = [BmListEntry::EMPTY; SLOTS];
+    assert_eq!(rebooted.bookmark_list_into(&mut out), 3);
+    assert_eq!(out[0].filename_str(), "B.TXT");
+    assert_eq!(out[1].filename_str(), "A.TXT");
+    assert_eq!(out[2].filename_str(), "C.TXT");
+    for (name, offset, chapter, generation) in [
+        (b"B.TXT", 40, 4, 4),
+        (b"A.TXT", 20, 2, 3),
+        (b"C.TXT", 30, 3, 2),
+    ] {
+        let saved = rebooted.bookmark_find(name).unwrap();
+        assert_eq!(
+            (saved.byte_offset, saved.chapter, saved.generation),
+            (offset, chapter, generation)
+        );
+    }
+    rebooted.bookmark_save(b"NEW.TXT", 50, 5);
+    assert_eq!(rebooted.bookmark_find(b"NEW.TXT").unwrap().generation, 5);
+    assert_eq!(rebooted.bookmark_list_into(&mut out), 4);
+    assert_eq!(out[0].filename_str(), "NEW.TXT");
+}
+
+#[test]
+fn generation_rollover_preserves_tied_recency_and_skips_invalid_slots() {
+    let mut file = record(b"A.TXT", 1, 0, 1, u16::MAX, 5);
+    file.extend_from_slice(&record(b"GONE.TXT", 2, 0, 0, u16::MAX, 8));
+    file.extend_from_slice(&record(b"B.TXT", 3, 0, 1, u16::MAX, 5));
+    file.extend_from_slice(&record(b"C.TXT", 4, 0, 1, 0, 5));
+    let mut r = rig_from(&file);
+    r.bookmark_save(b"NEW.TXT", 5, 0);
+    let mut out = [BmListEntry::EMPTY; SLOTS];
+    assert_eq!(r.bookmark_list_into(&mut out), 4);
+    let order: Vec<_> = out[..4].iter().map(|e| e.filename_str()).collect();
+    assert_eq!(order, ["NEW.TXT", "A.TXT", "B.TXT", "C.TXT"]);
+    assert_eq!(r.bookmark_find(b"NEW.TXT").unwrap().generation, 4);
+    assert_eq!(r.bookmark_find(b"A.TXT").unwrap().generation, 3);
+    assert_eq!(r.bookmark_find(b"B.TXT").unwrap().generation, 2);
+    assert_eq!(r.bookmark_find(b"C.TXT").unwrap().generation, 1);
+    assert!(r.bookmark_find(b"GONE.TXT").is_none());
+}
+
+#[test]
+fn tied_minimum_generations_evict_the_last_tied_book_in_recency_order() {
+    let all = names(SLOTS + 1);
+    let mut file = Vec::new();
+    for (i, name) in all[..SLOTS].iter().enumerate() {
+        let generation = if matches!(i, 1 | 5 | 9) {
+            1
+        } else {
+            i as u16 + 2
+        };
+        file.extend_from_slice(&record(
+            name.as_bytes(),
+            i as u32,
+            0,
+            1,
+            generation,
+            name.len() as u8,
+        ));
+    }
+    let mut r = rig_from(&file);
+    let mut out = [BmListEntry::EMPTY; SLOTS];
+    assert_eq!(r.bookmark_list_into(&mut out), SLOTS);
+    assert_eq!(out[SLOTS - 3].filename_str(), all[1]);
+    assert_eq!(out[SLOTS - 2].filename_str(), all[5]);
+    assert_eq!(out[SLOTS - 1].filename_str(), all[9]);
+    r.bookmark_save(all[SLOTS].as_bytes(), 99, 0);
+    assert!(r.bookmark_find(all[9].as_bytes()).is_none());
+    for (i, name) in all[..SLOTS].iter().enumerate() {
+        if i != 9 {
+            assert_eq!(
+                r.bookmark_find(name.as_bytes()).unwrap().byte_offset,
+                i as u32
+            );
+        }
+    }
+    assert_eq!(r.bookmark_list_into(&mut out), SLOTS);
+    assert_eq!(out[0].filename_str(), all[SLOTS]);
+    assert_eq!(out[SLOTS - 2].filename_str(), all[1]);
+    assert_eq!(out[SLOTS - 1].filename_str(), all[5]);
+}
+
+#[test]
+fn a_full_cache_of_max_generations_evicts_the_last_book_in_recency_order() {
+    let all = names(SLOTS + 1);
+    let mut file = Vec::new();
+    for name in &all[..SLOTS] {
+        file.extend_from_slice(&record(
+            name.as_bytes(),
+            1,
+            0,
+            1,
+            u16::MAX,
+            name.len() as u8,
+        ));
+    }
+    let mut r = rig_from(&file);
+    let mut out = [BmListEntry::EMPTY; SLOTS];
+    assert_eq!(r.bookmark_list_into(&mut out), SLOTS);
+    assert_eq!(out[SLOTS - 1].filename_str(), all[SLOTS - 1]);
+    r.bookmark_save(all[SLOTS].as_bytes(), 2, 0);
+    assert!(r.bookmark_find(all[SLOTS - 1].as_bytes()).is_none());
+    for name in &all[..SLOTS - 1] {
+        assert!(r.bookmark_find(name.as_bytes()).is_some());
+    }
+    assert_eq!(
+        r.bookmark_find(all[SLOTS].as_bytes()).unwrap().generation,
+        17
+    );
+    assert_eq!(r.bookmark_list_into(&mut out), SLOTS);
+    assert_eq!(out[0].filename_str(), all[SLOTS]);
+    for i in 1..SLOTS {
+        assert_eq!(out[i].filename_str(), all[i - 1]);
+    }
+}
+
+#[test]
+fn rollover_evicts_the_oldest_book_and_preserves_eviction_order_after_reboot() {
+    let all = names(SLOTS + 2);
+    let mut file = Vec::new();
+    for (i, name) in all[..SLOTS].iter().enumerate() {
+        file.extend_from_slice(&record(
+            name.as_bytes(),
+            100 + i as u32,
+            i as u16,
+            1,
+            u16::MAX - i as u16,
+            name.len() as u8,
+        ));
+    }
+    let mut r = rig_from(&file);
+    r.bookmark_save(all[SLOTS].as_bytes(), 200, 0);
+    assert!(r.bookmark_find(all[SLOTS - 1].as_bytes()).is_none());
+    assert_eq!(
+        r.bookmark_find(all[SLOTS].as_bytes()).unwrap().generation,
+        17
+    );
+    for (i, name) in all[..SLOTS - 1].iter().enumerate() {
+        let saved = r.bookmark_find(name.as_bytes()).unwrap();
+        assert_eq!(
+            (saved.byte_offset, saved.chapter, saved.generation),
+            (100 + i as u32, i as u16, (SLOTS - i) as u16)
+        );
+    }
+    r.bookmark_save(all[0].as_bytes(), 300, 0);
+    r.bookmarks_flush();
+    assert_eq!(
+        r.storage().file_size_in_pulp(BOOKMARK_FILE).unwrap(),
+        FILE_LEN as u32
+    );
+    let mut rebooted = Rig::new(r.into_storage());
+    rebooted.bookmark_save(all[SLOTS + 1].as_bytes(), 400, 0);
+    assert!(rebooted.bookmark_find(all[SLOTS - 2].as_bytes()).is_none());
+    assert!(rebooted.bookmark_find(all[SLOTS - 1].as_bytes()).is_none());
+    assert_eq!(
+        rebooted
+            .bookmark_find(all[0].as_bytes())
+            .unwrap()
+            .byte_offset,
+        300
+    );
+    assert_eq!(
+        rebooted
+            .bookmark_find(all[SLOTS + 1].as_bytes())
+            .unwrap()
+            .generation,
+        19
+    );
+    let mut out = [BmListEntry::EMPTY; SLOTS];
+    assert_eq!(rebooted.bookmark_list_into(&mut out), SLOTS);
+    let order: Vec<_> = out.iter().map(|e| e.filename_str().to_string()).collect();
+    let expected: Vec<_> = [all[SLOTS + 1].clone(), all[0].clone(), all[SLOTS].clone()]
+        .into_iter()
+        .chain(all[1..SLOTS - 2].iter().cloned())
+        .collect();
+    assert_eq!(order, expected);
 }
 
 #[test]

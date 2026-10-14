@@ -61,6 +61,14 @@ Guarded by `host/tests/smol_malformed.rs`, `smol_entity.rs`, `smol_toc.rs`,
   `host/tests/jpeg_progressive.rs`.
 - `src/cache.rs`: comment on `strip_html_buf`'s reservation (output can be
   longer than the input).
+- `src/stream_limits.rs` (new), `src/cache.rs`, `src/async_io.rs`: streamed
+  chapters validate stored sizes and the actual DEFLATE output size, check
+  offset/count arithmetic and the declared compressed range, and enforce
+  16 MiB compressed / 8 MiB decompressed / 8 MiB stripped-text limits. Output
+  budgets are checked before writes. The async STORED route yields between
+  chunks so callers can impose deadlines and cancel processing. Guarded by
+  `host/tests/epub_stream_limits.rs`; the firmware separately limits the book
+  text cache to 64 MiB and each chapter stream to 120 seconds.
 
 Known limit, not fixed: the ZIP index keeps the first 256 entries and ignores
 the rest (pinned by `host/tests/smol_zip_limit.rs`).

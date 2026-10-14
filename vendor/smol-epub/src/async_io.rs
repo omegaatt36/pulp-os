@@ -35,6 +35,7 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 
 use crate::html_strip::HtmlStripStream;
+use crate::stream_limits::{advance, decompressed_next, read_count, validate_entry, written_next};
 use crate::zip::{METHOD_DEFLATE, METHOD_STORED, ZipEntry, ZipIndex};
 
 // ── yield primitive ─────────────────────────────────────────────────
@@ -290,6 +291,10 @@ const FLUSH_THRESHOLD: usize = STRIP_BUF_SIZE - 128;
 /// chunks through the `writer`, yielding to the executor between I/O
 /// and decompression iterations.
 ///
+/// Enforces the chapter limits documented by [`crate::cache::stream_strip_entry`]
+/// and requires the decompressed size to match its declaration. STORED chapters
+/// yield after every read chunk even when reader and writer I/O is immediately ready.
+///
 /// Returns the total number of bytes written.
 pub async fn stream_strip_entry_async<R: AsyncReadAt, W: AsyncWriteChunk>(
     entry: &ZipEntry,
@@ -319,11 +324,21 @@ where
     S: crate::scratch::ScratchStorage,
     C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
 {
-    // skip local file header
+    validate_entry(entry)?;
+    advance(local_offset, 30)?;
     let mut header = [0u8; 30];
     read_all_async(reader, local_offset, &mut header).await?;
     let skip = ZipIndex::local_header_data_skip(&header)?;
-    let data_offset = local_offset + skip;
+    let data_offset = advance(local_offset, skip as usize)?;
+    let data_end = advance(data_offset, entry.comp_size as usize)?;
+    // AsyncReadAt has no source-length API: one byte proves the declared
+    // compressed range exists, even when DEFLATE would finish before EOF.
+    if data_end > 0 {
+        let mut last = [0];
+        if reader.read_at(data_end - 1, &mut last).await? != 1 {
+            return Err("cache: compressed range out of bounds");
+        }
+    }
 
     match entry.method {
         METHOD_STORED => stream_stored_async(entry, data_offset, reader, writer).await,
@@ -361,8 +376,11 @@ async fn stream_stored_async<R: AsyncReadAt, W: AsyncWriteChunk>(
         if n == 0 {
             return Err("cache: unexpected EOF in stored entry");
         }
-        file_pos += n as u32;
-        remaining -= n as u32;
+        read_count(n, want)?;
+        file_pos = advance(file_pos, n)?;
+        remaining = remaining
+            .checked_sub(n as u32)
+            .ok_or("cache: byte count overflow")?;
 
         feed_and_flush_async(
             &mut stripper,
@@ -373,14 +391,18 @@ async fn stream_stored_async<R: AsyncReadAt, W: AsyncWriteChunk>(
             writer,
         )
         .await?;
+        // I/O implementations may be immediately Ready; still give timers and
+        // input cancellation a chance to interrupt every stored chunk.
+        yield_now().await;
     }
 
     // flush trailing stripper state
     let trailing = stripper.finish(&mut strip_buf[strip_pos..]);
     strip_pos += trailing;
     if strip_pos > 0 {
+        let next = written_next(total_written, strip_pos)?;
         writer.write_chunk(&strip_buf[..strip_pos]).await?;
-        total_written += strip_pos as u32;
+        total_written = next;
     }
 
     Ok(total_written)
@@ -430,6 +452,7 @@ where
     let mut file_pos = data_offset;
     let mut comp_left = comp_size;
     let mut out_pos: usize = 0;
+    let mut total_decompressed = 0;
     let mut iterations: u32 = 0;
 
     loop {
@@ -442,9 +465,14 @@ where
                 .await
             {
                 Ok(n) if n > 0 => {
-                    file_pos += n as u32;
-                    comp_left -= n;
-                    in_avail += n;
+                    read_count(n, want)?;
+                    file_pos = advance(file_pos, n)?;
+                    comp_left = comp_left
+                        .checked_sub(n)
+                        .ok_or("cache: byte count overflow")?;
+                    in_avail = in_avail
+                        .checked_add(n)
+                        .ok_or("cache: byte count overflow")?;
                 }
                 Ok(_) => {
                     comp_left = 0;
@@ -468,9 +496,15 @@ where
         let (status, consumed, produced) =
             decompress(&mut decomp, &rbuf[..in_avail], &mut window, out_pos, flags);
 
+        total_decompressed = decompressed_next(total_decompressed, produced, uncomp_size)?;
+        let end = old_out_pos
+            .checked_add(produced)
+            .ok_or("cache: byte count overflow")?;
+        if end > WINDOW_SIZE || consumed > in_avail {
+            return Err("cache: invalid decompressor count");
+        }
         // feed new output to HTML stripper
         if produced > 0 {
-            let end = old_out_pos + produced;
             feed_and_flush_async(
                 &mut stripper,
                 &window[old_out_pos..end],
@@ -482,7 +516,7 @@ where
             .await?;
         }
 
-        out_pos += produced;
+        out_pos = end;
 
         if consumed > 0 && consumed < in_avail {
             rbuf.copy_within(consumed..in_avail, 0);
@@ -496,7 +530,12 @@ where
         }
 
         match status {
-            TINFLStatus::Done => break,
+            TINFLStatus::Done => {
+                if total_decompressed != uncomp_size {
+                    return Err("cache: decompressed size mismatch");
+                }
+                break;
+            }
 
             TINFLStatus::HasMoreOutput => {
                 // window full; reset
@@ -519,8 +558,9 @@ where
     let trailing = stripper.finish(&mut strip_buf[strip_pos..]);
     strip_pos += trailing;
     if strip_pos > 0 {
+        let next = written_next(total_written, strip_pos)?;
         writer.write_chunk(&strip_buf[..strip_pos]).await?;
-        total_written += strip_pos as u32;
+        total_written = next;
     }
 
     Ok(total_written)
@@ -577,13 +617,14 @@ async fn read_all_async<R: AsyncReadAt>(
     let mut total = 0usize;
     while total < buf.len() {
         let n = reader
-            .read_at(offset + total as u32, &mut buf[total..])
+            .read_at(advance(offset, total)?, &mut buf[total..])
             .await
             .map_err(|_| "zip: read failed")?;
         if n == 0 {
             return Err("zip: unexpected EOF");
         }
-        total += n;
+        read_count(n, buf.len() - total)?;
+        total = total.checked_add(n).ok_or("cache: byte count overflow")?;
     }
     Ok(())
 }
@@ -601,8 +642,9 @@ async fn feed_and_flush_async<W: AsyncWriteChunk>(
     while ip < input.len() {
         let avail_out = STRIP_BUF_SIZE - *strip_pos;
         if avail_out == 0 {
+            let next = written_next(*total_written, *strip_pos)?;
             writer.write_chunk(&strip_buf[..*strip_pos]).await?;
-            *total_written += *strip_pos as u32;
+            *total_written = next;
             *strip_pos = 0;
             continue;
         }
@@ -616,8 +658,9 @@ async fn feed_and_flush_async<W: AsyncWriteChunk>(
 
         if consumed == 0 && written == 0 {
             if *strip_pos > 0 {
+                let next = written_next(*total_written, *strip_pos)?;
                 writer.write_chunk(&strip_buf[..*strip_pos]).await?;
-                *total_written += *strip_pos as u32;
+                *total_written = next;
                 *strip_pos = 0;
             } else {
                 ip += 1;
@@ -626,8 +669,9 @@ async fn feed_and_flush_async<W: AsyncWriteChunk>(
         }
 
         if *strip_pos >= FLUSH_THRESHOLD {
+            let next = written_next(*total_written, *strip_pos)?;
             writer.write_chunk(&strip_buf[..*strip_pos]).await?;
-            *total_written += *strip_pos as u32;
+            *total_written = next;
             *strip_pos = 0;
         }
     }

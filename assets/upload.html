@@ -171,12 +171,19 @@
         <script>
             var D = document,
                 drop = D.getElementById("drop"),
+                fin = D.getElementById("fin"),
                 list = D.getElementById("list"),
                 fill = D.getElementById("fill"),
                 st = D.getElementById("status"),
                 empty = D.getElementById("empty"),
                 queue = [],
+                active = null,
+                uploadsPending = 0,
                 busy = 0,
+                listing = null,
+                retryTimer = null,
+                handoffTimer = null,
+                generation = 0,
                 timeReady = false,
                 sessionToken = "",
                 auth = D.getElementById("auth"),
@@ -195,13 +202,30 @@
                 return false;
             }
 
-            function rejected(x) {
-                if (x.status !== 403) return false;
+            function resetSession() {
+                // Invalidate callbacks before abort(), which can fire synchronously.
+                generation++;
+                var previous = active;
+                active = null;
+                queue = [];
+                uploadsPending = 0;
+                busy = 0;
+                listing = null;
+                clearTimeout(retryTimer);
+                retryTimer = null;
+                clearTimeout(handoffTimer);
+                handoffTimer = null;
                 sessionToken = "";
                 timeReady = false;
-                busy = 0;
-                queue = [];
+                timeStatus.textContent = "";
                 fill.style.width = "0";
+                if (previous) previous.x.abort();
+                waitForDevice();
+            }
+
+            function rejected(x) {
+                if (x.status !== 403) return false;
+                resetSession();
                 auth.hidden = false;
                 s("Session token is incorrect or expired. Enter the token currently shown on the device.", "err");
                 return true;
@@ -213,11 +237,11 @@
                     s("Enter all 32 hexadecimal characters from the device", "err");
                     return false;
                 }
+                resetSession();
                 sessionToken = token;
                 auth.hidden = true;
                 tokenInput.value = "";
                 s("");
-                timeReady = false;
                 calibrateTime();
                 return true;
             }
@@ -233,155 +257,205 @@
                 return (b / 1048576).toFixed(1) + " MB";
             }
 
-            function load(retries, delay) {
-                if (!ready()) return;
-                if (retries === undefined) retries = 3;
-                if (delay === undefined) delay = 400;
-                var x = new XMLHttpRequest();
-                x.timeout = 5000;
-                x.open("GET", "/files");
-                x.setRequestHeader("X-Pulp-Token", sessionToken);
-                x.onload = function () {
-                    if (rejected(x)) return;
-                    if (x.status !== 200) {
-                        list.innerHTML = "";
-                        empty.textContent = "Could not list files";
-                        return;
-                    }
-                    var f;
+            // HTTP EOF arrives before the device finishes closing and listening again.
+            function waitForDevice() {
+                clearTimeout(handoffTimer);
+                var session = generation;
+                handoffTimer = setTimeout(function () {
+                    if (session !== generation) return;
+                    handoffTimer = null;
+                    pump();
+                }, 100);
+            }
+
+            // The device accepts one connection at a time, including mutations.
+            function pump() {
+                if (!sessionToken || active || handoffTimer !== null) return;
+                scheduleListing();
+                if (!queue.length) return;
+                var job = queue.shift(),
+                    session = generation,
+                    x = new XMLHttpRequest(),
+                    done = false;
+                active = { x: x, job: job };
+                function current() {
+                    return !done && session === generation && active && active.x === x;
+                }
+                function finish(reason) {
+                    if (!current()) return;
+                    done = true;
+                    active = null;
+                    waitForDevice();
+                    if (reason === "load" && rejected(x)) return;
                     try {
-                        f = JSON.parse(x.responseText);
-                    } catch (e) {
-                        empty.textContent = "Bad response";
-                        return;
+                        job.finish(x, reason);
+                    } finally {
+                        if (session === generation) {
+                            if (job.path === "/upload" && !uploadsPending) load();
+                            else pump();
+                        }
                     }
-                    list.innerHTML = "";
-                    if (!f.length) {
-                        empty.textContent = "No files on device";
-                        return;
-                    }
-                    empty.textContent = "";
-                    for (var i = 0; i < f.length; i++)
-                        (function (n) {
+                }
+                x.open(job.method, job.path);
+                x.timeout = job.timeout;
+                x.setRequestHeader("X-Pulp-Token", sessionToken);
+                if (job.contentType) x.setRequestHeader("Content-Type", job.contentType);
+                x.onload = function () { finish("load"); };
+                x.onerror = function () { finish("error"); };
+                x.ontimeout = function () { finish("timeout"); };
+                x.onabort = function () { finish("abort"); };
+                if (job.progress) x.upload.onprogress = function (event) {
+                    if (current()) job.progress(event);
+                };
+                if (job.start) job.start();
+                if (current()) x.send(job.body);
+            }
+
+            function scheduleListing() {
+                if (!listing || listing.state !== "pending" || uploadsPending) return;
+                var work = listing;
+                work.state = "queued";
+                queue.push({
+                    path: "/files", method: "GET", timeout: 5000,
+                    start: function () { work.state = "active"; },
+                    finish: function (x, reason) {
+                        if ((reason === "error" || reason === "timeout") && work.retries > 0) {
+                            work.state = "retry";
+                            var session = generation;
+                            retryTimer = setTimeout(function () {
+                                if (session !== generation || listing !== work) return;
+                                retryTimer = null;
+                                work.retries--;
+                                work.delay = Math.min(work.delay * 2, 3000);
+                                work.state = "pending";
+                                pump();
+                            }, work.delay);
+                            return;
+                        }
+                        listing = null;
+                        if (reason !== "load") {
+                            empty.textContent = "Connection error";
+                            return;
+                        }
+                        if (x.status !== 200) {
+                            list.innerHTML = "";
+                            empty.textContent = "Could not list files";
+                            return;
+                        }
+                        var files;
+                        try {
+                            files = JSON.parse(x.responseText);
+                            if (!Array.isArray(files) || !files.every(function (f) {
+                                return f && typeof f.name === "string" &&
+                                    typeof f.size === "number" && isFinite(f.size) && f.size >= 0;
+                            })) throw new Error("Invalid file list");
+                        } catch (e) {
+                            empty.textContent = "Bad response";
+                            return;
+                        }
+                        list.innerHTML = "";
+                        empty.textContent = files.length ? "" : "No files on device";
+                        files.forEach(function (n) {
                             var tr = D.createElement("tr"),
                                 td1 = D.createElement("td"),
                                 td2 = D.createElement("td"),
                                 td3 = D.createElement("td"),
                                 btn = D.createElement("button");
+                            tr.dataset.filename = n.name;
                             td1.textContent = n.name;
                             td2.textContent = fmt(n.size);
                             td2.className = "sz";
                             btn.textContent = "\u00d7";
                             btn.className = "del";
                             btn.title = "Delete " + n.name;
-                            btn.onclick = function () {
-                                del(n.name, tr);
-                            };
+                            btn.onclick = function () { del(n.name); };
                             td3.appendChild(btn);
                             tr.appendChild(td1);
                             tr.appendChild(td2);
                             tr.appendChild(td3);
                             list.appendChild(tr);
-                        })(f[i]);
-                };
-                x.onerror = x.ontimeout = function () {
-                    if (retries > 0) {
-                        setTimeout(function () {
-                            load(retries - 1, Math.min(delay * 2, 3000));
-                        }, delay);
-                    } else {
-                        empty.textContent = "Connection error";
+                        });
                     }
-                };
-                x.send();
+                });
             }
 
-            function del(name, tr) {
+            function load(retries, delay) {
                 if (!ready()) return;
-                if (!confirm("Delete " + name + "?")) return;
-                var x = new XMLHttpRequest();
-                x.open("POST", "/delete");
-                x.setRequestHeader("X-Pulp-Token", sessionToken);
-                x.setRequestHeader("Content-Type", "text/plain");
-                x.onload = function () {
-                    if (rejected(x)) return;
-                    if (x.status === 200) {
-                        tr.remove();
-                        if (!list.children.length)
-                            empty.textContent = "No files on device";
-                        s(name + " deleted", "ok");
-                    } else s("Delete failed: " + x.responseText, "err");
+                if (!listing) listing = {
+                    retries: retries === undefined ? 3 : retries,
+                    delay: delay === undefined ? 400 : delay,
+                    state: "pending"
                 };
-                x.onerror = function () {
-                    s("Delete failed: network error", "err");
-                };
-                x.send(name);
-            }
-
-            function upload(files) {
-                if (!ready()) return;
-                for (var i = 0; i < files.length; i++) queue.push(files[i]);
-                fin.value = "";
                 pump();
             }
 
-            function pump() {
-                if (!sessionToken || !timeReady || busy || !queue.length) return;
-                busy = 1;
-                var f = queue.shift(),
-                    rest = queue.length,
-                    fd = new FormData();
+            function del(name) {
+                if (!ready() || !confirm("Delete " + name + "?")) return;
+                queue.push({
+                    path: "/delete", method: "POST", timeout: 35000,
+                    contentType: "text/plain", body: name,
+                    finish: function (x, reason) {
+                        if (reason === "load" && x.status === 200) {
+                            // A preceding refresh may have replaced the clicked row.
+                            Array.prototype.slice.call(list.children).forEach(function (row) {
+                                if (row.dataset.filename === name) row.remove();
+                            });
+                            if (!list.children.length) empty.textContent = "No files on device";
+                            s(name + " deleted", "ok");
+                        } else s("Delete failed: " + (reason === "load" ?
+                            (x.responseText || "server error") : reason === "timeout" ?
+                            "request timed out" : reason === "abort" ? "request cancelled" : "network error"), "err");
+                    }
+                });
+                pump();
+            }
+
+            function upload(files) {
+                if (!ready() || !files.length) return;
+                // A queued refresh must wait until all files, including later additions, drain.
+                if (listing && listing.state === "queued") {
+                    queue = queue.filter(function (job) { return job.path !== "/files"; });
+                    listing.state = "pending";
+                }
+                for (var i = 0; i < files.length; i++) enqueueUpload(files[i]);
+                fin.value = "";
+                load();
+            }
+
+            function enqueueUpload(f) {
+                uploadsPending++;
+                var fd = new FormData();
                 fd.append("file", f);
-                var x = new XMLHttpRequest();
-                x.open("POST", "/upload");
-                x.setRequestHeader("X-Pulp-Token", sessionToken);
-                x.upload.onprogress = function (e) {
-                    if (e.lengthComputable) {
+                queue.push({
+                    path: "/upload", method: "POST", timeout: 610000, body: fd,
+                    start: function () {
+                        busy = 1;
+                        fill.style.width = "0";
+                        s("Uploading " + f.name + "...");
+                    },
+                    progress: function (e) {
+                        if (!e.lengthComputable) return;
                         var pct = Math.round((100 * e.loaded) / e.total);
                         fill.style.width = pct + "%";
-                        s(
-                            "Uploading " +
-                                f.name +
-                                "... " +
-                                pct +
-                                "%" +
-                                (rest ? " (" + rest + " queued)" : ""),
-                        );
+                        s(pct === 100 ? "Saving " + f.name + " on device..." :
+                            "Uploading " + f.name + "... " + pct + "%" +
+                            (uploadsPending > 1 ? " (" + (uploadsPending - 1) + " queued)" : ""));
+                    },
+                    finish: function (x, reason) {
+                        busy = 0;
+                        uploadsPending--;
+                        if (reason === "load" && x.status === 200) {
+                            fill.style.width = "100%";
+                            s(f.name + " uploaded" + (uploadsPending ?
+                                " \u2014 " + uploadsPending + " remaining" : ""), "ok");
+                        } else {
+                            fill.style.width = "0";
+                            s("Upload failed: " + (reason === "load" ?
+                                (x.responseText || "server error") : reason === "timeout" ?
+                                "request timed out" : reason === "abort" ? "request cancelled" : "network error"), "err");
+                        }
                     }
-                };
-                x.onload = function () {
-                    if (rejected(x)) return;
-                    busy = 0;
-                    if (x.status === 200) {
-                        fill.style.width = "100%";
-                        s(
-                            f.name +
-                                " uploaded" +
-                                (rest ? " \u2014 " + rest + " remaining" : ""),
-                            "ok",
-                        );
-                        setTimeout(function () {
-                            load();
-                        }, 300);
-                    } else {
-                        s(
-                            "Upload failed: " +
-                                (x.responseText || "server error"),
-                            "err",
-                        );
-                    }
-                    setTimeout(function () {
-                        fill.style.width = "0";
-                    }, 800);
-                    pump();
-                };
-                x.onerror = function () {
-                    busy = 0;
-                    fill.style.width = "0";
-                    s("Upload failed: network error", "err");
-                    pump();
-                };
-                x.send(fd);
+                });
             }
 
             function calibrateTime() {
@@ -391,25 +465,19 @@
                 var local = now.getFullYear() + "-" + pad(now.getMonth() + 1) +
                     "-" + pad(now.getDate()) + "T" + pad(now.getHours()) +
                     ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
-                var x = new XMLHttpRequest();
-                x.open("POST", "/time");
-                x.setRequestHeader("X-Pulp-Token", sessionToken);
-                x.timeout = 5000;
-                x.setRequestHeader("Content-Type", "text/plain");
-                function finish(ok) {
-                    timeStatus.textContent = ok ? "Device time set from this browser" :
-                        "Device time could not be set";
-                    timeStatus.className = ok ? "" : "err";
-                    timeReady = true;
-                    if (queue.length) pump();
-                    else load();
-                }
-                x.onload = function () {
-                    if (rejected(x)) return;
-                    finish(x.status === 200);
-                };
-                x.onerror = x.ontimeout = function () { finish(false); };
-                x.send(local);
+                queue.push({
+                    path: "/time", method: "POST", timeout: 5000,
+                    contentType: "text/plain", body: local,
+                    finish: function (x, reason) {
+                        var ok = reason === "load" && x.status === 200;
+                        timeStatus.textContent = ok ? "Device time set from this browser" :
+                            "Device time could not be set";
+                        timeStatus.className = ok ? "" : "err";
+                        timeReady = true;
+                        load();
+                    }
+                });
+                pump();
             }
 
             // drag and drop

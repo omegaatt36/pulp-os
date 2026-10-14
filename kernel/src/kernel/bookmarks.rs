@@ -226,21 +226,38 @@ impl BookmarkCache {
         None
     }
 
+    fn slots_by_recency(&self) -> ([usize; SLOTS], usize) {
+        let mut indices = [0usize; SLOTS];
+        let mut count = 0usize;
+        for i in 0..self.count {
+            let slot = &self.slots[i];
+            if !slot.valid {
+                continue;
+            }
+            let mut j = count;
+            while j > 0 && self.slots[indices[j - 1]].generation < slot.generation {
+                indices[j] = indices[j - 1];
+                j -= 1;
+            }
+            indices[j] = i;
+            count += 1;
+        }
+        (indices, count)
+    }
+
     pub fn load_all(&self, out: &mut [BmListEntry]) -> usize {
         if !self.loaded {
             return 0;
         }
 
-        let mut gens = [0u16; SLOTS];
+        let (indices, slot_count) = self.slots_by_recency();
         let mut count = 0usize;
-
-        for i in 0..self.count {
+        for &i in &indices[..slot_count] {
             if count >= out.len() {
                 break;
             }
             let slot = &self.slots[i];
-            if slot.valid && slot.name_len > 0 {
-                gens[count] = slot.generation;
+            if slot.name_len > 0 {
                 out[count] = BmListEntry {
                     filename: slot.filename,
                     name_len: slot.name_len,
@@ -250,19 +267,6 @@ impl BookmarkCache {
                 };
                 count += 1;
             }
-        }
-
-        for i in 1..count {
-            let key_gen = gens[i];
-            let key_entry = out[i];
-            let mut j = i;
-            while j > 0 && gens[j - 1] < key_gen {
-                gens[j] = gens[j - 1];
-                out[j] = out[j - 1];
-                j -= 1;
-            }
-            gens[j] = key_gen;
-            out[j] = key_entry;
         }
 
         count
@@ -295,15 +299,26 @@ impl BookmarkCache {
             if slot.generation > max_gen {
                 max_gen = slot.generation;
             }
-            if slot.generation < lru_gen {
+            // Equal generations retain physical order in the recency list,
+            // so the last tied slot is the oldest.
+            if lru_slot.is_none() || slot.generation <= lru_gen {
                 lru_gen = slot.generation;
                 lru_slot = Some(i);
             }
 
-            if slot.name_hash == key && slot.matches_name(filename) {
+            if target.is_none() && slot.name_hash == key && slot.matches_name(filename) {
                 target = Some(i);
-                break;
             }
+        }
+
+        if max_gen == u16::MAX {
+            // Keep recency order while making room for a new generation.
+            let (indices, count) = self.slots_by_recency();
+            for (rank, &i) in indices[..count].iter().rev().enumerate() {
+                self.slots[i].generation = rank as u16 + 1;
+            }
+            max_gen = count as u16;
+            lru_slot = indices[..count].last().copied();
         }
 
         let write_slot = target.or(first_free).unwrap_or_else(|| {
@@ -319,7 +334,7 @@ impl BookmarkCache {
             }
         });
 
-        let generation = max_gen.wrapping_add(1);
+        let generation = max_gen + 1;
         let name_len = filename.len().min(FILENAME_CAP);
 
         let mut new_slot = BookmarkSlot {

@@ -111,61 +111,7 @@ macro_rules! op_read_start {
     };
 }
 
-macro_rules! op_write {
-    ($inner:expr, $dir:expr, $name:expr, $data:expr) => {
-        match $inner
-            .mgr
-            .open_file_in_dir($dir, $name, Mode::ReadWriteCreateOrTruncate)
-            .await
-        {
-            Err(_) => Err(Error::new(ErrorKind::OpenFile, "write")),
-            Ok(file) => {
-                let result = if ($data).is_empty() {
-                    Ok(())
-                } else {
-                    $inner
-                        .mgr
-                        .write(file, $data)
-                        .await
-                        .map_err(|_| Error::new(ErrorKind::WriteFailed, "write"))
-                };
-                if result.is_err() {
-                    $inner.discard_block_cache();
-                }
-                let _ = $inner.mgr.close_file(file).await;
-                result
-            }
-        }
-    };
-}
-
-macro_rules! op_append {
-    ($inner:expr, $dir:expr, $name:expr, $data:expr) => {
-        match $inner
-            .mgr
-            .open_file_in_dir($dir, $name, Mode::ReadWriteCreateOrAppend)
-            .await
-        {
-            Err(_) => Err(Error::new(ErrorKind::OpenFile, "append")),
-            Ok(file) => {
-                let result = if ($data).is_empty() {
-                    Ok(())
-                } else {
-                    $inner
-                        .mgr
-                        .write(file, $data)
-                        .await
-                        .map_err(|_| Error::new(ErrorKind::WriteFailed, "append"))
-                };
-                if result.is_err() {
-                    $inner.discard_block_cache();
-                }
-                let _ = $inner.mgr.close_file(file).await;
-                result
-            }
-        }
-    };
-}
+include!("storage_write_ops.rs");
 
 macro_rules! op_delete {
     ($inner:expr, $dir:expr, $name:expr) => {{
@@ -1295,30 +1241,9 @@ pub fn write_at_in_pulp(
         let mut guard = borrow(sd)?;
         let inner = &mut *guard;
         release_held_named(inner, SCOPE_PULP, "", name).await;
-        in_dir!(inner, PULP_DIR, |dir_h| {
-            match inner
-                .mgr
-                .open_file_in_dir(dir_h, name, Mode::ReadWriteCreateOrAppend)
-                .await
-            {
-                Err(_) => Err(Error::new(ErrorKind::OpenFile, "write_at")),
-                Ok(file) => {
-                    let result = match inner.mgr.file_seek_from_start(file, offset) {
-                        Ok(()) => inner
-                            .mgr
-                            .write(file, data)
-                            .await
-                            .map_err(|_| Error::new(ErrorKind::WriteFailed, "write_at")),
-                        Err(_) => Err(Error::new(ErrorKind::SeekFailed, "write_at")),
-                    };
-                    if result.is_err() {
-                        inner.discard_block_cache();
-                    }
-                    let _ = inner.mgr.close_file(file).await;
-                    result
-                }
-            }
-        })
+        in_dir!(inner, PULP_DIR, |dir_h| op_write_at!(
+            inner, dir_h, name, offset, data
+        ))
     })
 }
 
