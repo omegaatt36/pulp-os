@@ -301,7 +301,8 @@ fn walk(base: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
     }
 }
 
-fn run_inner(s: Scenario) -> Outcome {
+fn run_inner(mut s: Scenario) -> Outcome {
+    s.input = super::authorize_request(s.input, &mut s.splits);
     let sandbox = sandbox_root();
     let card = if s.host_dir {
         let sd_dir = sandbox.join(SANDBOX_SD);
@@ -341,7 +342,13 @@ fn run_inner(s: Scenario) -> Outcome {
     let mut scratch = Box::new(HttpScratch::EMPTY);
     // the small profile: the sizes these cases were written against
     let mut work = vec![0u8; NetProfile::SMALL.work];
-    let event = block_on(serve_request(&mut sock, &sd, &mut scratch, &mut work));
+    let event = block_on(serve_request(
+        &mut sock,
+        &sd,
+        &mut scratch,
+        &mut work,
+        &super::session_token(),
+    ));
     let files = s
         .watch
         .iter()
@@ -1088,9 +1095,9 @@ fn upload_preserves_crlf_content() {
     }
 }
 
-// an existing file is replaced by the new content, never appended to
+// A collision preserves the existing file and returns HTTP 409.
 #[test]
-fn upload_overwrites_an_existing_file() {
+fn upload_rejects_an_existing_file_and_preserves_its_bytes() {
     let boundary = make_boundary(40);
     let cases: Vec<(&str, Vec<u8>, Vec<u8>)> = vec![
         ("larger to smaller", vec![b'A'; 5000], vec![b'B'; 100]),
@@ -1106,9 +1113,12 @@ fn upload_overwrites_an_existing_file() {
                 .slice(slice)
                 .seed("BOOK.TXT", &old)
                 .seed("OTHER.TXT", b"untouched"));
-            assert_200(&out, None, b"OK", &ctx);
-            assert_uploaded(&out, "BOOK.TXT", &ctx);
-            assert_bytes_eq(out.file("BOOK.TXT").expect("file missing"), &new, &ctx);
+            assert!(
+                out.response.starts_with(b"HTTP/1.0 409 Conflict\r\n"),
+                "{ctx}"
+            );
+            assert_eq!(out.event, ServerEvent::UploadFailed, "{ctx}");
+            assert_bytes_eq(out.file("BOOK.TXT").expect("file missing"), &old, &ctx);
             assert_unchanged(&out, &[("OTHER.TXT", b"untouched")], &ctx);
         }
     }
@@ -1651,4 +1661,20 @@ fn browser_time_rejects_invalid_or_truncated_body() {
             assert_unchanged(&out, &[("KEEP.TXT", b"unchanged")], "bad time calibration");
         }
     }
+}
+
+#[test]
+fn failed_upload_reports_when_partial_file_cleanup_also_fails() {
+    let content = lcg_bytes(5000, 441);
+    let out = run(
+        Scenario::new(upload_request(&make_boundary(40), "UP.TXT", &content))
+            .inject(StorageOp::Append, "UP.TXT", 1, ErrorKind::WriteFailed)
+            .inject(StorageOp::Delete, "UP.TXT", 1, ErrorKind::DeleteFailed)
+            .seed("BOOK.TXT", b"original")
+            .watch("UP.TXT"),
+    );
+    assert_eq!(out.event, ServerEvent::UploadFailed);
+    assert!(out.response.ends_with(b"upload cleanup failed"));
+    assert_eq!(out.file("BOOK.TXT"), Some(&b"original"[..]));
+    assert_eq!(out.pending_injections, 0);
 }

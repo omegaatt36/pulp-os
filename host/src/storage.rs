@@ -12,7 +12,7 @@
 mod fs;
 
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub use crate::dir_entry::DirEntry;
 use crate::dir_entry::{PULP_DIR, is_listed_name};
@@ -250,11 +250,13 @@ fn font_path_changed(dir: &str) {
 
 pub struct VirtualStorage {
     state: RefCell<State>,
+    host_root: Option<PathBuf>,
 }
 
 impl VirtualStorage {
     fn with_fs(fs: impl Fs + 'static) -> Self {
         Self {
+            host_root: None,
             state: RefCell::new(State {
                 fs: Box::new(fs),
                 log: Vec::new(),
@@ -281,7 +283,9 @@ impl VirtualStorage {
 
     // the existing host directory `root` is the SD root (not deleted on drop)
     pub fn host_dir(root: &Path) -> Self {
-        Self::with_fs(HostFs::new(root))
+        let mut card = Self::with_fs(HostFs::new(root));
+        card.host_root = Some(root.to_path_buf());
+        card
     }
 
     // -- read counter ------------------------------------------------------
@@ -361,6 +365,48 @@ impl VirtualStorage {
     pub(crate) fn open_root_writer(&self, name: &str) -> Result<()> {
         self.write_to(&Target::root(name), &[])?;
         self.state.borrow_mut().writer_opens += 1;
+        Ok(())
+    }
+
+    // In-memory creation is indivisible under the state borrow. The host
+    // directory backend additionally uses create_new for OS-level exclusion.
+    pub(crate) fn open_upload_writer(
+        &self,
+        name: &str,
+    ) -> core::result::Result<(), crate::drivers::storage::UploadError> {
+        use crate::drivers::storage::UploadError;
+        let mut st = self.state.borrow_mut();
+        let entries = st
+            .fs
+            .list("")
+            .map_err(|_| Error::new(ErrorKind::OpenFile, "upload: lookup"))?;
+        if entries
+            .iter()
+            .any(|(entry, _, _)| entry.eq_ignore_ascii_case(name))
+        {
+            return Err(UploadError::AlreadyExists);
+        }
+        if let Some(Action::Error(kind)) = st.fire(StorageOp::Write, name) {
+            return Err(Error::new(kind, "injected").into());
+        }
+        if let Some(root) = &self.host_root {
+            match std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(root.join(name))
+            {
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                    return Err(UploadError::AlreadyExists);
+                }
+                Err(_) => return Err(Error::new(ErrorKind::OpenFile, "upload: create").into()),
+            }
+        } else {
+            st.fs
+                .write(name, &[])
+                .map_err(|_| Error::new(ErrorKind::OpenFile, "upload: create"))?;
+        }
+        st.writer_opens += 1;
         Ok(())
     }
 

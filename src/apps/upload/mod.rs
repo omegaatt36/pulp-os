@@ -16,7 +16,7 @@ use embassy_net::udp::{PacketMetadata, RecvError, UdpSocket};
 use embassy_net::{
     IpAddress, IpEndpoint, IpListenEndpoint, Ipv4Address, Runner, Stack, StackResources,
 };
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Timer, with_timeout};
 use esp_hal::delay::Delay;
 use esp_radio::wifi::sta::StationConfig;
 use esp_radio::wifi::{
@@ -56,6 +56,7 @@ const QR_MAX_SIDE: u16 = 280;
 
 // HTTP timing
 const HTTP_TIMEOUT_SECS: u64 = 30;
+const HTTP_TOTAL_TIMEOUT_SECS: u64 = 600;
 const ACCEPT_RETRY_MS: u64 = 200;
 const DHCP_POLL_MS: u64 = 100;
 
@@ -261,11 +262,17 @@ pub async fn run_upload_mode(
 
             info!("upload: serving at http://pulp.local/  {}", ip_str);
 
-            // the QR carries the IP URL: mDNS is unreliable on phones
+            // Wi-Fi is active now: RF entropy supplies a fresh session token.
+            let mut token_bytes = [0u8; 16];
+            esp_hal::rng::Rng::new().read(&mut token_bytes);
+            let token = http::SessionToken::from_bytes(token_bytes);
+
+            // A URL fragment stays in the browser, outside HTTP requests.
+            // The QR uses the IP because mDNS is unreliable on phones.
             let [a, b, c, d] = ip_octets;
-            let mut url_buf = [0u8; 32];
+            let mut url_buf = [0u8; 80];
             let url_len = stack_fmt(&mut url_buf, |w| {
-                let _ = write!(w, "http://{}.{}.{}.{}/", a, b, c, d);
+                let _ = write!(w, "http://{}.{}.{}.{}/#{}", a, b, c, d, token.as_str());
             });
             let url = core::str::from_utf8(&url_buf[..url_len]).unwrap_or("");
             let qr = QrSymbol::encode(url);
@@ -276,7 +283,13 @@ pub async fn run_upload_mode(
                 delay,
                 heading,
                 body,
-                &["http://pulp.local/", ip_str],
+                &[
+                    "http://pulp.local/",
+                    ip_str,
+                    "Session token:",
+                    &token.as_str()[..16],
+                    &token.as_str()[16..],
+                ],
                 Some("Press BACK to exit"),
                 qr.as_ref(),
                 bumps,
@@ -294,7 +307,7 @@ pub async fn run_upload_mode(
             } = net;
             let never = select3(
                 runner.run(),
-                serve_http(*stack, scratch.get(), sd),
+                serve_http(*stack, scratch.get(), sd, &token),
                 serve_mdns(*stack, ip_octets),
             )
             .await;
@@ -315,9 +328,14 @@ pub async fn run_upload_mode(
     }
 }
 
-async fn serve_http(stack: embassy_net::Stack<'_>, mut scratch: Scratch<'_>, sd: &SdStorage) -> ! {
+async fn serve_http(
+    stack: embassy_net::Stack<'_>,
+    mut scratch: Scratch<'_>,
+    sd: &SdStorage,
+    token: &http::SessionToken,
+) -> ! {
     loop {
-        match serve_one_request(stack, &mut scratch, sd).await {
+        match serve_one_request(stack, &mut scratch, sd, token).await {
             ServerEvent::Uploaded { name, name_len } => {
                 let fname = core::str::from_utf8(&name[..name_len as usize]).unwrap_or("???");
                 info!("upload: file saved as '{}'", fname);
@@ -341,6 +359,7 @@ async fn serve_one_request(
     stack: embassy_net::Stack<'_>,
     scratch: &mut Scratch<'_>,
     sd: &SdStorage,
+    token: &http::SessionToken,
 ) -> ServerEvent {
     let Scratch {
         tcp_rx,
@@ -363,7 +382,21 @@ async fn serve_one_request(
         return ServerEvent::Nothing;
     }
 
-    let event = http::serve_request(&mut socket, sd, request, work).await;
+    let event = {
+        let mut stream = http::IdleStream::new(&mut socket, Duration::from_secs(HTTP_TIMEOUT_SECS));
+        match with_timeout(
+            Duration::from_secs(HTTP_TOTAL_TIMEOUT_SECS),
+            http::serve_request(&mut stream, sd, request, work, token),
+        )
+        .await
+        {
+            Ok(event) => event,
+            Err(_) => {
+                info!("upload: request exceeded total time limit");
+                ServerEvent::Nothing
+            }
+        }
+    };
     close_socket(&mut socket).await;
     event
 }

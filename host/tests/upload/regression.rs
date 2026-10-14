@@ -286,7 +286,8 @@ fn write_host_file(path: &Path, data: &[u8]) {
     std::fs::write(path, data).unwrap();
 }
 
-fn run_inner(s: Scenario) -> Outcome {
+fn run_inner(mut s: Scenario) -> Outcome {
+    s.input = super::authorize_request(s.input, &mut []);
     let sandbox = sandbox_root();
     let card = if s.host_dir {
         let sd_dir = sandbox.join(SANDBOX_SD);
@@ -330,7 +331,13 @@ fn run_inner(s: Scenario) -> Outcome {
     let mut scratch = Box::new(HttpScratch::EMPTY);
     // the small profile: the sizes these cases were written against
     let mut work = vec![0u8; NetProfile::SMALL.work];
-    let event = block_on(serve_request(&mut sock, &sd, &mut scratch, &mut work));
+    let event = block_on(serve_request(
+        &mut sock,
+        &sd,
+        &mut scratch,
+        &mut work,
+        &super::session_token(),
+    ));
     let files = s
         .watch
         .iter()
@@ -1110,7 +1117,11 @@ fn upload_with_a_legal_boundary_control_is_accepted() {
     let boundary = make_boundary(70);
     for slice in [1, 1460, WHOLE] {
         let ctx = format!("control boundary 70 slice {slice}");
-        let out = run(upload_sandbox(upload_request(&boundary, "UP.TXT", &content)).slice(slice));
+        let out = run(Scenario::new(upload_request(&boundary, "UP.TXT", &content))
+            .host_dir()
+            .seed("OTHER.TXT", b"other")
+            .watch("UP.TXT")
+            .slice(slice));
         assert_eq!(assert_200(&out, None, &ctx), b"OK", "{ctx}");
         assert_uploaded(&out, "UP.TXT", &ctx);
         assert_bytes_eq(out.file("UP.TXT").expect("UP.TXT missing"), &content, &ctx);
@@ -1155,7 +1166,11 @@ fn upload_with_a_small_extra_part_header_control_is_accepted() {
     for slice in [1, 1460, WHOLE] {
         let ctx = format!("control part headers slice {slice}");
         let out = run(
-            upload_sandbox(upload_request_with(&boundary, "UP.TXT", &extra, &content)).slice(slice),
+            Scenario::new(upload_request_with(&boundary, "UP.TXT", &extra, &content))
+                .host_dir()
+                .seed("OTHER.TXT", b"other")
+                .watch("UP.TXT")
+                .slice(slice),
         );
         assert_eq!(assert_200(&out, None, &ctx), b"OK", "{ctx}");
         assert_uploaded(&out, "UP.TXT", &ctx);

@@ -7,6 +7,9 @@ build-std configuration with `std,test`. No hardware or external renderer is
 required. Cargo dependencies must already be cached for offline execution;
 `--locked` does not itself disable network access.
 
+The upload browser tests require Node.js. They execute the script from `assets/upload.html` with a simulated DOM and HTTP client.
+These tests cover session authorization and recovery after HTTP 403 responses.
+
 The workspace uses the vendored `vendor/smol-epub` dependency. Preserve the
 font inputs in `assets/fonts`; host/build.rs calls the production font generator.
 The verified host is aarch64-apple-darwin, rustc 1.100.0-nightly (1303417c4).

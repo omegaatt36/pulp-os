@@ -16,7 +16,7 @@ use crate::drivers::storage;
 const HTTP_200_HTML: &[u8] =
     b"HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n";
 const HTTP_200_JSON: &[u8] =
-    b"HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n";
+    b"HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n";
 const HTTP_200_TEXT: &[u8] =
     b"HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n";
 const HTTP_500_TEXT: &[u8] =
@@ -68,6 +68,116 @@ pub enum ServerEvent {
     DeleteFailed,
 }
 
+/// Bound each I/O wait independently of the TCP stack's retransmit timeout.
+pub struct IdleStream<'a, S> {
+    stream: &'a mut S,
+    idle: embassy_time::Duration,
+}
+impl<'a, S> IdleStream<'a, S> {
+    pub fn new(stream: &'a mut S, idle: embassy_time::Duration) -> Self {
+        Self { stream, idle }
+    }
+}
+#[derive(Debug)]
+pub enum StreamError<E> {
+    Io(E),
+    Timeout,
+}
+impl<E: core::fmt::Display> core::fmt::Display for StreamError<E> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Io(error) => error.fmt(f),
+            Self::Timeout => f.write_str("upload I/O timeout"),
+        }
+    }
+}
+impl<E: core::error::Error> core::error::Error for StreamError<E> {}
+impl<E: embedded_io_async::Error> embedded_io_async::Error for StreamError<E> {
+    fn kind(&self) -> embedded_io_async::ErrorKind {
+        match self {
+            Self::Io(error) => error.kind(),
+            Self::Timeout => embedded_io_async::ErrorKind::TimedOut,
+        }
+    }
+}
+impl<S: embedded_io_async::ErrorType> embedded_io_async::ErrorType for IdleStream<'_, S> {
+    type Error = StreamError<S::Error>;
+}
+impl<S: Read> Read for IdleStream<'_, S> {
+    async fn read(&mut self, bytes: &mut [u8]) -> Result<usize, Self::Error> {
+        embassy_time::with_timeout(self.idle, self.stream.read(bytes))
+            .await
+            .map_err(|_| StreamError::Timeout)?
+            .map_err(StreamError::Io)
+    }
+}
+impl<S: Write> Write for IdleStream<'_, S> {
+    async fn write(&mut self, bytes: &[u8]) -> Result<usize, Self::Error> {
+        embassy_time::with_timeout(self.idle, self.stream.write(bytes))
+            .await
+            .map_err(|_| StreamError::Timeout)?
+            .map_err(StreamError::Io)
+    }
+    async fn flush(&mut self) -> Result<(), Self::Error> {
+        embassy_time::with_timeout(self.idle, self.stream.flush())
+            .await
+            .map_err(|_| StreamError::Timeout)?
+            .map_err(StreamError::Io)
+    }
+}
+
+/// A fresh 128-bit capability for one upload session. Never log this value.
+pub struct SessionToken([u8; 32]);
+
+impl SessionToken {
+    pub fn from_bytes(bytes: [u8; 16]) -> Self {
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        let mut encoded = [0u8; 32];
+        for (i, byte) in bytes.iter().enumerate() {
+            encoded[i * 2] = HEX[(byte >> 4) as usize];
+            encoded[i * 2 + 1] = HEX[(byte & 15) as usize];
+        }
+        Self(encoded)
+    }
+
+    pub fn as_str(&self) -> &str {
+        // SAFETY: from_bytes produces only ASCII hexadecimal digits.
+        core::str::from_utf8(&self.0).expect("token is ASCII")
+    }
+
+    fn authorizes(&self, headers: &[u8]) -> bool {
+        let mut supplied = None;
+        for line in headers.split(|&b| b == b'\n').skip(1) {
+            let line = line.strip_suffix(b"\r").unwrap_or(line);
+            let Some(colon) = line.iter().position(|&b| b == b':') else {
+                continue;
+            };
+            if !line[..colon].eq_ignore_ascii_case(b"X-Pulp-Token") {
+                continue;
+            }
+            if supplied.is_some() {
+                return false;
+            }
+            let mut value = &line[colon + 1..];
+            while matches!(value.first(), Some(b' ' | b'\t')) {
+                value = &value[1..];
+            }
+            while matches!(value.last(), Some(b' ' | b'\t')) {
+                value = &value[..value.len() - 1];
+            }
+            supplied = Some(value);
+        }
+        let Some(value) = supplied.filter(|value| value.len() == self.0.len()) else {
+            return false;
+        };
+        self.0
+            .iter()
+            .zip(value)
+            .fold(0u8, |diff, (a, b)| diff | (a ^ b))
+            == 0
+    }
+}
+
 /// Serve the one HTTP request on an accepted connection: parse it, act on
 /// the SD card, write the whole response and flush. The connection is left
 /// open; the caller closes it. `work` is the upload window (at least
@@ -78,6 +188,7 @@ pub async fn serve_request<S>(
     sd: &SdStorage,
     scratch: &mut HttpScratch,
     work: &mut [u8],
+    token: &SessionToken,
 ) -> ServerEvent
 where
     S: Read + Write,
@@ -123,6 +234,14 @@ where
     if is_get && path == b"/" {
         let _ = socket.write_all(HTTP_200_HTML).await;
         let _ = socket.write_all(UPLOAD_PAGE).await;
+        let _ = socket.flush().await;
+        return ServerEvent::Nothing;
+    }
+
+    let protected = (is_get && path == b"/files")
+        || (is_post && matches!(path, b"/upload" | b"/delete" | b"/time"));
+    if protected && !token.authorizes(headers) {
+        let _ = socket.write_all(b"HTTP/1.0 403 Forbidden\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nScan the device QR code to authorize this session").await;
         let _ = socket.flush().await;
         return ServerEvent::Nothing;
     }
@@ -212,9 +331,14 @@ where
                 let _ = socket.flush().await;
                 ServerEvent::Uploaded { name, name_len }
             }
-            Err(e) => {
-                log::info!("upload: handle_upload error: {}", e);
-                send_error_response(socket, e).await;
+            Err(UploadFailure::Conflict) => {
+                let _ = socket.write_all(b"HTTP/1.0 409 Conflict\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nFile already exists. Rename the upload or delete the old file first.").await;
+                let _ = socket.flush().await;
+                ServerEvent::UploadFailed
+            }
+            Err(UploadFailure::Failed(error)) => {
+                log::info!("upload: handle_upload error: {}", error);
+                send_error_response(socket, error).await;
                 ServerEvent::UploadFailed
             }
         };
@@ -285,18 +409,40 @@ where
     ServerEvent::Nothing
 }
 
+fn storage_failure(error: storage::UploadError) -> &'static str {
+    log::warn!("upload: storage failure: {:?}", error);
+    match error {
+        storage::UploadError::Storage(error)
+            if error.kind() == crate::error::ErrorKind::DeleteFailed =>
+        {
+            "upload cleanup failed"
+        }
+        _ => "write failed",
+    }
+}
+
 // Append `data` to the upload file in slices of at most `FLUSH_SLICE_BYTES`,
 // yielding to the executor between slices: one flush of a large work buffer
 // must not hold the SPI bus (and with it the radio tasks) for its whole length.
 // The writer borrows the storage per slice only.
-async fn flush(writer: &mut storage::RootWriter<'_>, data: &[u8]) -> Result<(), &'static str> {
+async fn flush(writer: &mut storage::UploadWriter<'_>, data: &[u8]) -> Result<(), &'static str> {
     for (i, slice) in data.chunks(FLUSH_SLICE_BYTES).enumerate() {
         if i > 0 {
             yield_now().await;
         }
-        writer.append(slice).map_err(|_| "write failed")?;
+        writer.append(slice).map_err(storage_failure)?;
     }
     Ok(())
+}
+
+enum UploadFailure {
+    Conflict,
+    Failed(&'static str),
+}
+impl From<&'static str> for UploadFailure {
+    fn from(error: &'static str) -> Self {
+        Self::Failed(error)
+    }
 }
 
 async fn handle_upload<S>(
@@ -305,15 +451,15 @@ async fn handle_upload<S>(
     boundary: &[u8],
     initial_body: &[u8],
     work: &mut [u8],
-) -> Result<([u8; 13], u8), &'static str>
+) -> Result<([u8; 13], u8), UploadFailure>
 where
     S: Read + Write,
 {
     if boundary.len() > MAX_BOUNDARY_LEN {
-        return Err("boundary too long");
+        return Err("boundary too long".into());
     }
     if work.len() < MIN_WORK_BYTES {
-        return Err("work buffer too small");
+        return Err("work buffer too small".into());
     }
 
     let em_len = 4 + boundary.len();
@@ -336,15 +482,14 @@ where
             let raw_name = extract_filename(part_headers).ok_or("no filename in upload")?;
             let (name_buf, name_len) = sanitize_83(raw_name);
             if name_len == 0 {
-                return Err("invalid filename");
+                return Err("invalid filename".into());
             }
 
-            // warn if sanitisation changed the name, two different
-            // original names can map to the same 8.3 name, causing
-            // the second upload to silently overwrite the first.
+            // Different original names can map to the same FAT short name.
+            // Report the mapping; create-only storage refuses any collision.
             if raw_name != &name_buf[..name_len as usize] {
                 log::warn!(
-                    "upload: sanitised '{}' -> '{}' (may overwrite existing file)",
+                    "upload: sanitised '{}' -> '{}' (existing names are refused)",
                     core::str::from_utf8(raw_name).unwrap_or("?"),
                     core::str::from_utf8(&name_buf[..name_len as usize]).unwrap_or("?"),
                 );
@@ -358,7 +503,7 @@ where
         }
 
         if filled >= work.len() {
-            return Err("part headers too large");
+            return Err("part headers too large".into());
         }
 
         let n = socket
@@ -366,7 +511,7 @@ where
             .await
             .map_err(|_| "read error")?;
         if n == 0 {
-            return Err("connection closed during headers");
+            return Err("connection closed during headers".into());
         }
         filled += n;
     };
@@ -376,11 +521,12 @@ where
 
     log::info!("upload: receiving file '{}'", name_str);
 
-    // Opened once for the whole upload. Every way out of this function, the
-    // error returns and a dropped future (timeout, BACK) included, drops the
-    // writer, which closes the file; the success path closes it explicitly to
-    // report a failed metadata flush.
-    let mut writer = storage::create_root_writer(sd, name_str).map_err(|_| "write failed")?;
+    // Create-only: never truncate a book already on the card. Every error or
+    // dropped future closes and removes this new file; only commit preserves it.
+    let mut writer = storage::create_upload_writer(sd, name_str).map_err(|error| match error {
+        storage::UploadError::AlreadyExists => UploadFailure::Conflict,
+        error => UploadFailure::Failed(storage_failure(error)),
+    })?;
 
     // The window is `[content | holdback]`: the last `em_len` bytes may be the
     // start of the closing delimiter, so only bytes before them are payload.
@@ -395,7 +541,7 @@ where
     loop {
         let from = scanned.saturating_sub(em_len - 1);
         let found = find_subsequence(&work[from..filled], end_marker).map(|p| p + from);
-        let marker_found = if let Some(pos) = found {
+        if let Some(pos) = found {
             // flush the content and keep the marker at the start of the buffer,
             // so the two bytes that decide final vs. more parts always fit
             if pos > 0 {
@@ -407,14 +553,13 @@ where
             // only "--" after the delimiter completes the upload
             if filled >= em_len + 2 {
                 if &work[em_len..em_len + 2] != b"--" {
-                    return Err("malformed multipart end");
+                    return Err("malformed multipart end".into());
                 }
                 let total = writer.written();
-                writer.close().map_err(|_| "write failed")?;
+                writer.commit().map_err(storage_failure)?;
                 log::info!("upload: complete, {} bytes written", total);
                 return Ok((file_name_buf, file_name_len));
             }
-            true
         } else {
             scanned = filled;
             if filled == work.len() {
@@ -426,18 +571,14 @@ where
                 filled -= n;
                 scanned = filled;
             }
-            false
-        };
+        }
 
         let n = socket
             .read(&mut work[filled..])
             .await
             .map_err(|_| "read error during upload")?;
         if n == 0 {
-            if !marker_found && filled > 0 {
-                let _ = flush(&mut writer, &work[..filled]).await;
-            }
-            return Err("upload incomplete");
+            return Err("upload incomplete".into());
         }
         filled += n;
     }

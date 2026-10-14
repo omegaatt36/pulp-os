@@ -91,6 +91,32 @@ cargo run -p pulp-host --bin vertical-preview --target host-tuple \
 
 ---
 
+## Wi-Fi Upload Authorization
+
+Each upload session creates a new 128-bit token after Wi-Fi starts.
+The device shows the token in two lines and includes it in the QR URL fragment.
+
+1. Enter Upload mode on the device.
+2. Scan the QR code, or open `http://pulp.local/` and enter both token lines in the page.
+3. If the page rejects the token, enter the current token from the device.
+
+The browser sends `X-Pulp-Token` with `/files`, `/upload`, `/delete`, and `/time` requests.
+These endpoints reject missing, incorrect, or duplicate token headers with HTTP 403.
+The token expires when Upload mode ends. HTTP does not encrypt the token or file contents.
+
+Uploads never replace an existing FAT short name. A name collision returns HTTP 409 and preserves the existing file.
+To replace a file, delete it explicitly first. Different original names can map to the same 8.3 name.
+
+A completed upload flushes and closes the new file before it reports success.
+An interrupted upload closes and deletes the incomplete file.
+An SD failure can prevent cleanup. A power loss can also leave an incomplete new file on the card.
+An existing file remains protected by the create-only upload policy.
+
+The server limits each read, write, and flush wait to 30 seconds.
+The total request limit is 600 seconds after the server accepts the connection.
+
+---
+
 ## Local Date and FAT Timestamps
 
 The device has no battery-backed calendar clock. The firmware records the source of its local date:
@@ -103,7 +129,8 @@ The firmware advances the date with its monotonic uptime clock. New FAT files an
 FAT timestamps contain no timezone. Browser calibration uses local time, and its accuracy depends on the computer clock.
 
 Open the Wi-Fi upload page to set the date. The page reports whether calibration succeeds.
-The calibration endpoint accepts `POST /time` with a 19-byte body in `YYYY-MM-DDTHH:MM:SS` format and `Content-Length: 19`.
+The calibration endpoint requires the session token.
+It accepts `POST /time` with a 19-byte body in `YYYY-MM-DDTHH:MM:SS` format and `Content-Length: 19`.
 Invalid dates return HTTP 400 and preserve the current date.
 
 After a reset or deep sleep, browser calibration is lost. The next SD mount supplies an estimate again.

@@ -191,12 +191,15 @@ struct Run {
 }
 
 fn run(sd: &SdStorage, input: Vec<u8>, o: &Opts) -> Run {
+    let mut splits = o.splits.clone();
+    let input = super::authorize_request(input, &mut splits);
+    let token = super::session_token();
     let stalled = Rc::new(Cell::new(false));
     let mut sock = FakeSocket {
         input,
         pos: 0,
         read_slice: o.slice.max(1),
-        splits: o.splits.clone(),
+        splits,
         end: o.end,
         stalled: stalled.clone(),
         out: Vec::new(),
@@ -208,7 +211,7 @@ fn run(sd: &SdStorage, input: Vec<u8>, o: &Opts) -> Run {
     let mut work = vec![0u8; o.work];
     let mut yields = 0usize;
     let (event, finish) = {
-        let fut = serve_request(&mut sock, sd, &mut scratch, &mut work);
+        let fut = serve_request(&mut sock, sd, &mut scratch, &mut work, &token);
         let mut fut = pin!(fut);
         let mut cx = Context::from_waker(Waker::noop());
         loop {
@@ -577,10 +580,7 @@ fn a_future_dropped_at_any_yield_closes_the_file_once() {
             assert_eq!(r.finish, Finish::Cut, "{ctx}");
             assert_eq!(r.event, None, "{ctx}");
             assert!(r.response.is_empty(), "{ctx}: nothing answered");
-            // the slices before the cut are on the card, nothing after
-            let got = stored(&sd).unwrap();
-            assert_eq!(got.len(), 4096 * (cut + 1), "{ctx}");
-            assert_eq!(got, &content[..got.len()], "{ctx}");
+            assert_eq!(stored(&sd), None, "{ctx}: cancelled upload removed");
         } else {
             assert_ok_response(&r, &ctx);
         }
@@ -597,36 +597,21 @@ fn a_stalled_upload_dropped_anywhere_closes_what_it_opened() {
     let req = upload_request(&b, &content);
     let part_end = req.content_at;
     let em_len = 4 + 40;
-    // (label, bytes the peer sent before going quiet, writer opened by then,
-    // the whole content is on the card: a complete delimiter flushes the tail)
+    // (label, bytes sent before going quiet, writer opened by then).
+    // Every incomplete upload is removed when its future is dropped.
     let cuts = [
-        ("no body", req.body_at, false, false),
-        ("inside the part headers", part_end - 30, false, false),
-        ("part headers complete", part_end, true, false),
-        ("100 content bytes", part_end + 100, true, false),
-        ("2500 content bytes", part_end + 2500, true, false),
-        ("all content", part_end + 5000, true, false),
-        (
-            "inside the closing delimiter",
-            req.marker_at + 10,
-            true,
-            false,
-        ),
-        (
-            "delimiter without dashes",
-            req.marker_at + em_len,
-            true,
-            true,
-        ),
-        (
-            "delimiter and one dash",
-            req.marker_at + em_len + 1,
-            true,
-            true,
-        ),
+        ("no body", req.body_at, false),
+        ("inside the part headers", part_end - 30, false),
+        ("part headers complete", part_end, true),
+        ("100 content bytes", part_end + 100, true),
+        ("2500 content bytes", part_end + 2500, true),
+        ("all content", part_end + 5000, true),
+        ("inside the closing delimiter", req.marker_at + 10, true),
+        ("delimiter without dashes", req.marker_at + em_len, true),
+        ("delimiter and one dash", req.marker_at + em_len + 1, true),
     ];
     for profile in [NetProfile::SMALL, NetProfile::LARGE] {
-        for (label, sent, opened, all) in cuts {
+        for (label, sent, opened) in cuts {
             for slice in [7, WHOLE] {
                 let ctx = format!("{label} work {} slice {slice}", profile.work);
                 let sd = card();
@@ -638,18 +623,7 @@ fn a_stalled_upload_dropped_anywhere_closes_what_it_opened() {
                 assert_eq!(r.finish, Finish::Stalled, "{ctx}");
                 assert_eq!(r.event, None, "{ctx}");
                 assert_balanced(&sd, usize::from(opened), &ctx);
-                if !opened {
-                    assert_eq!(stored(&sd), None, "{ctx}: file created too early");
-                    continue;
-                }
-                let got = stored(&sd).expect("file created on open");
-                if all {
-                    assert_eq!(got, content, "{ctx}");
-                } else {
-                    // only whole sectors were written, all of them payload
-                    assert_eq!(got.len() % SECTOR, 0, "{ctx}");
-                    assert_eq!(got, &content[..got.len()], "{ctx}");
-                }
+                assert_eq!(stored(&sd), None, "{ctx}: cancelled upload removed");
             }
         }
     }
@@ -678,18 +652,11 @@ fn peer_close_or_socket_error_mid_upload_fails_and_closes() {
             };
             assert_failure_response(&r, message, &ctx);
             assert_balanced(&sd, 1, &ctx);
-            let got = stored(&sd).unwrap();
-            if end == End::Zero {
-                // a closed peer: what the window still held is written out
-                assert_eq!(got, &content[..3000], "{ctx}");
-            } else {
-                assert!(
-                    got.len() <= 3000 && got.len() % SECTOR == 0,
-                    "{ctx}: {}",
-                    got.len()
-                );
-                assert_eq!(got, &content[..got.len()], "{ctx}");
-            }
+            assert_eq!(
+                stored(&sd),
+                None,
+                "{ctx}: incomplete upload must be removed"
+            );
         }
     }
 }
@@ -712,13 +679,10 @@ fn short_storage_write_fails_the_upload_and_closes() {
             assert_failure_response(&r, "write failed", &ctx);
             assert_eq!(sd.card.pending_injections(), 0, "{ctx}: never fired");
             assert_balanced(&sd, 1, &ctx);
-            // the appends before the failing one, plus the bytes it managed
+            // Append counters remain available after cleanup; no further write occurs.
             let sizes = sd.card.writer_append_sizes();
             assert_eq!(sizes.len(), nth, "{ctx}: no append after the failure");
-            let want: usize = sizes[..nth - 1].iter().sum::<usize>() + written.min(sizes[nth - 1]);
-            let got = stored(&sd).unwrap();
-            assert_eq!(got.len(), want, "{ctx}");
-            assert_eq!(got, &content[..want], "{ctx}");
+            assert_eq!(stored(&sd), None, "{ctx}: failed upload removed");
         }
     }
 }
@@ -774,9 +738,7 @@ fn a_file_cannot_grow_past_the_card_size_bound() {
             let r = run(&sd, req.bytes.clone(), &Opts::new().work(profile.work));
             assert_failure_response(&r, "write failed", &ctx);
             assert_balanced(&sd, 1, &ctx);
-            let got = stored(&sd).unwrap();
-            assert!(got.len() <= limit as usize, "{ctx}: {} bytes", got.len());
-            assert_eq!(got, &content[..got.len()], "{ctx}");
+            assert_eq!(stored(&sd), None, "{ctx}: failed upload removed");
         }
     }
 }
@@ -850,6 +812,9 @@ fn consecutive_uploads_each_open_and_close_one_writer() {
     let sd = card();
     let b = boundary(40);
     for (i, size) in [100usize, 5000, 0].into_iter().enumerate() {
+        if i > 0 {
+            pulp_host::drivers::storage::delete_file(&sd, NAME).unwrap();
+        }
         let content = lcg_bytes(size, 121 + i as u64);
         let req = upload_request(&b, &content);
         let r = run(&sd, req.bytes, &Opts::new().work(NetProfile::LARGE.work));
@@ -857,4 +822,88 @@ fn consecutive_uploads_each_open_and_close_one_writer() {
         assert_eq!(stored(&sd).as_deref(), Some(&content[..]), "upload {i}");
         assert_balanced(&sd, i + 1, "sequence");
     }
+}
+
+// Safe writer storage contract, independent of the HTTP parser.
+#[test]
+fn safe_writer_conflict_preserves_existing_bytes() {
+    use pulp_host::drivers::storage::{UploadError, create_upload_writer};
+    let sd = SdStorage::new(VirtualStorage::memory_with(&[(NAME, b"original")]));
+    assert!(matches!(
+        create_upload_writer(&sd, NAME),
+        Err(UploadError::AlreadyExists)
+    ));
+    assert_eq!(stored(&sd).as_deref(), Some(&b"original"[..]));
+    assert_balanced(&sd, 0, "conflict");
+}
+
+#[test]
+fn safe_writer_drop_removes_partial_file() {
+    use pulp_host::drivers::storage::create_upload_writer;
+    let sd = card();
+    {
+        let mut writer = create_upload_writer(&sd, NAME).unwrap();
+        writer.append(b"partial").unwrap();
+        assert_eq!(writer.written(), 7);
+    }
+    assert_eq!(stored(&sd), None);
+    assert_balanced(&sd, 1, "cancelled");
+}
+
+#[test]
+fn safe_writer_commit_preserves_completed_file() {
+    use pulp_host::drivers::storage::create_upload_writer;
+    let sd = card();
+    let mut writer = create_upload_writer(&sd, NAME).unwrap();
+    writer.append(b"complete").unwrap();
+    writer.commit().unwrap();
+    assert_eq!(stored(&sd).as_deref(), Some(&b"complete"[..]));
+    assert_balanced(&sd, 1, "committed");
+}
+
+#[test]
+fn safe_writer_append_and_close_failures_remove_partial_file() {
+    use pulp_host::drivers::storage::create_upload_writer;
+    for op in [StorageOp::Append, StorageOp::Close] {
+        let sd = card();
+        let mut writer = create_upload_writer(&sd, NAME).unwrap();
+        writer.append(b"initial").unwrap();
+        sd.card.inject_error(op, NAME, 1, ErrorKind::WriteFailed);
+        if op == StorageOp::Append {
+            assert!(writer.append(b"more").is_err());
+            // Failed appends poison the upload; it cannot be committed.
+            assert!(writer.commit().is_err());
+        } else {
+            assert!(writer.commit().is_err());
+        }
+        assert_eq!(stored(&sd), None, "{op:?}");
+        assert_balanced(&sd, 1, "failed");
+    }
+}
+
+#[test]
+fn safe_writer_short_write_removes_partial_file() {
+    use pulp_host::drivers::storage::create_upload_writer;
+    let sd = card();
+    let mut writer = create_upload_writer(&sd, NAME).unwrap();
+    sd.card.inject_short_write(NAME, 1, 3);
+    assert!(writer.append(b"partial").is_err());
+    drop(writer);
+    assert_eq!(stored(&sd), None);
+    assert_balanced(&sd, 1, "short write");
+}
+
+#[test]
+fn safe_writer_abort_reports_cleanup_failure() {
+    use pulp_host::drivers::storage::{UploadError, create_upload_writer};
+    let sd = card();
+    let mut writer = create_upload_writer(&sd, NAME).unwrap();
+    writer.append(b"partial").unwrap();
+    sd.card
+        .inject_error(StorageOp::Delete, NAME, 1, ErrorKind::DeleteFailed);
+    assert!(
+        matches!(writer.abort(), Err(UploadError::Storage(e)) if e.kind() == ErrorKind::DeleteFailed)
+    );
+    assert_eq!(stored(&sd).as_deref(), Some(&b"partial"[..]));
+    assert_balanced(&sd, 1, "delete failed");
 }

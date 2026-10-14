@@ -97,6 +97,118 @@ impl Drop for RootWriter<'_> {
     }
 }
 
+/// A collision is distinct from an SD failure; uploads never replace a file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UploadError {
+    AlreadyExists,
+    Storage(Error),
+}
+
+impl From<Error> for UploadError {
+    fn from(error: Error) -> Self {
+        Self::Storage(error)
+    }
+}
+
+/// Owns a newly created file. Only a successful commit preserves it.
+pub struct UploadWriter<'a> {
+    sd: &'a SdStorage,
+    name: String,
+    writer: Option<RootWriter<'a>>,
+    len: u32,
+    pending_delete: bool,
+    failed: bool,
+}
+
+impl UploadWriter<'_> {
+    pub fn written(&self) -> u32 {
+        self.len
+    }
+
+    pub fn append(&mut self, data: &[u8]) -> core::result::Result<(), UploadError> {
+        let result = match self.writer.as_mut() {
+            Some(writer) if !self.failed => writer.append(data),
+            _ => Err(Error::new(ErrorKind::WriteFailed, "upload: failed writer")),
+        };
+        match result {
+            Ok(()) => {
+                self.len = self.writer.as_ref().unwrap().written();
+                Ok(())
+            }
+            Err(error) => {
+                self.failed = true;
+                // Cleanup failure takes precedence: callers must not claim the
+                // partial file was removed when the SD card refused deletion.
+                self.abort_inner()?;
+                Err(error.into())
+            }
+        }
+    }
+
+    pub fn commit(mut self) -> core::result::Result<(), UploadError> {
+        if self.failed {
+            return Err(Error::new(ErrorKind::WriteFailed, "upload: failed writer").into());
+        }
+        let result = self.writer.take().unwrap().close();
+        match result {
+            Ok(()) => {
+                self.pending_delete = false;
+                Ok(())
+            }
+            Err(error) => {
+                self.abort_inner()?;
+                Err(error.into())
+            }
+        }
+    }
+
+    /// Close before deleting. Report cleanup errors to explicit abort callers.
+    pub fn abort(mut self) -> core::result::Result<(), UploadError> {
+        self.abort_inner()
+    }
+
+    fn abort_inner(&mut self) -> core::result::Result<(), UploadError> {
+        let closed = self.writer.take().map_or(Ok(()), RootWriter::close);
+        if self.pending_delete {
+            // One attempt only: a failed deletion leaves the name reserved on
+            // disk, and a later upload will reject that collision.
+            self.pending_delete = false;
+            delete_file(self.sd, &self.name)?;
+        }
+        closed.map_err(UploadError::Storage)
+    }
+}
+
+impl Drop for UploadWriter<'_> {
+    fn drop(&mut self) {
+        if let Err(error) = self.abort_inner() {
+            log::warn!("storage: upload cleanup failed: {:?}", error);
+        }
+    }
+}
+
+pub fn create_upload_writer<'a>(
+    sd: &'a SdStorage,
+    name: &str,
+) -> core::result::Result<UploadWriter<'a>, UploadError> {
+    let card = borrow(sd)?;
+    let name = name.to_ascii_uppercase();
+    card.open_upload_writer(&name)?;
+    Ok(UploadWriter {
+        sd,
+        name: name.clone(),
+        writer: Some(RootWriter {
+            card,
+            name,
+            open: true,
+            len: 0,
+        }),
+        len: 0,
+        pending_delete: true,
+        failed: false,
+    })
+}
+
 pub fn delete_file(sd: &SdStorage, name: &str) -> R<()> {
     borrow(sd)?.delete_file(name)
 }
