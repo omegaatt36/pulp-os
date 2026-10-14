@@ -96,8 +96,12 @@ struct Component {
     ac_tbl: u8,
 }
 
+// codes up to this many bits resolve with one table lookup
+const LUT_BITS: u32 = 9;
+const LUT_SIZE: usize = 1 << LUT_BITS;
+
 struct HuffTable {
-    lut: [(u8, u8); 256],
+    lut: [(u8, u8); LUT_SIZE],
     mincode: [i32; 17],
     maxcode: [i32; 17],
     valptr: [usize; 17],
@@ -172,7 +176,7 @@ impl<'a> SliceReader<'a> {
 }
 
 impl JpegRead for SliceReader<'_> {
-    #[inline]
+    #[inline(always)]
     fn read_byte(&mut self) -> Result<u8, &'static str> {
         if self.pos >= self.data.len() {
             return Err("jpeg: unexpected end of data");
@@ -237,6 +241,7 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> ChunkReader<F> {
 }
 
 impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>> JpegRead for ChunkReader<F> {
+    #[inline(always)]
     fn read_byte(&mut self) -> Result<u8, &'static str> {
         if self.pos >= self.len {
             self.refill()?;
@@ -387,6 +392,7 @@ impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>, S: crate::scratch:
 impl<F: FnMut(u32, &mut [u8]) -> Result<usize, &'static str>, S: crate::scratch::ScratchStorage>
     JpegRead for DeflateReader<F, S>
 {
+    #[inline(always)]
     fn read_byte(&mut self) -> Result<u8, &'static str> {
         if self.avail == 0 {
             if self.done {
@@ -443,6 +449,7 @@ impl<R: JpegRead> BitReader<R> {
     }
 
     // fetch next entropy-coded byte, handling JPEG byte stuffing
+    #[inline(always)]
     fn next_byte(&mut self) -> Result<u8, &'static str> {
         if self.marker != 0 {
             return Ok(0);
@@ -451,6 +458,13 @@ impl<R: JpegRead> BitReader<R> {
         if b != 0xFF {
             return Ok(b);
         }
+        self.stuffed_or_marker()
+    }
+
+    // the byte after an 0xFF: stuffing (0x00) is a data byte 0xFF, anything
+    // else is a marker, which the entropy data ends at (zero bits follow)
+    #[inline(never)]
+    fn stuffed_or_marker(&mut self) -> Result<u8, &'static str> {
         loop {
             if self.source.is_eof() {
                 return Ok(0);
@@ -467,28 +481,40 @@ impl<R: JpegRead> BitReader<R> {
         }
     }
 
+    // at least `n` (<= 25) bits buffered
+    #[inline(always)]
     fn ensure(&mut self, n: u8) -> Result<(), &'static str> {
-        while self.avail < n {
-            let b = self.next_byte()?;
-            self.buf |= (b as u32) << (24 - self.avail);
-            self.avail += 8;
+        if self.avail >= n {
+            Ok(())
+        } else {
+            self.refill(n)
+        }
+    }
+
+    // top the buffer up to 25..=32 bits; a source that fails (or ends) is only
+    // an error when fewer than `n` bits are left, so a short file still decodes
+    // up to its last needed bit
+    #[inline(never)]
+    fn refill(&mut self, n: u8) -> Result<(), &'static str> {
+        while self.avail <= 24 {
+            match self.next_byte() {
+                Ok(b) => {
+                    self.buf |= u32::from(b) << (24 - self.avail);
+                    self.avail += 8;
+                }
+                Err(e) => return if self.avail >= n { Ok(()) } else { Err(e) },
+            }
         }
         Ok(())
     }
 
-    #[inline]
-    fn peek(&mut self, n: u8) -> Result<u32, &'static str> {
-        self.ensure(n)?;
-        Ok(self.buf >> (32 - n as u32))
-    }
-
-    #[inline]
+    #[inline(always)]
     fn drop_bits(&mut self, n: u8) {
         self.buf <<= n as u32;
         self.avail -= n;
     }
 
-    #[inline]
+    #[inline(always)]
     fn read_bits(&mut self, n: u8) -> Result<u32, &'static str> {
         if n == 0 {
             return Ok(0);
@@ -900,14 +926,20 @@ fn validate_tables(st: &JpegState) -> Result<(), &'static str> {
 struct Plan {
     w: usize,
     h: usize,
-    fit: Fit,
     out_w: usize,
     out_h: usize,
     out_stride: usize,
-    mcu_w: usize,
-    mcu_h: usize,
     mcus_x: usize,
     mcus_y: usize,
+    // the IDCT reduces every 8x8 block to `bs` x `bs` (8, 4, 2 or 1) while the
+    // reduced image stays at least as large as the output
+    shift: u8,
+    bs: usize,
+    rmcu_w: usize,
+    rmcu_h: usize,
+    // output cell geometry over the reduced image
+    rfit: Fit,
+    rh: usize,
     row_w: usize,
 }
 
@@ -932,30 +964,46 @@ impl Plan {
         let mcu_h = st.max_v as usize * 8;
         let mcus_x = w.div_ceil(mcu_w);
         let mcus_y = h.div_ceil(mcu_h);
+        let mut shift = 0u8;
+        while shift < 3 && w.div_ceil(2 << shift) >= out_w && h.div_ceil(2 << shift) >= out_h {
+            shift += 1;
+        }
+        let rfit = fit.reduced(shift);
+        let rmcu_w = mcu_w >> shift;
         Ok(Self {
             w,
             h,
-            fit,
             out_w,
             out_h,
             out_stride: out_w.div_ceil(8),
-            mcu_w,
-            mcu_h,
             mcus_x,
             mcus_y,
-            row_w: mcus_x * mcu_w,
+            shift,
+            bs: 8 >> shift,
+            rmcu_w,
+            rmcu_h: mcu_h >> shift,
+            rfit,
+            rh: h.div_ceil(1 << shift),
+            row_w: mcus_x * rmcu_w,
         })
     }
 }
 
-// One MCU row of luma awaiting dither, and the 1-bit output it feeds.
+// One MCU row of reduced luma, averaged into output pixels and dithered.
 // Rows must be flushed top to bottom: the error diffusion carries over.
 struct Canvas<'a> {
     y_row: Vec<u8>,
+    // reduced-image column where each output column starts (and the end)
+    col: Vec<u16>,
+    acc: Vec<u32>,
+    grey: Vec<u8>,
     err_cur: Vec<i16>,
     err_nxt: Vec<i16>,
     pixels: &'a mut [u8],
     out_y: usize,
+    // reduced-image rows [row_start, row_end) feed output row `out_y`
+    row_start: usize,
+    row_end: usize,
 }
 
 impl<'a> Canvas<'a> {
@@ -965,55 +1013,62 @@ impl<'a> Canvas<'a> {
         }
         pixels.fill(0);
 
-        let mut y_row = Vec::new();
-        y_row
-            .try_reserve_exact(plan.row_w * plan.mcu_h)
-            .map_err(|_| "jpeg: OOM for y_row")?;
-        y_row.resize(plan.row_w * plan.mcu_h, 128u8);
-        let mut err_cur = Vec::new();
-        err_cur
-            .try_reserve_exact(plan.out_w + 2)
-            .map_err(|_| "jpeg: OOM for dither")?;
-        err_cur.resize(plan.out_w + 2, 0i16);
-        let mut err_nxt = Vec::new();
-        err_nxt
-            .try_reserve_exact(plan.out_w + 2)
-            .map_err(|_| "jpeg: OOM for dither")?;
-        err_nxt.resize(plan.out_w + 2, 0i16);
+        fn vec_of<T: Clone>(n: usize, v: T, what: &'static str) -> Result<Vec<T>, &'static str> {
+            let mut vec = Vec::new();
+            vec.try_reserve_exact(n).map_err(|_| what)?;
+            vec.resize(n, v);
+            Ok(vec)
+        }
+        let mut col = vec_of(plan.out_w + 1, 0u16, "jpeg: OOM for columns")?;
+        for (ox, c) in col.iter_mut().enumerate() {
+            *c = plan.rfit.src_x(ox) as u16;
+        }
 
         Ok(Self {
-            y_row,
-            err_cur,
-            err_nxt,
+            y_row: vec_of(plan.row_w * plan.rmcu_h, 128u8, "jpeg: OOM for y_row")?,
+            col,
+            acc: vec_of(plan.out_w, 0u32, "jpeg: OOM for dither")?,
+            grey: vec_of(plan.out_w, 0u8, "jpeg: OOM for dither")?,
+            err_cur: vec_of(plan.out_w + 2, 0i16, "jpeg: OOM for dither")?,
+            err_nxt: vec_of(plan.out_w + 2, 0i16, "jpeg: OOM for dither")?,
             pixels,
             out_y: 0,
+            row_start: 0,
+            row_end: plan.rfit.src_y(1),
         })
     }
 
-    // dither the output rows that MCU row `mcu_row` of `y_row` contains
+    // add the reduced rows of MCU row `mcu_row` to the output cells; a cell
+    // that has all its rows becomes one dithered output row
     fn flush(&mut self, plan: &Plan, mcu_row: usize) {
-        for py in 0..plan.mcu_h {
-            let src_y = mcu_row * plan.mcu_h + py;
-            if src_y >= plan.h || self.out_y >= plan.out_h {
+        for py in 0..plan.rmcu_h {
+            let ry = mcu_row * plan.rmcu_h + py;
+            if ry >= plan.rh || self.out_y >= plan.out_h {
                 break;
             }
-            if src_y != plan.fit.src_y(self.out_y) {
+            let row = &self.y_row[py * plan.row_w..(py + 1) * plan.row_w];
+            for (ox, acc) in self.acc.iter_mut().enumerate() {
+                let (a, b) = (self.col[ox] as usize, self.col[ox + 1] as usize);
+                *acc += row[a..b].iter().map(|&g| u32::from(g)).sum::<u32>();
+            }
+            if ry + 1 < self.row_end {
                 continue;
             }
-            let row_off = py * plan.row_w;
+
+            let rows = (self.row_end - self.row_start) as u32;
+            for ox in 0..plan.out_w {
+                let n = rows * u32::from(self.col[ox + 1] - self.col[ox]);
+                self.grey[ox] = ((self.acc[ox] + n / 2) / n) as u8;
+                self.acc[ox] = 0;
+            }
             let out_row =
                 &mut self.pixels[self.out_y * plan.out_stride..(self.out_y + 1) * plan.out_stride];
-            dither_row_grey(
-                &self.y_row[row_off..],
-                &plan.fit,
-                plan.out_w,
-                &mut self.err_cur,
-                &mut self.err_nxt,
-                out_row,
-            );
+            dither_row_grey(&self.grey, &mut self.err_cur, &mut self.err_nxt, out_row);
             self.out_y += 1;
             core::mem::swap(&mut self.err_cur, &mut self.err_nxt);
             self.err_nxt.fill(0);
+            self.row_start = self.row_end;
+            self.row_end = plan.rfit.src_y(self.out_y + 1);
         }
     }
 }
@@ -1071,7 +1126,7 @@ where
                                 st.scan_se as usize,
                                 st.scan_al,
                             )?;
-                            idct(&block, &mut pix);
+                            idct_reduced(&block, plan.shift, &mut pix);
                             put_block(&mut canvas.y_row, &plan, mcu_col, bh, bv, &pix);
                         } else {
                             skip_block(
@@ -1110,13 +1165,14 @@ where
     })
 }
 
-// copy one IDCT'd luma block into the MCU row buffer
+// copy one reduced luma block into the MCU row buffer
 #[inline]
 fn put_block(y_row: &mut [u8], plan: &Plan, mcu_col: usize, bh: usize, bv: usize, pix: &[u8; 64]) {
-    let bx = mcu_col * plan.mcu_w + bh * 8;
-    for r in 0..8 {
-        let dst = (bv * 8 + r) * plan.row_w + bx;
-        y_row[dst..dst + 8].copy_from_slice(&pix[r * 8..r * 8 + 8]);
+    let bs = plan.bs;
+    let bx = mcu_col * plan.rmcu_w + bh * bs;
+    for r in 0..bs {
+        let dst = (bv * bs + r) * plan.row_w + bx;
+        y_row[dst..dst + bs].copy_from_slice(&pix[r * bs..r * bs + bs]);
     }
 }
 
@@ -1470,13 +1526,13 @@ mod progressive {
     const COEF_LIMIT: i32 = 4096;
 
     // dequantize one stored block and run the IDCT
-    fn dequant_idct(blk: &[i16], qt: &[u16; 64], out: &mut [u8; 64]) {
+    fn dequant_idct(blk: &[i16], qt: &[u16; 64], shift: u8, out: &mut [u8; 64]) {
         let mut deq = [0i32; 64];
         for k in 0..64 {
             // i16 * u16 always fits i32; damaged data is clamped, not wrapped
             deq[ZZ[k]] = (blk[ZZ[k]] as i32 * qt[k] as i32).clamp(-COEF_LIMIT, COEF_LIMIT);
         }
-        idct(&deq, out);
+        idct_reduced(&deq, shift, out);
     }
 
     pub(super) fn decode_progressive<R: JpegRead, B, A>(
@@ -1536,7 +1592,7 @@ mod progressive {
                         for bh in 0..yh {
                             let off =
                                 band_block_offset(my - top, mx, bv * yh + bh, plan.mcus_x, y_bpm);
-                            dequant_idct(&band[off..off + 64], qt, &mut pix);
+                            dequant_idct(&band[off..off + 64], qt, plan.shift, &mut pix);
                             put_block(&mut canvas.y_row, &plan, mx, bh, bv, &pix);
                         }
                     }
@@ -1826,11 +1882,11 @@ fn build_huff_table(table: &mut HuffTable, bits: &[u8; 16], vals: &[u8]) {
             table.valptr[bl] = si;
             table.mincode[bl] = code as i32;
             for _ in 0..cnt {
-                if bl <= 8 {
-                    let prefix = (code << (8 - bl)) as usize;
-                    let fill = 1usize << (8 - bl);
+                if bl <= LUT_BITS as usize {
+                    let prefix = (code << (LUT_BITS as usize - bl)) as usize;
+                    let fill = 1usize << (LUT_BITS as usize - bl);
                     for k in 0..fill {
-                        if prefix + k < 256 {
+                        if prefix + k < LUT_SIZE {
                             table.lut[prefix + k] = (vals[si], bl as u8);
                         }
                     }
@@ -1846,20 +1902,27 @@ fn build_huff_table(table: &mut HuffTable, bits: &[u8; 16], vals: &[u8]) {
 
 // Huffman decode
 
+#[inline(always)]
 fn huff_decode<R: JpegRead>(r: &mut BitReader<R>, t: &HuffTable) -> Result<u8, &'static str> {
-    let peek8 = r.peek(8)? as usize;
-    let (sym, nb) = t.lut[peek8];
+    r.ensure(16)?;
+    let (sym, nb) = t.lut[(r.buf >> (32 - LUT_BITS)) as usize];
     if nb > 0 {
         r.drop_bits(nb);
         return Ok(sym);
     }
-    let peek16 = r.peek(16)? as i32;
-    for bl in 9..=16u8 {
+    huff_decode_long(r, t)
+}
+
+// codes longer than the table lookup; 16 bits are buffered
+#[inline(never)]
+fn huff_decode_long<R: JpegRead>(r: &mut BitReader<R>, t: &HuffTable) -> Result<u8, &'static str> {
+    let peek16 = (r.buf >> 16) as i32;
+    for bl in LUT_BITS as u8 + 1..=16u8 {
         let code = peek16 >> (16 - bl);
         if t.maxcode[bl as usize] >= 0 && code <= t.maxcode[bl as usize] {
             r.drop_bits(bl);
             let idx = t.valptr[bl as usize] as i32 + code - t.mincode[bl as usize];
-            return Ok(t.values[idx as usize]);
+            return Ok(t.values[idx as usize & 255]);
         }
     }
     Err("jpeg: invalid Huffman code")
@@ -1918,7 +1981,7 @@ fn decode_block<R: JpegRead>(
                 }
                 let bits = r.read_bits(size)?;
                 let val = extend(bits, size);
-                blk[ZZ[k]] = (val << al).wrapping_mul(qt[k] as i32);
+                blk[ZZ[k & 63]] = (val << al).wrapping_mul(qt[k & 63] as i32);
                 k += 1;
             }
         }
@@ -1960,6 +2023,49 @@ fn skip_block<R: JpegRead>(
         }
     }
     Ok(())
+}
+
+// IDCT of a block reduced by `1 << shift`: the low `bs` x `bs` coefficients
+// through a `bs`-point inverse DCT, which is the average-preserving reduction
+// of the 8x8 transform (`bs` = 8 is the full IDCT). Output rows are `bs` apart.
+fn idct_reduced(block: &[i32; 64], shift: u8, out: &mut [u8; 64]) {
+    // 0.5 * C(u) * cos((2x + 1) u pi / (2 bs)) in 13 bits, indexed [x][u]
+    const B4: [[i32; 4]; 4] = [
+        [2896, 3784, 2896, 1567],
+        [2896, 1567, -2896, -3784],
+        [2896, -1567, -2896, 3784],
+        [2896, -3784, 2896, -1567],
+    ];
+    const B2: [[i32; 2]; 2] = [[2896, 2896], [2896, -2896]];
+
+    fn small<const N: usize>(block: &[i32; 64], b: &[[i32; N]; N], out: &mut [u8; 64]) {
+        let mut tmp = [[0i32; N]; N]; // [v][x]
+        for v in 0..N {
+            for x in 0..N {
+                let mut s = 0i32;
+                for u in 0..N {
+                    s = s.wrapping_add(block[v * 8 + u].wrapping_mul(b[x][u]));
+                }
+                tmp[v][x] = descale(s, 13);
+            }
+        }
+        for y in 0..N {
+            for x in 0..N {
+                let mut s = 0i32;
+                for v in 0..N {
+                    s = s.wrapping_add(tmp[v][x].wrapping_mul(b[y][v]));
+                }
+                out[y * N + x] = clamp(descale(s, 13) + 128);
+            }
+        }
+    }
+
+    match shift {
+        0 => idct(block, out),
+        1 => small::<4>(block, &B4, out),
+        2 => small::<2>(block, &B2, out),
+        _ => out[0] = clamp(descale(block[0], 3) + 128),
+    }
 }
 
 // integer IDCT (IJG ISLOW, two-pass row + col)
@@ -2064,19 +2170,11 @@ fn idct(block: &[i32; 64], out: &mut [u8; 64]) {
 
 // Floyd-Steinberg dithering
 
-// dither one row of Y pixels from the MCU row buffer inline
+// dither one row of averaged grey output pixels
 #[inline]
-fn dither_row_grey(
-    row: &[u8],
-    fit: &Fit,
-    out_w: usize,
-    err_cur: &mut [i16],
-    err_nxt: &mut [i16],
-    out_row: &mut [u8],
-) {
-    for ox in 0..out_w {
-        let g = row[fit.src_x(ox)] as i16;
-        let val = (g + err_cur[ox + 1]).clamp(0, 255);
+fn dither_row_grey(row: &[u8], err_cur: &mut [i16], err_nxt: &mut [i16], out_row: &mut [u8]) {
+    for (ox, &g) in row.iter().enumerate() {
+        let val = (i16::from(g) + err_cur[ox + 1]).clamp(0, 255);
         let black = val < 128;
         let q = if black { 0i16 } else { 255 };
         let e = val - q;
@@ -2089,8 +2187,6 @@ fn dither_row_grey(
         err_nxt[ox + 2] += e / 16;
     }
 }
-
-// helpers
 
 #[inline]
 fn descale(x: i32, n: i32) -> i32 {

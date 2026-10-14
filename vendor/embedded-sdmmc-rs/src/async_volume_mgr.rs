@@ -929,6 +929,39 @@ where
                 .await?;
             self.open_files[file_idx].current_cluster = current_cluster;
             trace!("Reading file ID {:?}", file);
+
+            // Whole blocks that follow each other in the cluster come from the
+            // device in one request: a card answers a multi-block read with
+            // one command and one access delay instead of one per block.
+            if block_offset == 0 {
+                let in_cluster = self.open_files[file_idx].current_offset - current_cluster.0;
+                let bytes_per_cluster = match &self.open_volumes[volume_idx].volume_type {
+                    VolumeType::Fat(fat) => fat.bytes_per_cluster(),
+                };
+                let run = (space / Block::LEN)
+                    .min(self.open_files[file_idx].left() as usize / Block::LEN)
+                    .min(((bytes_per_cluster - in_cluster) / Block::LEN_U32) as usize)
+                    .min(READ_RUN_BLOCKS);
+                if run >= 2 {
+                    let mut blocks: [Block; READ_RUN_BLOCKS] =
+                        core::array::from_fn(|_| Block::new());
+                    self.block_cache
+                        .block_device()
+                        .read(&mut blocks[..run], block_idx)
+                        .await
+                        .map_err(Error::DeviceError)?;
+                    for block in &blocks[..run] {
+                        buffer[read..read + Block::LEN].copy_from_slice(&block.contents);
+                        read += Block::LEN;
+                    }
+                    space -= run * Block::LEN;
+                    self.open_files[file_idx]
+                        .seek_from_current((run * Block::LEN) as i32)
+                        .unwrap();
+                    continue;
+                }
+            }
+
             let block = self
                 .block_cache
                 .read(block_idx)
@@ -1360,6 +1393,9 @@ where
         Ok((block_idx, block_offset, available))
     }
 }
+
+/// Most whole blocks one file read asks the device for at once.
+const READ_RUN_BLOCKS: usize = 8;
 
 /// Transforms the mode variant into the concrete one that the file should be opened in.
 fn solve_mode_variant(mode: Mode, file_exists: bool) -> Mode {

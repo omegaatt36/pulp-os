@@ -532,8 +532,13 @@ impl ReaderApp {
                     );
                     let img_w = self.text_w as u16;
                     let img_h = self.text_area_h;
+                    let t_decode = crate::kernel::uptime_us();
                     let result =
                         decode_image_streaming(k, epub_name, &entry, is_jpeg, img_w, img_h);
+                    log::info!(
+                        "precache: decode took {} ms",
+                        (crate::kernel::uptime_us() - t_decode) / 1000
+                    );
 
                     // OOM fallback: release chapter cache and retry
                     let result = match result {

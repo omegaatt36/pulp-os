@@ -28,8 +28,8 @@ use esp_hal::{
 };
 use log::info;
 use pulp_board_logic::spi::{
-    BusError, ChipSelect, Device, SD_PRELUDE_BYTES, SPI_DMA_BUF_BYTES, SPI_INIT_KHZ,
-    SPI_OPERATING_KHZ, SpiArbiter,
+    BusError, ChipSelect, Device, SD_PRELUDE_BYTES, SPI_DMA_BUF_BYTES, SPI_EPD_KHZ, SPI_INIT_KHZ,
+    SPI_SD_KHZ, SpiArbiter,
 };
 use static_cell::StaticCell;
 
@@ -47,9 +47,33 @@ impl ChipSelect for CsOutput {
     }
 }
 
+// The clock each device runs at, and the one the bus is set to. Both devices
+// share the probe clock until `speed_up`; a device that finds the bus at the
+// other's clock switches it when its transaction starts.
+struct Clocks {
+    epd: u32,
+    sd: u32,
+    current: u32,
+}
+
+impl Clocks {
+    fn of(&self, dev: Device) -> u32 {
+        match dev {
+            Device::Epd => self.epd,
+            Device::Sd => self.sd,
+        }
+    }
+}
+
+fn apply_khz(bus: &mut SpiBus, khz: u32) -> Result<(), ()> {
+    let cfg = spi::master::Config::default().with_frequency(Rate::from_khz(khz));
+    bus.apply_config(&cfg).map_err(|_| ())
+}
+
 struct SharedSpi {
     bus: SpiBus,
     arbiter: SpiArbiter<CsOutput, CsOutput>,
+    clocks: Clocks,
 }
 
 type Shared = Mutex<RefCell<SharedSpi>>;
@@ -132,7 +156,16 @@ impl SpiDevice for ArbitratedSpiDevice {
                 .borrow(cs)
                 .try_borrow_mut()
                 .map_err(|_| SpiDeviceError::Busy)?;
-            let SharedSpi { bus, arbiter } = &mut *guard;
+            let SharedSpi {
+                bus,
+                arbiter,
+                clocks,
+            } = &mut *guard;
+            let want = clocks.of(dev);
+            if want != clocks.current {
+                apply_khz(bus, want).map_err(|_| SpiDeviceError::Bus)?;
+                clocks.current = want;
+            }
             arbiter
                 .transaction(dev, || run_ops(bus, delay, operations))
                 .map_err(|e| match e {
@@ -164,7 +197,7 @@ pub enum SpiInitError {
     Bus,
 }
 
-/// Switch the bus clock (init 400 kHz -> operating 10 MHz).
+/// Switch the bus clocks (init 400 kHz -> EPD 10 MHz, SD 20 MHz).
 #[derive(Clone)]
 pub struct SpiControl {
     shared: &'static Shared,
@@ -176,12 +209,20 @@ fn prepare_sd_probe(shared: &'static Shared) -> Result<(), SpiInitError> {
             .borrow(cs)
             .try_borrow_mut()
             .map_err(|_| SpiInitError::Busy)?;
-        let SharedSpi { bus, arbiter } = &mut *guard;
+        let SharedSpi {
+            bus,
+            arbiter,
+            clocks,
+        } = &mut *guard;
         if arbiter.owner().is_some() {
             return Err(SpiInitError::Busy);
         }
-        let cfg = spi::master::Config::default().with_frequency(Rate::from_khz(SPI_INIT_KHZ));
-        bus.apply_config(&cfg).map_err(|_| SpiInitError::Config)?;
+        apply_khz(bus, SPI_INIT_KHZ).map_err(|_| SpiInitError::Config)?;
+        *clocks = Clocks {
+            epd: SPI_INIT_KHZ,
+            sd: SPI_INIT_KHZ,
+            current: SPI_INIT_KHZ,
+        };
         arbiter
             .deselected(|| {
                 let sent = embedded_hal::spi::SpiBus::write(bus, &[0xFF; SD_PRELUDE_BYTES]);
@@ -208,29 +249,36 @@ impl SpiControl {
         prepare_sd_probe(self.shared)
     }
 
-    /// Call after SD init (needs 400 kHz) and before the first EPD frame.
+    /// Call after SD init (needs 400 kHz) and before the first EPD frame:
+    /// each device runs at its own clock from its next transaction on.
     pub fn speed_up(&self) -> Result<(), SpiInitError> {
-        self.set_khz(SPI_OPERATING_KHZ, SPI_INIT_KHZ)
+        self.set_clocks(SPI_EPD_KHZ, SPI_SD_KHZ)
     }
 
     /// Back to the SD probe clock before a card inserted at runtime is
     /// initialised; `speed_up` again afterwards.
     pub fn slow_down(&self) -> Result<(), SpiInitError> {
-        self.set_khz(SPI_INIT_KHZ, SPI_OPERATING_KHZ)
+        self.set_clocks(SPI_INIT_KHZ, SPI_INIT_KHZ)
     }
 
-    fn set_khz(&self, to: u32, from: u32) -> Result<(), SpiInitError> {
-        let cfg = spi::master::Config::default().with_frequency(Rate::from_khz(to));
+    fn set_clocks(&self, epd: u32, sd: u32) -> Result<(), SpiInitError> {
         let r = critical_section::with(|cs| {
             let mut g = self
                 .shared
                 .borrow(cs)
                 .try_borrow_mut()
                 .map_err(|_| SpiInitError::Busy)?;
-            g.bus.apply_config(&cfg).map_err(|_| SpiInitError::Config)
+            let SharedSpi { bus, clocks, .. } = &mut *g;
+            if epd == SPI_INIT_KHZ {
+                apply_khz(bus, SPI_INIT_KHZ).map_err(|_| SpiInitError::Config)?;
+                clocks.current = SPI_INIT_KHZ;
+            }
+            clocks.epd = epd;
+            clocks.sd = sd;
+            Ok(())
         });
         if r.is_ok() {
-            info!("spi2: {} kHz -> {} kHz", from, to);
+            info!("spi2: EPD {} kHz, SD {} kHz", epd, sd);
         }
         r
     }
@@ -253,7 +301,7 @@ impl SpiControl {
                 .borrow(cs)
                 .try_borrow_mut()
                 .map_err(|_| SpiDeviceError::Busy)?;
-            let SharedSpi { bus, arbiter } = &mut *g;
+            let SharedSpi { bus, arbiter, .. } = &mut *g;
             let sent = embedded_hal::spi::SpiBus::write(bus, &[0x00])
                 .and_then(|_| embedded_hal::spi::SpiBus::flush(bus))
                 .map_err(|_| SpiDeviceError::Bus);
@@ -295,8 +343,15 @@ pub fn init(
     let bus = raw.with_dma(dma).with_buffers(rx, tx);
 
     let arbiter = SpiArbiter::new(CsOutput(epd_cs), CsOutput(sd_cs));
-    let shared: &'static Shared =
-        SPI_SHARED.init(Mutex::new(RefCell::new(SharedSpi { bus, arbiter })));
+    let shared: &'static Shared = SPI_SHARED.init(Mutex::new(RefCell::new(SharedSpi {
+        bus,
+        arbiter,
+        clocks: Clocks {
+            epd: SPI_INIT_KHZ,
+            sd: SPI_INIT_KHZ,
+            current: SPI_INIT_KHZ,
+        },
+    })));
     info!(
         "spi2: sck=GPIO22 mosi=GPIO23 miso=GPIO24, epd_cs=GPIO25 sd_cs=GPIO26, dma ch0 {}B tx+rx, {} kHz",
         SPI_DMA_BUF_BYTES, SPI_INIT_KHZ

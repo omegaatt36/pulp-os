@@ -34,6 +34,17 @@ impl Fit {
         }
     }
 
+    /// The same output geometry over a source reduced by `1 << shift` (every
+    /// dimension rounded up, as a reduced IDCT yields it).
+    pub(crate) fn reduced(&self, shift: u8) -> Self {
+        let s = 1u64 << shift;
+        Self {
+            w: self.w.div_ceil(s),
+            h: self.h.div_ceil(s),
+            ..*self
+        }
+    }
+
     /// Source column of output column `ox`.
     #[inline]
     pub(crate) fn src_x(&self, ox: usize) -> usize {

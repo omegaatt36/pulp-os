@@ -18,10 +18,13 @@
 /// SD cards must be probed at <= 400 kHz (SD spec; ESP-IDF sdspi probes at
 /// SDMMC_FREQ_PROBING = 400 kHz).
 pub const SPI_INIT_KHZ: u32 = 400;
-/// Operating clock for both EPD and SD after init: BSP `SPI_FREQ_HZ`
-/// (10 MHz, board_c61.c:44) and SD `host.max_freq_khz = 10000` (:391,
-/// "10MHz stable clock for shared SPI bus").
-pub const SPI_OPERATING_KHZ: u32 = 10_000;
+/// EPD clock after init: BSP `SPI_FREQ_HZ` (10 MHz, board_c61.c:44). The
+/// SSD1677 write cycle is at least 100 ns, so this is also its limit.
+pub const SPI_EPD_KHZ: u32 = 10_000;
+/// SD clock after init. The SD spec allows 25 MHz in default-speed mode; the
+/// BSP ran the card at 10 MHz ("stable clock for shared SPI bus", :391), and
+/// the bus applies each device its own clock.
+pub const SPI_SD_KHZ: u32 = 20_000;
 /// DMA buffer per direction, internal RAM (SD sector 512 B, EPD strip well below 4 KiB).
 pub const SPI_DMA_BUF_BYTES: usize = 4096;
 /// SD spec: >= 74 clocks with CS high before CMD0. 10 bytes = 80 clocks.
@@ -196,7 +199,8 @@ mod tests {
     #[test]
     fn r8_bus_plan_matches_bsp_and_sd_spec() {
         assert_eq!(SPI_INIT_KHZ, 400);
-        assert_eq!(SPI_OPERATING_KHZ, 10_000);
+        assert_eq!(SPI_EPD_KHZ, 10_000);
+        assert!(SPI_SD_KHZ <= 25_000, "SD default speed");
         assert!(SPI_INIT_KHZ <= 400, "SD probe clock");
         assert!(
             SD_PRELUDE_BYTES * 8 >= 74,
