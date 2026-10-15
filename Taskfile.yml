@@ -49,7 +49,7 @@ tasks:
       - echo "{{.IANSUI_SHA256}}  Iansui-Regular.ttf" | shasum -a 256 -c -
 
   test:
-    desc: Host tests across all workspace crates
+    desc: Host workspace tests independent of firmware images (harness checks run in verify)
     deps: [font-iansui]
     env:
       IANSUI_REQUIRED: '1'

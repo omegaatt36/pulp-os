@@ -53,9 +53,10 @@ cargo device-fixtures                      # VERTRUBY.EPU into target/device-fix
 ### Tests & Verification
 
 ```sh
-cargo test-all                # Run all host workspace tests
+cargo test-all                # Run host workspace tests without firmware images
 cargo test-board              # Fast test: HAL-free board logic
 cargo test-host               # Fast test: Reader layout, CJK & storage
+task verify                   # Build firmware images and run harness checks
 task acceptance               # Full CI pipeline (multi-image build, verify, fmt)
 ```
 

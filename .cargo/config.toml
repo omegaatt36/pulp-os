@@ -12,8 +12,9 @@ check-c61-gray-wp = "check --release --target riscv32imac-unknown-none-elf --fea
 run-c61-gray = "run --release --target riscv32imac-unknown-none-elf --features gray-probe --bin pulp-os-c61-boot"
 run-c61-boot = "run --release --target riscv32imac-unknown-none-elf --bin pulp-os-c61-boot"
 
-# Host-side workspace testing
-test-all     = ["test", "--workspace", "--exclude", "pulp-os", "--exclude", "pulp-kernel", "--features", "pulp-fontpack/builder", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+# Host-side workspace testing. Firmware-dependent harness checks run separately
+# via `task verify`, which builds the required images first.
+test-all     = ["test", "--workspace", "--exclude", "pulp-os", "--exclude", "pulp-kernel", "--exclude", "board-harness", "--features", "pulp-fontpack/builder", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
 test-host    = ["test", "-p", "pulp-host", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
 test-board   = ["test", "-p", "pulp-board-logic", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
 test-tools   = ["test", "-p", "pulp-fontpack", "-p", "pulp-fontconv", "--features", "pulp-fontpack/builder", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
