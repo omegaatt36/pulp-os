@@ -127,6 +127,14 @@ impl SettingsApp {
         self.loaded = true;
     }
 
+    // write a change that is waiting; the reader's quick menu makes them
+    // while Settings is not the active app
+    fn save_pending(&mut self, k: &mut KernelHandle<'_>) {
+        if self.save_needed && self.save(k) {
+            self.save_needed = false;
+        }
+    }
+
     fn save(&self, k: &mut KernelHandle<'_>) -> bool {
         let mut buf = [0u8; 512];
         let len = write_settings_txt(&self.settings, &self.wifi, &mut buf);
@@ -352,7 +360,6 @@ impl App<AppId> for SettingsApp {
     fn on_enter(&mut self, ctx: &mut AppContext, _k: &mut KernelHandle<'_>) {
         self.selected = 0;
         self.scroll = 0;
-        self.save_needed = false;
         ctx.mark_dirty(Region::new(
             0,
             CONTENT_TOP,
@@ -433,13 +440,19 @@ impl App<AppId> for SettingsApp {
             return;
         }
 
-        if self.save_needed && self.save(k) {
-            self.save_needed = false;
-        }
+        self.save_pending(k);
     }
 
     fn background_pending(&self) -> bool {
         !self.loaded || self.save_needed
+    }
+
+    fn has_background_when_suspended(&self) -> bool {
+        self.save_needed
+    }
+
+    fn background_suspended(&mut self, k: &mut KernelHandle<'_>) {
+        self.save_pending(k);
     }
 
     fn prepare_render(&mut self, _ctx: &mut AppContext, k: &mut KernelHandle<'_>) {

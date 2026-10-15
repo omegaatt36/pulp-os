@@ -615,6 +615,8 @@ pub struct ReaderApp {
     pub(super) page_img: Option<DecodedImage>,
     pub(super) fullscreen_img: bool,
     pub(super) defer_image_decode: bool,
+    // the image of the page on screen was left to the background precache
+    pub(super) image_deferred: bool,
 
     pub(super) fonts: Option<fonts::FontSet>,
     pub(super) cjk: fonts::cjk::CjkState,
@@ -680,6 +682,7 @@ impl ReaderApp {
             page_img: None,
             fullscreen_img: false,
             defer_image_decode: false,
+            image_deferred: false,
 
             fonts: None,
             cjk: fonts::cjk::CjkState::new(),
@@ -1238,6 +1241,7 @@ impl ReaderApp {
         // after a chapter jump. the scheduler wraps run_background
         // in select(run_background, input) so every .await inside
         // bg_cache_step is interruptible by user input.
+        let mut image_cached = false;
         if matches!(
             self.state,
             State::Ready | State::ShowToc | State::NeedIndex | State::NeedPage
@@ -1253,15 +1257,26 @@ impl ReaderApp {
             let prev_img_found = self.epub.img_found_count;
             let prev_img_cached = self.epub.img_cached_count;
             self.bg_cache_step(k).await;
+            image_cached = self.epub.img_cached_count != prev_img_cached;
             if self.epub.bg_cache == BgCacheState::Idle {
                 ctx.clear_loading();
             } else if self.cached_chapter_count() != prev_count
                 || self.epub.bg_cache != prev_bg
                 || self.epub.img_found_count != prev_img_found
-                || self.epub.img_cached_count != prev_img_cached
+                || image_cached
             {
                 self.set_cache_loading(ctx);
             }
+        }
+
+        // the page opened without its image: show it once the precache has
+        // cached one, or has nothing left to cache
+        if self.image_deferred
+            && self.state == State::Ready
+            && (image_cached || self.epub.bg_cache == BgCacheState::Idle)
+        {
+            self.decode_page_images(k);
+            ctx.mark_dirty(PAGE_REGION);
         }
     }
 
@@ -2015,7 +2030,10 @@ impl App<AppId> for ReaderApp {
     }
 
     fn on_quick_cycle_update(&mut self, id: u8, value: u8, _ctx: &mut AppContext) {
-        if id == QA_FONT_SIZE {
+        // the manager passes every cycle value on, changed or not; laying the
+        // page out again for the same font would also drop a trigger that
+        // follows (on_quick_trigger acts only on a settled page)
+        if id == QA_FONT_SIZE && value != self.book_font_size_idx {
             self.book_font_size_idx = value;
             self.apply_font_metrics();
             if self.state == State::Ready {

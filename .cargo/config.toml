@@ -9,6 +9,8 @@ check-c61    = "check --release --target riscv32imac-unknown-none-elf --features
 build-c61-gray-wp = "build --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper"
 run-c61-gray-wp = "run --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper --bin pulp-os-c61"
 check-c61-gray-wp = "check --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper"
+run-c61-progressive = "run --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,progressive-jpeg --bin pulp-os-c61"
+check-c61-progressive = "check --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,progressive-jpeg"
 run-c61-gray = "run --release --target riscv32imac-unknown-none-elf --features gray-probe --bin pulp-os-c61-boot"
 run-c61-boot = "run --release --target riscv32imac-unknown-none-elf --bin pulp-os-c61-boot"
 
@@ -18,6 +20,7 @@ test-host    = ["test", "-p", "pulp-host", "--target", "host-tuple", "--config",
 test-board   = ["test", "-p", "pulp-board-logic", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
 test-tools   = ["test", "-p", "pulp-fontpack", "-p", "pulp-fontconv", "--features", "pulp-fontpack/builder", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
 test-harness = ["test", "-p", "board-harness", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
+device-fixtures = ["run", "--locked", "-p", "pulp-host", "--bin", "device-fixtures", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
 host-preview = ["run", "--locked", "-p", "pulp-host", "--bin", "host-preview", "--target", "host-tuple", "--config", 'unstable.build-std=["std","test"]']
 
 # scripts/run-c61.sh writes only the app into ota_0 (0x10000) and keeps

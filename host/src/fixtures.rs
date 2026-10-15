@@ -7,6 +7,7 @@
 // Only the writers live here. Reading the books back is the job of the
 // production smol-epub parsers and decoders that the tests run.
 
+pub mod device;
 mod image;
 mod markup;
 mod standard;
@@ -72,6 +73,8 @@ pub enum Run {
     Text(String),
     Bold(String),
     Italic(String),
+    // <ruby>base<rp>(</rp><rt>reading</rt><rp>)</rp></ruby>
+    Ruby { base: String, reading: String },
     Break,
 }
 
@@ -268,6 +271,17 @@ pub fn build_epub(spec: &EpubSpec) -> Result<Vec<u8>, SpecError> {
 }
 
 pub fn build_epub_writing(spec: &EpubSpec, writing: &Writing<'_>) -> Result<Vec<u8>, SpecError> {
+    build_epub_encoded(spec, writing, image::encode)
+}
+
+// `build_epub_writing` with the image bytes supplied by `encode`, for books
+// that need pictures the synthetic encoders cannot write (a photographic JPEG,
+// a progressive one). The spec still names every image and its size.
+pub fn build_epub_encoded(
+    spec: &EpubSpec,
+    writing: &Writing<'_>,
+    encode: impl Fn(&ImageSpec) -> Vec<u8>,
+) -> Result<Vec<u8>, SpecError> {
     check(spec)?;
 
     let toc = match spec.version {
@@ -293,7 +307,7 @@ pub fn build_epub_writing(spec: &EpubSpec, writing: &Writing<'_>) -> Result<Vec<
         ));
     }
     for im in &spec.images {
-        parts.push((format!("OEBPS/{}", im.path), image::encode(im)));
+        parts.push((format!("OEBPS/{}", im.path), encode(im)));
     }
 
     let entries: Vec<zip::Entry> = parts

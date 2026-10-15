@@ -11,6 +11,8 @@ mod gaps;
 mod malformed;
 #[path = "smol_epub/rig.rs"]
 mod rig;
+#[path = "smol_epub/ruby.rs"]
+mod ruby;
 #[path = "smol_epub/stream.rs"]
 mod stream;
 #[path = "smol_epub/svg_image.rs"]

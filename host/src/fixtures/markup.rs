@@ -203,6 +203,14 @@ fn runs(x: &mut String, rs: &[Run], numeric: bool) {
             Run::Italic(t) => {
                 let _ = write!(x, "<i>{}</i>", escape(t, numeric));
             }
+            Run::Ruby { base, reading } => {
+                let _ = write!(
+                    x,
+                    "<ruby>{}<rp>(</rp><rt>{}</rt><rp>)</rp></ruby>",
+                    escape(base, numeric),
+                    escape(reading, numeric)
+                );
+            }
             Run::Break => x.push_str("<br/>"),
         }
     }

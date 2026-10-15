@@ -25,6 +25,25 @@ The boundary checks (`harness/tests/host_boundary.rs`) verify the host
 dependency/build graph; the firmware images they inspect come from `task build`.
 Firmware compilation and memory budgets do not validate physical hardware.
 
+## Whole-device flows
+
+`host/tests/e2e/` drives the production `AppManager` (Home, Files, Reader,
+Settings, quick menu, button mapper) over a virtual card with hardware key
+events, the way the scheduler does: `Device::tap` / `hold` feed
+`dispatch_event` and apply the returned transition, `settle` runs the
+background until the apps are idle, `reboot` and `sleep_and_wake` are the
+boot and sleep sequences over the same card, `screen` is the stitched
+firmware-strip page. A flow asserts what the user sees and what is on the card
+afterwards.
+
+```bash
+cargo test-host --test e2e
+```
+
+Flows that go through the manager catch what the per-app rigs cannot: those
+call an app's handler directly and skip the manager's glue (`sync_quick_menu`,
+`propagate_fonts`, the transition's save and restore).
+
 ## PBM previews
 
 ```bash

@@ -27,7 +27,7 @@ The XTEink X4 (ESP32-C3) port was removed; the last commit that builds it is tag
 
 ### Prerequisites
 
-Ensure you have Rust nightly pinned via [rust-toolchain.toml](file:///home/raiven/dev/pulp-os/rust-toolchain.toml) and [`espflash`](https://github.com/esp-rs/espflash) >= 4.4.0 installed:
+Ensure you have Rust nightly pinned via [rust-toolchain.toml](rust-toolchain.toml) and [`espflash`](https://github.com/esp-rs/espflash) >= 4.4.0 installed:
 
 ```sh
 cargo install espflash --version ">=4.4.0"
@@ -45,6 +45,10 @@ cargo run-c61-boot            # Hardware bring-up diagnostic image
 
 # Offline or custom builds (pass explicit features)
 cargo build --release --target riscv32imac-unknown-none-elf
+
+# Vertical writing and progressive JPEG on the device
+cargo device-fixtures                      # VERTRUBY.EPU, PROGJPG.EPU into target/device-fixtures
+cargo run-c61-progressive                   # firmware with progressive JPEG decoding (off by default)
 ```
 
 ### Tests & Verification

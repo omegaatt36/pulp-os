@@ -79,6 +79,11 @@ impl Kernel {
         &self.sd
     }
 
+    // power off: the card, with everything written to it, for the next boot
+    pub fn into_sd(self) -> SdStorage {
+        self.sd
+    }
+
     pub fn set_battery_mv(&mut self, mv: u16) {
         self.cached_battery_mv = mv;
     }

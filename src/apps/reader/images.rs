@@ -66,6 +66,7 @@ impl ReaderApp {
     pub(super) fn decode_page_images(&mut self, k: &mut KernelHandle<'_>) {
         self.page_img = None;
         self.fullscreen_img = false;
+        self.image_deferred = false;
 
         if !self.is_epub || self.epub.spine.is_empty() {
             return;
@@ -187,10 +188,10 @@ impl ReaderApp {
 
         // background precache will decode this image eventually;
         // skip the blocking inline decode so the page renders
-        // immediately without it. once the user is in Ready state
-        // defer_image_decode is cleared and a page revisit will
-        // either hit the cache or do the full decode.
+        // immediately without it. the background step decodes the
+        // page's image once the precache has cached one.
         if self.defer_image_decode {
+            self.image_deferred = true;
             log::info!(
                 "reader: deferring image decode (bg will handle {})",
                 full_path

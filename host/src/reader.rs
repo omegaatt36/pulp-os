@@ -60,7 +60,8 @@ unsafe impl Send for ImageWorker {}
 
 static IMAGE_WORKER: OnceLock<Mutex<ImageWorker>> = OnceLock::new();
 
-fn run_image_worker() {
+// the firmware's worker task getting its turn; `Rig::tick` runs it for an EPUB
+pub fn run_image_worker() {
     let worker = IMAGE_WORKER.get_or_init(|| {
         // src/bin/main.rs, after kernel.boot()
         crate::kernel::work_queue::register_image_decoder(crate::apps::reader::decode_work_image);

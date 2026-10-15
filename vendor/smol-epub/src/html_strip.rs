@@ -759,7 +759,7 @@ impl HtmlStripStream {
         let name = &tn[..tn_len];
         let is_close = self.is_close_tag;
 
-        // skip-content tags (script/style/head); open only
+        // skip-content tags (script/style/head, ruby rt/rp); open only
         if !is_close && let Some(sk) = SkipTag::from_name(name) {
             self.skip_target = Some(sk);
             self.enter_skip = true;
@@ -1104,6 +1104,10 @@ enum SkipTag {
     Script,
     Style,
     Head,
+    // ruby annotations are not body text: the base text stays, the reading
+    // (<rt>) and its fallback parentheses (<rp>) go
+    Rt,
+    Rp,
 }
 
 impl SkipTag {
@@ -1112,6 +1116,8 @@ impl SkipTag {
             b"script" => Some(Self::Script),
             b"style" => Some(Self::Style),
             b"head" => Some(Self::Head),
+            b"rt" => Some(Self::Rt),
+            b"rp" => Some(Self::Rp),
             _ => None,
         }
     }
@@ -1121,6 +1127,8 @@ impl SkipTag {
             Self::Script => b"script",
             Self::Style => b"style",
             Self::Head => b"head",
+            Self::Rt => b"rt",
+            Self::Rp => b"rp",
         }
     }
 }

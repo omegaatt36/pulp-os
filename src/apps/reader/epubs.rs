@@ -285,7 +285,7 @@ impl EpubState {
 
         // build v3 header with chapters_complete flag
         let mut hdr = cache::CacheHeader::empty();
-        hdr.version = cache::CACHE_V3;
+        hdr.version = cache::CACHE_FORMAT;
         hdr.chapter_count = spine_len as u16;
         hdr.flags = cache::FLAG_CHAPTERS_COMPLETE;
         hdr.epub_size = self.archive_size;
@@ -360,7 +360,7 @@ impl EpubState {
             let mut init_buf = [0u8; cache::HEADER_SIZE];
             // write a minimal header (will be overwritten by finish_cache)
             let mut hdr = cache::CacheHeader::empty();
-            hdr.version = cache::CACHE_V3;
+            hdr.version = cache::CACHE_FORMAT;
             hdr.chapter_count = spine_len as u16;
             hdr.epub_size = self.archive_size;
             hdr.name_hash = self.name_hash;

@@ -1150,6 +1150,8 @@ fn expected_chapter_text(spec: &EpubSpec, ch: &Chapter) -> Vec<u8> {
                         Run::Text(t) => v.extend_from_slice(t.as_bytes()),
                         Run::Bold(t) => v.extend(wrap(b'B', b'b', t)),
                         Run::Italic(t) => v.extend(wrap(b'I', b'i', t)),
+                        // the readings (<rt>, <rp>) are not body text
+                        Run::Ruby { base, .. } => v.extend_from_slice(base.as_bytes()),
                         Run::Break => v.push(b'\n'),
                     }
                 }
@@ -1173,6 +1175,7 @@ fn plain_of(runs: &[Run]) -> String {
     for r in runs {
         match r {
             Run::Text(t) | Run::Bold(t) | Run::Italic(t) => p.push_str(t),
+            Run::Ruby { base, .. } => p.push_str(base),
             Run::Break => p.push('\n'),
         }
     }
@@ -3414,6 +3417,7 @@ fn standard_epubs_carry_toc_markup_entities_and_images_for_t6() {
                                 Run::Text(_) => "text",
                                 Run::Bold(_) => "bold",
                                 Run::Italic(_) => "italic",
+                                Run::Ruby { .. } => "ruby",
                                 Run::Break => "break",
                             });
                         }

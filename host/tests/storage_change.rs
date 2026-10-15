@@ -32,7 +32,17 @@ fn block_on(future: impl Future<Output = ()>) {
 
 fn card(name: &str, offset: u32) -> SdStorage {
     let text = "A long plain text paragraph for reading and paging. ".repeat(600);
-    let card = VirtualStorage::memory_with(&[("BOOK.TXT", text.as_bytes())]);
+    card_with(&[("BOOK.TXT", text.as_bytes())], name, offset)
+}
+
+// a card whose recent book `name` is on it, as Home only offers a book that is
+fn card_of(name: &str, offset: u32) -> SdStorage {
+    let text = "A long plain text paragraph for reading and paging. ".repeat(600);
+    card_with(&[(name, text.as_bytes())], name, offset)
+}
+
+fn card_with(files: &[(&str, &[u8])], name: &str, offset: u32) -> SdStorage {
+    let card = VirtualStorage::memory_with(files);
     card.ensure_pulp_dir().unwrap();
     card.write_in_pulp(RECENT_FILE, name.as_bytes()).unwrap();
     let sd = SdStorage::new(card);
@@ -198,7 +208,7 @@ fn swap_cancels_pending_delete_and_settings_write_and_reloads_files() {
 #[test]
 fn swap_cancels_queued_epub_work_and_loads_the_new_recent_book() {
     let _guard = READER_LOCK.lock().unwrap();
-    let mut k = Kernel::new(card("A.TXT", 111));
+    let mut k = Kernel::new(card_of("A.TXT", 111));
     k.bookmarks_load();
     let mut apps = apps(&mut k);
     apps.ctx_mut().set_message(b"OLD.EPUB");
@@ -219,7 +229,7 @@ fn swap_cancels_queued_epub_work_and_loads_the_new_recent_book() {
     }
     assert!(!work_queue::can_submit());
 
-    k.replace_storage(card("B.TXT", 222), true, &mut apps);
+    k.replace_storage(card_of("B.TXT", 222), true, &mut apps);
     assert_ne!(work_queue::active_generation(), generation);
     assert!(work_queue::can_submit());
     assert!(!apps.reader.is_epub());

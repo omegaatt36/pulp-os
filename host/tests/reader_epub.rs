@@ -314,6 +314,7 @@ fn page_text(lines: &[LineInfo]) -> String {
 fn run_text(r: &Run) -> &str {
     match r {
         Run::Text(t) | Run::Bold(t) | Run::Italic(t) => t,
+        Run::Ruby { base, .. } => base,
         Run::Break => "\n",
     }
 }
@@ -1611,21 +1612,10 @@ fn plate_at(
             goto_image_page(&mut r);
         }
     }
-    // A page the reader is on right after (re)opening a book may not have its
-    // cached image decoded yet (observed when the image is not at the top of
-    // the first page; see the EPUB regression report). Turning away and back enters the
-    // page again, which decodes it.
-    if r.page_image().is_none() {
-        let p = r.page();
-        if p + 1 < r.total_pages() {
-            r.press(Action::Next);
-            r.press(Action::Prev);
-        } else {
-            r.press(Action::Prev);
-            r.press(Action::Next);
-        }
-        assert_eq!(r.page(), p, "back on the image page");
-    }
+    assert!(
+        r.page_image().is_some(),
+        "the image page shows its image without turning away and back"
+    );
     Plate {
         frame: shot(&r),
         pos: pos(&r),
@@ -2080,12 +2070,12 @@ fn healthy_images_are_still_cached_and_shown_next_to_a_damaged_one() {
 
 // Expected (English reader regression "images"; guards the rig's view of the reader's background
 // state): on the first open of a book with uncached images the reader has
-// caching work left (has_bg_work() is true) and the first page, which carries
-// the cover, has no decoded image yet. Idle time then finishes the work
-// (has_bg_work() is false within the bounded WARM_TICKS), and the caching is
-// real: after `exit` + `open` nothing is left to cache and the cover page has
-// its decoded image, as does each of the four image pages of the book. Six
-// books: EPUB 2 / EPUB 3 x stored / deflate / mixed.
+// caching work left (has_bg_work() is true). Idle time then finishes the work
+// (has_bg_work() is false within the bounded WARM_TICKS) and the first page,
+// which carries the cover, shows its decoded image without a reopen. The
+// caching is real: after `exit` + `open` nothing is left to cache and the
+// cover page has its decoded image, as does each of the four image pages of
+// the book. Six books: EPUB 2 / EPUB 3 x stored / deflate / mixed.
 #[test]
 fn idle_time_really_caches_the_images_and_the_background_state_says_so() {
     let _serial = serial();
@@ -2096,11 +2086,6 @@ fn idle_time_really_caches_the_images_and_the_background_state_says_so() {
             r.has_bg_work(),
             "{ctx}: a freshly opened book has chapters and images left to cache"
         );
-        assert_eq!(
-            r.page_image(),
-            None,
-            "{ctx}: the cover is not cached yet on the first open"
-        );
         for _ in 0..WARM_TICKS {
             if !r.has_bg_work() {
                 break;
@@ -2108,6 +2093,10 @@ fn idle_time_really_caches_the_images_and_the_background_state_says_so() {
             r.idle(1);
         }
         assert!(!r.has_bg_work(), "{ctx}: idle time finishes the caching");
+        assert!(
+            r.page_image().is_some(),
+            "{ctx}: the cover opened without its image shows it once cached"
+        );
         r.exit();
         r.open(b.name);
         assert!(

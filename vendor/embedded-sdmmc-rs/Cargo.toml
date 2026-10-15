@@ -26,6 +26,9 @@ heapless = "0.9.1"
 log = {version = "0.4", default-features = false, optional = true}
 thiserror = {version="2", default-features = false}
 
+[dev-dependencies]
+hex-literal = "1"
+
 [features]
 default = ["log"]
 async = ["dep:embedded-hal-async", "dep:embedded-io-async"]

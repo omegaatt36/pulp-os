@@ -74,8 +74,10 @@ pub fn fnv1a_icase(data: &[u8]) -> u32 {
 
 #[allow(missing_docs)]
 pub const HEADER_SIZE: usize = 128;
+// bump when the stripped text changes (what a chapter strips to), so caches
+// built by the old stripper are rebuilt on the next open
 #[allow(missing_docs)]
-pub const CACHE_V3: u8 = 3;
+pub const CACHE_FORMAT: u8 = 4;
 #[allow(missing_docs)]
 pub const TITLE_CAP: usize = 48;
 #[allow(missing_docs)]
@@ -161,7 +163,7 @@ impl CacheHeader {
 pub fn encode_v3_header(h: &CacheHeader, buf: &mut [u8; HEADER_SIZE]) {
     *buf = [0u8; HEADER_SIZE];
     buf[0..4].copy_from_slice(&CACHE_MAGIC.to_le_bytes());
-    buf[4] = CACHE_V3;
+    buf[4] = CACHE_FORMAT;
     buf[5..7].copy_from_slice(&h.chapter_count.to_le_bytes());
     buf[7] = h.flags;
     buf[8..12].copy_from_slice(&h.epub_size.to_le_bytes());
@@ -183,8 +185,8 @@ pub fn parse_v3_header(buf: &[u8; HEADER_SIZE]) -> Result<CacheHeader, &'static 
         return Err("cache: bad magic");
     }
     let version = buf[4];
-    if version != CACHE_V3 {
-        return Err("cache: version mismatch (expected v3)");
+    if version != CACHE_FORMAT {
+        return Err("cache: format mismatch");
     }
     let chapter_count = u16::from_le_bytes([buf[5], buf[6]]);
     let flags = buf[7];

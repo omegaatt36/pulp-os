@@ -172,18 +172,22 @@ impl HomeApp {
         );
     }
 
+    // the book Continue opens: the one last read, if it is still on the card
+    // (Files, Wi-Fi upload and another computer can all remove it)
     pub fn load_recent(&mut self, k: &mut KernelHandle<'_>) {
         let mut buf = [0u8; 32];
-        match k.read_app_data_start(RECENT_FILE, &mut buf) {
+        self.recent_book_len = match k.read_app_data_start(RECENT_FILE, &mut buf) {
             Ok((_, n)) if n > 0 => {
                 let n = n.min(32);
-                self.recent_book[..n].copy_from_slice(&buf[..n]);
-                self.recent_book_len = n;
+                let present =
+                    core::str::from_utf8(&buf[..n]).is_ok_and(|name| k.file_size(name).is_ok());
+                if present {
+                    self.recent_book[..n].copy_from_slice(&buf[..n]);
+                }
+                if present { n } else { 0 }
             }
-            _ => {
-                self.recent_book_len = 0;
-            }
-        }
+            _ => 0,
+        };
         self.rebuild_item_count();
         self.needs_load_recent = false;
     }
@@ -315,19 +319,7 @@ impl App<AppId> for HomeApp {
     async fn background(&mut self, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
         if self.needs_load_recent {
             let old_count = self.item_count;
-            let mut buf = [0u8; 32];
-            match k.read_app_data_start(RECENT_FILE, &mut buf) {
-                Ok((_, n)) if n > 0 => {
-                    let n = n.min(32);
-                    self.recent_book[..n].copy_from_slice(&buf[..n]);
-                    self.recent_book_len = n;
-                }
-                _ => {
-                    self.recent_book_len = 0;
-                }
-            }
-            self.rebuild_item_count();
-            self.needs_load_recent = false;
+            self.load_recent(k);
             if self.item_count != old_count {
                 ctx.request_full_redraw();
             }
