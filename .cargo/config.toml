@@ -9,8 +9,6 @@ check-c61    = "check --release --target riscv32imac-unknown-none-elf --features
 build-c61-gray-wp = "build --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper"
 run-c61-gray-wp = "run --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper --bin pulp-os-c61"
 check-c61-gray-wp = "check --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper"
-run-c61-progressive = "run --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,progressive-jpeg --bin pulp-os-c61"
-check-c61-progressive = "check --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,progressive-jpeg"
 run-c61-gray = "run --release --target riscv32imac-unknown-none-elf --features gray-probe --bin pulp-os-c61-boot"
 run-c61-boot = "run --release --target riscv32imac-unknown-none-elf --bin pulp-os-c61-boot"
 

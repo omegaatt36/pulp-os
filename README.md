@@ -46,9 +46,8 @@ cargo run-c61-boot            # Hardware bring-up diagnostic image
 # Offline or custom builds (pass explicit features)
 cargo build --release --target riscv32imac-unknown-none-elf
 
-# Vertical writing and progressive JPEG on the device
-cargo device-fixtures                      # VERTRUBY.EPU, PROGJPG.EPU into target/device-fixtures
-cargo run-c61-progressive                   # firmware with progressive JPEG decoding (off by default)
+# Vertical writing on the device
+cargo device-fixtures                      # VERTRUBY.EPU into target/device-fixtures
 ```
 
 ### Tests & Verification
