@@ -150,7 +150,7 @@ struct Net<'a> {
 
 pub async fn run_upload_mode(
     epd: &mut Epd,
-    strip: &mut StripBuffer,
+    strip: &mut StripBuffer<'_>,
     delay: &mut Delay,
     sd: &SdStorage,
     ui_font_size_idx: u8,
@@ -471,7 +471,7 @@ fn station_config(ssid: &str, password: &str) -> Result<StationConfig, ConnectEr
 
 async fn show_error(
     epd: &mut Epd,
-    strip: &mut StripBuffer,
+    strip: &mut StripBuffer<'_>,
     delay: &mut Delay,
     heading: &'static BitmapFont,
     body: &'static BitmapFont,
@@ -510,7 +510,7 @@ async fn drain_until_back() {
 
 async fn render_screen(
     epd: &mut Epd,
-    strip: &mut StripBuffer,
+    strip: &mut StripBuffer<'_>,
     delay: &mut Delay,
     heading: &'static BitmapFont,
     body: &'static BitmapFont,

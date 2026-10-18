@@ -763,7 +763,7 @@ impl AppLayer for AppManager {
     async fn run_special_mode(
         &mut self,
         _epd: &mut Epd,
-        _strip: &mut StripBuffer,
+        _strip: &mut StripBuffer<'_>,
         _delay: &mut Delay,
         _sd: &SdStorage,
     ) {
@@ -774,7 +774,7 @@ impl AppLayer for AppManager {
     async fn run_special_mode(
         &mut self,
         epd: &mut Epd,
-        strip: &mut StripBuffer,
+        strip: &mut StripBuffer<'_>,
         delay: &mut Delay,
         sd: &SdStorage,
     ) {

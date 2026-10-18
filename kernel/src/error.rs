@@ -27,6 +27,11 @@ pub enum ErrorKind {
 
     // resources
     OutOfMemory,
+    InternalOutOfMemory,
+    MemoryClassLimit,
+    MemoryPoolExhausted,
+    MemoryCacheLimit,
+    MemoryWorkingSetLimit,
     BufferTooSmall,
 
     // network (upload)
@@ -54,6 +59,11 @@ impl ErrorKind {
             Self::InvalidData => "invalid data",
             Self::BadEncoding => "bad encoding",
             Self::OutOfMemory => "out of memory",
+            Self::InternalOutOfMemory => "internal allocator exhausted",
+            Self::MemoryClassLimit => "memory class limit",
+            Self::MemoryPoolExhausted => "memory pool exhausted",
+            Self::MemoryCacheLimit => "memory cache limit",
+            Self::MemoryWorkingSetLimit => "memory working set limit",
             Self::BufferTooSmall => "buffer too small",
             Self::NetworkIo => "network error",
             Self::Protocol => "protocol error",
@@ -200,7 +210,15 @@ impl From<&'static str> for Error {
             "no sd card" => ErrorKind::NoCard,
             "not found" | "OPF not found" | "no filename in upload" => ErrorKind::NotFound,
             "too small" | "CD truncated" | "cache file too small" => ErrorKind::InvalidData,
-            "CD too large" | "OOM for cached image" => ErrorKind::OutOfMemory,
+            "CD too large" | "OOM for cached image" | "memory allocator exhausted" => {
+                ErrorKind::OutOfMemory
+            }
+            "memory class limit" => ErrorKind::MemoryClassLimit,
+            "memory pool exhausted" => ErrorKind::MemoryPoolExhausted,
+            "memory cache limit" => ErrorKind::MemoryCacheLimit,
+            "memory working set limit" => ErrorKind::MemoryWorkingSetLimit,
+            "internal allocator exhausted" => ErrorKind::InternalOutOfMemory,
+            "scratch allocator exhausted" => ErrorKind::MemoryWorkingSetLimit,
             "bad OPF path" | "bad encoding" | "filename encoding error" => ErrorKind::BadEncoding,
             "parse failed" | "no title in OPF" => ErrorKind::ParseFailed,
             "boundary too long"

@@ -141,3 +141,16 @@ pub fn render_full(draw: &dyn Fn(&mut StripBuffer)) -> Render {
     }
     Render { frame, passes }
 }
+
+/// One app draw into the same full-frame raster used by the 8 MiB firmware.
+pub fn render_once(draw: &dyn Fn(&mut StripBuffer)) -> Render {
+    let mut bytes = vec![0; 48_000];
+    let mut raster = StripBuffer::frame(&mut bytes, ROTATION).unwrap();
+    draw(&mut raster);
+    let mut frame = Framebuffer::new();
+    let pass = frame.take(&raster);
+    Render {
+        frame,
+        passes: vec![pass],
+    }
+}

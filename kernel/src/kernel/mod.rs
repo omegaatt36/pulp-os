@@ -54,7 +54,7 @@ pub struct Kernel {
     pub(crate) dir_cache: &'static mut DirCache,
     pub(crate) bm_cache: &'static mut BookmarkCache,
     pub(crate) epd: Epd,
-    pub(crate) strip: &'static mut StripBuffer,
+    pub(crate) strip: &'static mut StripBuffer<'static>,
     pub(crate) delay: Delay,
     pub(crate) sd_ok: bool,
     pub(crate) cached_battery_mv: u16,
@@ -73,7 +73,7 @@ impl Kernel {
     pub fn new(
         sd: SdStorage,
         epd: Epd,
-        strip: &'static mut StripBuffer,
+        strip: &'static mut StripBuffer<'static>,
         dir_cache: &'static mut DirCache,
         bm_cache: &'static mut BookmarkCache,
         delay: Delay,

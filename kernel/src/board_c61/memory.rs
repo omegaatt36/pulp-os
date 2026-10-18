@@ -1,13 +1,14 @@
 // OnePage C61 memory placement: esp-hal PSRAM bring-up, a separate
-// PSRAM heap, and budget-checked allocation entry points.
+// PSRAM heaps, and budget-checked allocation entry points.
 //
 // Policy (rules, limits and the failure state machine are in
 // `pulp_board_logic::memory`, host-tested; this file only maps them onto
 // esp-hal 1.2 / esp-alloc 0.11):
 //
 //   * The global allocator (`esp_alloc::HEAP`) only ever gets INTERNAL
-//     regions (`heap_allocator!`). PSRAM is registered on a second, private
-//     `EspHeap` (`PSRAM_HEAP`), NOT through `esp_alloc::psram_allocator!`:
+//     regions (`heap_allocator!`). PSRAM uses private heaps: PSRAM_HEAP for
+//     resident/cache backing, plus SCRATCH_HEAP on HR8. Never register it
+//     through `esp_alloc::psram_allocator!`:
 //     that macro adds an External region to the global heap, and a plain
 //     `Box`/`Vec` would then fall into PSRAM as soon as the internal region is
 //     full (esp-alloc tries every region when no capability is requested).
@@ -23,8 +24,8 @@
 //     esp-hal's `DmaRxBuf::new` rejects descriptors outside DRAM; the ELF check
 //     (harness/tests/c61_memory_budget.rs) proves their addresses.
 //   * PSRAM failure: `init` returns `Degraded(..)`, nothing is registered, the
-//     budget switches to the internal limits and the reader keeps working
-//     offline in degraded memory. No panic on that path.
+//     budget switches to the internal limits. Large allocations can then be
+//     refused; bring-up failure itself does not panic.
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::RefCell;
@@ -36,6 +37,9 @@ use esp_alloc::{EspHeap, HeapRegion, MemoryCapability};
 use esp_hal::peripherals::PSRAM;
 use esp_hal::psram::{FlashFreq, Psram, PsramConfig, SpiRamFreq};
 use log::{error, info, warn};
+use pulp_board_logic::memory::{
+    AllocationKind, HeapKind, PSRAM_LARGE_MIN_BYTES, SCRATCH_ARENA_BYTES, external_heap_kind,
+};
 pub use pulp_board_logic::memory::{
     ExternalClass, INTERNAL_HEAP_RECLAIMED_BYTES, MemClass, MemError, MemoryBudget,
     PSRAM_CHAPTER_TEXT_BYTES, PsramFault, PsramStatus, Region, Reservation,
@@ -56,6 +60,8 @@ pub const INTERNAL_HEAP_MAIN_BYTES: usize = internal_heap_main_bytes(WIFI);
 
 /// PSRAM-only heap. Never the global allocator (see the policy above).
 static PSRAM_HEAP: EspHeap = EspHeap::empty();
+static SCRATCH_HEAP: EspHeap = EspHeap::empty();
+static SCRATCH_READY: AtomicBool = AtomicBool::new(false);
 static BUDGET: Mutex<RefCell<MemoryBudget>> =
     Mutex::new(RefCell::new(MemoryBudget::for_build(WIFI)));
 static INIT_DONE: AtomicBool = AtomicBool::new(false);
@@ -152,9 +158,22 @@ pub fn init(peripheral: PSRAM<'static>) -> PsramStatus {
         // 'static, non-empty (>= PSRAM_MIN_BYTES) and no allocator has
         // touched it yet; the smoke test above only left test patterns in it.
         unsafe {
+            let scratch_bytes = if bytes >= PSRAM_LARGE_MIN_BYTES {
+                SCRATCH_ARENA_BYTES
+            } else {
+                0
+            };
+            if scratch_bytes != 0 {
+                SCRATCH_HEAP.add_region(HeapRegion::new(
+                    start as *mut u8,
+                    scratch_bytes,
+                    MemoryCapability::External.into(),
+                ));
+                SCRATCH_READY.store(true, Ordering::Release);
+            }
             PSRAM_HEAP.add_region(HeapRegion::new(
-                start as *mut u8,
-                bytes,
+                (start + scratch_bytes) as *mut u8,
+                bytes - scratch_bytes,
                 MemoryCapability::External.into(),
             ));
         }
@@ -214,6 +233,9 @@ pub struct MemBuf {
 // critical-section protected.
 unsafe impl Send for MemBuf {}
 
+// SAFETY: shared references expose initialized bytes only; writes require &mut self.
+unsafe impl Sync for MemBuf {}
+
 impl MemBuf {
     pub fn region(&self) -> Region {
         self.res.region
@@ -254,7 +276,11 @@ impl Drop for MemBuf {
                 Region::Internal => {
                     GlobalAlloc::dealloc(&esp_alloc::HEAP, self.ptr.as_ptr(), self.layout)
                 }
-                Region::Psram => GlobalAlloc::dealloc(&PSRAM_HEAP, self.ptr.as_ptr(), self.layout),
+                Region::Psram => GlobalAlloc::dealloc(
+                    external_heap(self.res.kind).0,
+                    self.ptr.as_ptr(),
+                    self.layout,
+                ),
             }
         }
         let released = critical_section::with(|cs| BUDGET.borrow_ref_mut(cs).release(self.res));
@@ -264,18 +290,32 @@ impl Drop for MemBuf {
     }
 }
 
+fn external_heap(kind: AllocationKind) -> (&'static EspHeap, HeapKind) {
+    let heap = external_heap_kind(kind, SCRATCH_READY.load(Ordering::Acquire));
+    if heap == HeapKind::Scratch {
+        (&SCRATCH_HEAP, heap)
+    } else {
+        (&PSRAM_HEAP, heap)
+    }
+}
+
 fn alloc_in(
     region: Option<Region>,
     class: MemClass,
+    kind: Option<AllocationKind>,
     size: usize,
     align: usize,
 ) -> Result<MemBuf, MemError> {
     let res = critical_section::with(|cs| {
         let mut b = BUDGET.borrow_ref_mut(cs);
-        match region {
-            Some(r) => b.reserve_in(r, class, size, align),
-            None => b.reserve(class, size, align),
-        }
+        let region = region.unwrap_or_else(|| b.region_for(class));
+        b.reserve_in_with_kind(
+            region,
+            class,
+            kind.unwrap_or_else(|| AllocationKind::for_class(class)),
+            size,
+            align,
+        )
     })?;
 
     let give_back = |e: MemError| {
@@ -292,11 +332,17 @@ fn alloc_in(
             Region::Internal => {
                 esp_alloc::HEAP.alloc_caps(MemoryCapability::Internal.into(), layout)
             }
-            Region::Psram => GlobalAlloc::alloc(&PSRAM_HEAP, layout),
+            Region::Psram => GlobalAlloc::alloc(external_heap(res.kind).0, layout),
         }
     };
     let Some(ptr) = NonNull::new(raw) else {
-        return Err(give_back(MemError::OutOfMemory));
+        return Err(give_back(MemError::HeapExhausted {
+            heap: if res.region == Region::Internal {
+                HeapKind::Internal
+            } else {
+                external_heap(res.kind).1
+            },
+        }));
     };
     // SAFETY: `size` bytes just allocated and owned.
     unsafe { ptr.as_ptr().write_bytes(0, size) };
@@ -307,20 +353,35 @@ fn alloc_in(
 /// while it is `Ready`, internal (with the degraded internal limits) otherwise.
 /// Classes that may not live in PSRAM are always internal.
 pub fn alloc(class: MemClass, size: usize, align: usize) -> Result<MemBuf, MemError> {
-    alloc_in(None, class, size, align)
+    alloc_in(None, class, None, size, align)
+}
+
+pub fn alloc_with_kind(
+    class: MemClass,
+    kind: AllocationKind,
+    size: usize,
+    align: usize,
+) -> Result<MemBuf, MemError> {
+    alloc_in(None, class, Some(kind), size, align)
 }
 
 /// Allocate in PSRAM only. Takes `ExternalClass`, which has no DMA / ISR /
 /// runtime variant; `Err(ClassLimit { limit: 0, .. })` when PSRAM is not
 /// `Ready`.
 pub fn alloc_external(class: ExternalClass, size: usize, align: usize) -> Result<MemBuf, MemError> {
-    alloc_in(Some(Region::Psram), class.into(), size, align)
+    alloc_in(Some(Region::Psram), class.into(), None, size, align)
 }
 
 /// Allocate a DMA buffer: internal RAM, `DMA_ALIGN`, and the returned address
 /// is re-checked against the internal range before it is handed out.
 pub fn alloc_dma(size: usize) -> Result<MemBuf, MemError> {
-    let buf = alloc_in(Some(Region::Internal), MemClass::DmaBuffer, size, DMA_ALIGN)?;
+    let buf = alloc_in(
+        Some(Region::Internal),
+        MemClass::DmaBuffer,
+        None,
+        size,
+        DMA_ALIGN,
+    )?;
     if !range_is_internal(buf.addr(), buf.len()) {
         // dropping `buf` frees it and returns the charge
         return Err(MemError::RegionForbidden {
@@ -367,7 +428,10 @@ pub fn log_usage() {
         .size
         .saturating_sub(internal_stats.current_usage);
     let psram_stats = PSRAM_HEAP.stats();
-    let psram_free = psram_stats.size.saturating_sub(psram_stats.current_usage);
+    let scratch_stats = SCRATCH_HEAP.stats();
+    let psram_size = psram_stats.size + scratch_stats.size;
+    let psram_current = psram_stats.current_usage + scratch_stats.current_usage;
+    let psram_free = psram_size.saturating_sub(psram_current);
     let (int_used, int_peak, int_limit, psram_used, psram_peak, psram_limit) =
         critical_section::with(|cs| {
             let b = BUDGET.borrow_ref(cs);
@@ -391,15 +455,28 @@ pub fn log_usage() {
         int_peak
     );
     info!(
-        "heap psram: size {} B, free {} B, used {} B, peak {} B; reserved {} / {} B, peak {} B",
-        psram_stats.size,
+        "heap psram: size {} B, free {} B, used {} B, sum of heap peaks {} B; reserved {} / {} B, peak {} B",
+        psram_size,
         psram_free,
-        psram_stats.current_usage,
-        psram_stats.max_usage,
+        psram_current,
+        psram_stats.max_usage + scratch_stats.max_usage,
         psram_used,
         psram_limit,
         psram_peak
     );
+    for kind in AllocationKind::ALL {
+        let (used, peak) = critical_section::with(|cs| {
+            let b = BUDGET.borrow_ref(cs);
+            (b.kind_used(kind), b.kind_peak(kind))
+        });
+        info!(
+            "psram {:?}: reserved {} B, peak {} B (HR8 payload limit {} B)",
+            kind,
+            used,
+            peak,
+            kind.limit()
+        );
+    }
     let stack_hwm = crate::ui::stack_high_water_mark();
     let stack_free = crate::ui::free_stack_bytes();
     info!(

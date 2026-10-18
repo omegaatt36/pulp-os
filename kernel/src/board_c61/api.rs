@@ -27,7 +27,7 @@ use super::epd::FnStrips;
 // scheduler); the caller's next refresh tries again.
 pub async fn full_refresh_screen<F>(
     epd: &mut Epd,
-    strip: &mut StripBuffer,
+    strip: &mut StripBuffer<'_>,
     _delay: &mut esp_hal::delay::Delay,
     draw: &F,
 ) where
@@ -41,7 +41,7 @@ pub async fn full_refresh_screen<F>(
 
 pub async fn partial_refresh_screen<F>(
     epd: &mut Epd,
-    strip: &mut StripBuffer,
+    strip: &mut StripBuffer<'_>,
     delay: &mut esp_hal::delay::Delay,
     draw: &F,
 ) where

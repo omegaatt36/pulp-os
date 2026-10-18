@@ -227,7 +227,7 @@ fn board_logic_memory_map_literals_match_esp_hal_memory_x() {
 }
 
 #[test]
-fn psram_is_registered_only_in_the_private_psram_heap() {
+fn psram_is_registered_only_in_the_private_external_heaps() {
     let root = workspace_root();
     let memory_rs = root.join("kernel/src/board_c61/memory.rs");
     // PSRAM must stay off the global heap (`psram_allocator!` would add an External region
@@ -258,19 +258,27 @@ fn psram_is_registered_only_in_the_private_psram_heap() {
         .filter(|l| l.contains("External.into()"))
         .count();
     assert_eq!(
-        externals, 1,
-        "expected exactly one External region registration"
+        externals, 2,
+        "expected the main and scratch External region registrations"
     );
     assert!(
         lines.iter().any(|l| l.contains("PSRAM_HEAP.add_region")),
         "PSRAM_HEAP.add_region missing"
     );
+    assert!(
+        lines.iter().any(|l| l.contains("SCRATCH_HEAP.add_region")),
+        "SCRATCH_HEAP.add_region missing"
+    );
     let other = lines
         .iter()
-        .filter(|l| l.contains("HEAP.add_region") && !l.contains("PSRAM_HEAP.add_region"))
+        .filter(|l| {
+            l.contains("HEAP.add_region")
+                && !l.contains("PSRAM_HEAP.add_region")
+                && !l.contains("SCRATCH_HEAP.add_region")
+        })
         .count();
     assert_eq!(
         other, 0,
-        "a region was added to a heap other than PSRAM_HEAP"
+        "a region was added outside the private external heaps"
     );
 }

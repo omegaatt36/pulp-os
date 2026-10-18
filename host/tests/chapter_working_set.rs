@@ -126,6 +126,53 @@ fn cache_reads(r: &Rig) -> usize {
         .count()
 }
 
+#[test]
+fn empty_cached_chapter_renders_and_navigation_reaches_the_next_chapter() {
+    use pulp_host::fixtures::{RawEntry, build_zip};
+    use smol_epub::zip::ZipIndex;
+    let _serial = serial();
+    let original = epub(2, 1, 10, 'z');
+    let (at, len) = ZipIndex::parse_eocd(&original, original.len() as u32).unwrap();
+    let mut index = ZipIndex::new();
+    index
+        .parse_central_directory(&original[at as usize..(at + len) as usize])
+        .unwrap();
+    let entries: Vec<_> = (0..index.count())
+        .map(|i| {
+            let name = index.entry_name(i).to_string();
+            let entry = index.entry(i);
+            let data = if name == "OEBPS/text/chapter01.xhtml" {
+                b"<html><body></body></html>".to_vec()
+            } else {
+                smol_epub::zip::extract_entry(entry, entry.local_offset, |at, out| {
+                    let tail = &original[at as usize..];
+                    let n = out.len().min(tail.len());
+                    out[..n].copy_from_slice(&tail[..n]);
+                    Ok::<_, ()>(n)
+                })
+                .unwrap()
+            };
+            RawEntry {
+                name,
+                data,
+                deflate: false,
+            }
+        })
+        .collect();
+    let bytes = build_zip(&entries);
+    for profile in [small(), hr8()] {
+        let mut reader = Rig::new(card(&bytes));
+        reader.set_profile(profile.0, profile.1, profile.2);
+        reader.open(BOOK);
+        assert_eq!(reader.phase(), Phase::Ready);
+        assert_eq!(reader.chapter(), 0);
+        reader.quick_trigger(QA_NEXT_CHAPTER);
+        assert_eq!(reader.phase(), Phase::Ready);
+        assert_eq!(reader.chapter(), 1);
+        assert!(!reader.lines().is_empty());
+    }
+}
+
 fn page_text(r: &Rig) -> Vec<Vec<u8>> {
     r.lines()
 }

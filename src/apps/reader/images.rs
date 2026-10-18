@@ -25,30 +25,11 @@ use super::{NO_PREFETCH, PAGE_BUF, PRECACHE_IMG_MAX, ReaderApp};
 
 // Allocate the final image storage before the decoder writes any pixels.
 fn allocate_image_buffer(len: usize) -> Result<BigBuf, &'static str> {
-    BigBuf::zeroed(BufClass::ImageData, len).map_err(|_| "image buffer over budget")
+    BigBuf::zeroed(BufClass::ImageData, len).map_err(|e| e.as_str())
 }
 
-// a private copy of a decoded image in image-class memory. the page owns its
-// image while the LRU owns its own copy, so evicting never touches what is on
-// screen; a refused allocation is just a missed cache fill
-fn copy_image(img: &DecodedImage) -> Option<DecodedImage> {
-    let mut data = BigBuf::zeroed(BufClass::ImageData, img.data.len()).ok()?;
-    data.copy_from_slice(&img.data);
-    Some(DecodedImage {
-        width: img.width,
-        height: img.height,
-        data,
-        stride: img.stride,
-    })
-}
-
-fn from_smol_image(img: smol_epub::DecodedImage<BigBuf>) -> DecodedImage {
-    DecodedImage {
-        width: img.width,
-        height: img.height,
-        data: img.data,
-        stride: img.stride,
-    }
+fn from_smol_image(img: smol_epub::DecodedImage<BigBuf>) -> Result<DecodedImage, &'static str> {
+    DecodedImage::new(img.width, img.height, img.stride, img.data)
 }
 
 // result of scanning a chapter for the next uncached image
@@ -150,7 +131,7 @@ impl ReaderApp {
             max_w: img_budget_w,
             max_h: img_budget_h,
         };
-        if let Some(img) = self.epub.images.get(&lru_key).and_then(copy_image) {
+        if let Some(img) = self.epub.images.get(&lru_key).cloned() {
             log::info!(
                 "reader: image LRU hit {} ({}x{})",
                 img_file,
@@ -328,7 +309,7 @@ impl ReaderApp {
                     |layout| super::allocate_decoder_scratch(BufClass::ImageData, layout),
                 )
             };
-            raw.map(from_smol_image)
+            raw.and_then(from_smol_image)
         };
 
         let result = do_decode(k);
@@ -336,15 +317,7 @@ impl ReaderApp {
         // OOM fallback: release chapter cache and retry
         let result = match result {
             Ok(img) => Ok(img),
-            Err(e) if !self.epub.ring.is_empty() => {
-                log::info!(
-                    "reader: decode failed ({}), releasing {} KB chapter cache and retrying",
-                    e,
-                    self.epub.ring.used() / 1024,
-                );
-                self.epub.release_chapters();
-                do_decode(k)
-            }
+            Err(e) if self.reclaim_image_memory(Error::from(e)) => do_decode(k),
             Err(e) => Err(e),
         };
 
@@ -370,16 +343,40 @@ impl ReaderApp {
         }
     }
 
-    // keep a copy of the decoded image for the next visit of its page
+    fn reclaim_image_memory(&mut self, error: Error) -> bool {
+        let kind = error.kind();
+        if !matches!(
+            kind,
+            ErrorKind::OutOfMemory
+                | ErrorKind::MemoryPoolExhausted
+                | ErrorKind::MemoryClassLimit
+                | ErrorKind::MemoryCacheLimit
+        ) {
+            return false;
+        }
+        let images = !self.epub.images.is_empty();
+        if images {
+            self.epub.images.clear();
+            self.epub.images.retarget(self.epub.source);
+        }
+        // Another class cannot help an ImageData class ceiling.
+        let chapters = kind != ErrorKind::MemoryClassLimit
+            && (!self.epub.ring.is_empty() || !self.epub.chunks.is_empty());
+        if chapters {
+            self.epub.release_chapters();
+        }
+        images || chapters
+    }
+
+    // Keep an immutable lease for the next visit without copying pixel storage.
     fn remember_image(&mut self, key: ImageKey, img: &DecodedImage) {
         if self.epub.images.config().budget == 0 {
             return;
         }
-        if let Some(copy) = copy_image(img) {
-            let bytes = copy.data.len();
-            if let Err((why, _)) = self.epub.images.insert(key, bytes, copy) {
-                log::info!("reader: image not kept: {:?}", why);
-            }
+        let shared = img.clone();
+        let bytes = shared.data.len();
+        if let Err((why, _)) = self.epub.images.insert(key, bytes, shared) {
+            log::info!("reader: image not kept: {:?}", why);
         }
     }
 
@@ -544,13 +541,7 @@ impl ReaderApp {
                     // OOM fallback: release chapter cache and retry
                     let result = match result {
                         Ok(img) => Ok(img),
-                        Err(e) if !self.epub.ring.is_empty() => {
-                            log::info!(
-                                "precache: streaming failed ({}), releasing {} KB ch_cache and retrying",
-                                e,
-                                self.epub.ring.used() / 1024,
-                            );
-                            self.epub.release_chapters();
+                        Err(e) if self.reclaim_image_memory(e) => {
                             decode_image_streaming(k, epub_name, &entry, is_jpeg, img_w, img_h)
                         }
                         Err(e) => Err(e),
@@ -856,7 +847,7 @@ pub(super) fn decode_image_streaming(
         )
     };
     result
-        .map(from_smol_image)
+        .and_then(from_smol_image)
         .map_err(|msg| Error::from(msg).with_source("decode_image_streaming"))
 }
 
@@ -893,12 +884,7 @@ pub(super) fn load_cached_image(
     let mut data = BigBuf::zeroed(BufClass::ImageData, data_len)
         .map_err(|_| Error::new(ErrorKind::OutOfMemory, "load_cached_image"))?;
     k.read_app_subdir_chunk(dir, name, 4, &mut data)?;
-    Ok(DecodedImage {
-        width,
-        height,
-        data,
-        stride,
-    })
+    DecodedImage::new(width, height, stride, data).map_err(Error::from)
 }
 
 pub(super) fn save_cached_image(
@@ -913,4 +899,59 @@ pub(super) fn save_cached_image(
     k.write_app_subdir(dir, name, &header)?;
     k.append_app_subdir(dir, name, &img.data)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod memory_recovery_tests {
+    use super::*;
+    use pulp_board_logic::{
+        chapter_ring::{ChapterKey, ChapterRing, RingConfig},
+        source_id::SourceId,
+    };
+
+    fn reader() -> ReaderApp {
+        let mut app = ReaderApp::new();
+        let source = SourceId::from_raw(42);
+        app.epub.source = source;
+        app.epub.ring = ChapterRing::new(RingConfig::HR8);
+        app.epub.ring.retarget(source, 0);
+        let key = ChapterKey {
+            source,
+            chapter: 0,
+            offset: 0,
+            size: 16,
+        };
+        assert!(
+            app.epub
+                .ring
+                .insert(key, BigBuf::zeroed(BufClass::ChapterText, 16).unwrap())
+                .is_ok()
+        );
+        app
+    }
+
+    #[test]
+    fn format_io_and_class_errors_preserve_other_class_cache() {
+        for kind in [
+            ErrorKind::InvalidData,
+            ErrorKind::ReadFailed,
+            ErrorKind::MemoryClassLimit,
+            ErrorKind::InternalOutOfMemory,
+            ErrorKind::MemoryWorkingSetLimit,
+        ] {
+            let mut app = reader();
+            assert!(!app.reclaim_image_memory(Error::new(kind, "test")));
+            assert_eq!(app.epub.ring.used(), 16);
+        }
+    }
+
+    #[test]
+    fn physical_memory_pressure_releases_rebuildable_chapters_once() {
+        for kind in [ErrorKind::OutOfMemory, ErrorKind::MemoryPoolExhausted] {
+            let mut app = reader();
+            assert!(app.reclaim_image_memory(Error::new(kind, "test")));
+            assert_eq!(app.epub.ring.used(), 0);
+            assert!(!app.reclaim_image_memory(Error::new(kind, "test")));
+        }
+    }
 }

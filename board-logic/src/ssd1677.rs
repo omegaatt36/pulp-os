@@ -554,12 +554,12 @@ pub fn align_partial_region(
 
 /// `StripSource` that renders the pattern with a closure into a `StripCore`
 /// (what the draw path and the C61 boot demo do per strip).
-pub struct CoreStrips<'a, F: FnMut(&mut StripCore)> {
-    pub core: &'a mut StripCore,
+pub struct CoreStrips<'a, 'buf, F: FnMut(&mut StripCore)> {
+    pub core: &'a mut StripCore<'buf>,
     pub draw: F,
 }
 
-impl<F: FnMut(&mut StripCore)> StripSource for CoreStrips<'_, F> {
+impl<F: FnMut(&mut StripCore)> StripSource for CoreStrips<'_, '_, F> {
     fn render_strip(&mut self, rotation: Rotation, idx: u16) -> &[u8] {
         self.core.begin_strip(rotation, idx);
         (self.draw)(self.core);

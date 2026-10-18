@@ -1,11 +1,12 @@
 //! Owned SD font preparation. Layout and draw borrow only prepared RAM data.
 use super::{FontSet, Style, StyleState, bitmap::BitmapFont};
+use crate::kernel::bigbuf::ClassVec;
 use crate::{
     drivers::{storage::SubdirFile, strip::StripBuffer},
     error::{Error, ErrorKind, Result},
     kernel::{BigBuf, BufClass, FONT_GLYPHS_PSRAM_BYTES, KernelHandle, TypedBuf},
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use core::mem::size_of;
 use embedded_graphics::pixelcolor::BinaryColor;
 use pulp_board_logic::font_index::{
@@ -32,7 +33,7 @@ use smol_epub::html_strip::{IMG_REF, MARKER};
 
 pub const BODY_PIXELS: [u16; 5] = [16, 19, 23, 28, 35];
 pub const HEADING_PIXELS: [u16; 5] = [23, 27, 32, 38, 46];
-// Body state: persistent internal metrics <=16 KiB (growth can temporarily
+// Body state: class-placed metrics <=16 KiB (growth can temporarily
 // hold old and new vectors, <=32 KiB), two 700-slot tables (16,800 bytes each
 // on the 32-bit boards), scratch
 // <=4 KiB. Bitmap bytes and slot tables use the explicit FontGlyphs board budget, in PSRAM on
@@ -42,7 +43,7 @@ pub const HEADING_PIXELS: [u16; 5] = [23, 27, 32, 38, 46];
 // and <=32 KiB bitmaps each. Alive together with the reader are its title, its
 // TOC and the manager overlay; Files, Home and Settings clear their surfaces
 // on exit and suspend, so they never add to those three.
-// Pack index caches (see `IndexBanks`) are heap, one per pixel size a state
+// Pack index caches (see `IndexBanks`) use FontGlyphs backing, one per pixel size a state
 // looks up in, at most `INDEX_BANKS` per state, allocated on first use and freed
 // by `clear`: 4 KiB each for the reader, 508 bytes each for an auxiliary surface.
 // Board allocation bound. The 64-bit host uses the same slot counts with
@@ -61,7 +62,7 @@ const AUX_SLOT_BUDGET: usize = 170 * size_of::<PageGlyphSlot>();
 const AUX_BITMAP_BUDGET: usize = 32 * 1024;
 const AUX_CACHE_BUDGET: usize = AUX_SLOT_BUDGET + AUX_BITMAP_BUDGET + size_of::<OwnedCache>();
 type OwnedCache = PageCache<TypedBuf<PageGlyphSlot>, BigBuf>;
-type OwnedIndex = IndexCache<Box<[u32]>>;
+type OwnedIndex = IndexCache<TypedBuf<u32>>;
 // Levels of the pack index search kept in RAM. 10 levels is 1023 four-byte
 // nodes; the stretch left below them (12665 records / 1024) is read in one go.
 const INDEX_LEVELS: u32 = 10;
@@ -75,7 +76,7 @@ const RAM_INDEX: bool = true;
 // up the old way until a window needs more of it (a later call may still load).
 const RAM_INDEX_MIN_PENDING: usize = 128;
 // Slots of `NoteCache` (a power of two; 2 bytes each) for the main state. The
-// auxiliary surfaces keep searching (their heap is counted by
+// auxiliary surfaces keep searching (their backing is counted by
 // `CJK_STORAGE_BUDGET`).
 const NOTE_SLOTS: usize = 1024;
 const INDEX_BUDGET: usize = INDEX_BANKS * OwnedIndex::nodes_for_levels(INDEX_LEVELS) * 4;
@@ -112,18 +113,11 @@ fn font_error(e: FontError<Error>) -> Error {
         _ => failure(ErrorKind::InvalidData),
     }
 }
-fn buffer<T: Clone>(len: usize, value: T, budget: usize) -> Result<Box<[T]>> {
+fn buffer<T: Copy>(len: usize, value: T, budget: usize) -> Result<TypedBuf<T>> {
     if len.checked_mul(size_of::<T>()).is_none_or(|n| n > budget) {
         return Err(failure(ErrorKind::BufferTooSmall));
     }
-    let mut v = Vec::new();
-    v.try_reserve_exact(len)
-        .map_err(|_| failure(ErrorKind::OutOfMemory))?;
-    if v.capacity() * size_of::<T>() > budget {
-        return Err(failure(ErrorKind::BufferTooSmall));
-    }
-    v.resize(len, value);
-    Ok(v.into_boxed_slice())
+    TypedBuf::filled(BufClass::FontGlyphs, len, value).map_err(|_| failure(ErrorKind::OutOfMemory))
 }
 /// SD pack read counters of the `sd-metrics` measurement build. Without the
 /// feature every method is an empty inline function: the default image keeps
@@ -490,7 +484,7 @@ impl NoteCache {
     }
 }
 fn note(
-    metrics: &mut Vec<Entry>,
+    metrics: &mut ClassVec<Entry>,
     budget: usize,
     key: (u16, char),
     cache: &mut NoteCache,
@@ -525,7 +519,10 @@ fn note(
             let ceiling = budget / size_of::<Entry>();
             let capacity = metrics.capacity();
             let target = capacity.saturating_mul(2).max(8).min(ceiling);
-            if metrics.try_reserve_exact(target - metrics.len()).is_err() {
+            if metrics
+                .try_reserve_exact(target - metrics.len(), Entry::new(0, '\0'))
+                .is_err()
+            {
                 return Err(failure(ErrorKind::OutOfMemory));
             }
             if metrics.capacity() * size_of::<Entry>() > budget {
@@ -722,7 +719,7 @@ fn acquire_ram_index<R: ReadAt<Error = Error>>(
 
     let token = token_res.ok()?;
 
-    let storage = match BigBuf::zeroed(BufClass::FontGlyphs, bytes) {
+    let storage = match BigBuf::zeroed(BufClass::FontIndex, bytes) {
         Ok(buf) => buf,
         Err(_) => {
             FONT_REGISTRY.with(|r| r.fail(token));
@@ -775,7 +772,7 @@ fn acquire_ram_index<R: ReadAt<Error = Error>>(
 }
 
 pub struct CjkState {
-    metrics: Vec<Entry>,
+    metrics: ClassVec<Entry>,
     // whether the window of the last staging holds a scalar needing a fallback
     // glyph (see `stage_metrics_prefix`)
     window_fallback: bool,
@@ -800,7 +797,7 @@ pub struct CjkState {
 impl CjkState {
     pub const fn new() -> Self {
         Self {
-            metrics: Vec::new(),
+            metrics: ClassVec::new(BufClass::FontGlyphs),
             window_fallback: false,
             note: NoteCache::new(NOTE_SLOTS),
             index: IndexBanks::new(),
@@ -821,7 +818,7 @@ impl CjkState {
     /// and prepare the body role only.
     pub const fn auxiliary() -> Self {
         Self {
-            metrics: Vec::new(),
+            metrics: ClassVec::new(BufClass::FontGlyphs),
             window_fallback: false,
             note: NoteCache::new(0),
             index: IndexBanks::new(),
@@ -839,7 +836,7 @@ impl CjkState {
         }
     }
     pub fn clear(&mut self) {
-        self.metrics = Vec::new();
+        self.metrics.clear();
         self.window_fallback = false;
         self.note = NoteCache::new(self.note.size);
         self.index = IndexBanks::new();
@@ -941,7 +938,7 @@ impl CjkState {
     ) -> Result<()> {
         // Entries from earlier windows stay (resolved, so never looked up
         // again) but no longer count as part of this window.
-        for e in &mut self.metrics {
+        for e in self.metrics.iter_mut() {
             e.begin_window();
         }
         let mut collection = Ok(());
@@ -1059,7 +1056,7 @@ impl CjkState {
         Ok(())
     }
     pub fn begin_visible(&mut self) {
-        for e in &mut self.metrics {
+        for e in self.metrics.iter_mut() {
             e.word &= !VISIBLE;
         }
     }

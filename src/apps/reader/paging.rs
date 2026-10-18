@@ -494,14 +494,11 @@ impl ReaderApp {
                     self.pg.prefetch_page = NO_PREFETCH;
                     self.pg.prefetch_len = 0;
                 } else if self.is_epub && self.epub.chapters_cached {
-                    let cf_str = self.epub.cache_file_str();
-                    let ch = self.epub.chapter as usize;
-                    let ch_base = self.epub.chapter_table[ch].0;
                     // the cache file is flat: a read past the end of this
                     // chapter would return the beginning of the next one
                     let left = (self.file_size as usize).saturating_sub(base as usize);
                     let want = left.min(PAGE_BUF);
-                    let n = k.read_cache_chunk(cf_str, ch_base + base, &mut self.pg.buf[..want])?;
+                    let n = self.epub.read_text(k, base, &mut self.pg.buf[..want])?;
                     self.pg.buf_len = n;
                 } else if self.file_size == 0 {
                     let (size, n) = k.read_file_start(name, &mut self.pg.buf)?;
@@ -529,9 +526,7 @@ impl ReaderApp {
                     let out_len = out.len().min(self.file_size as usize - at as usize);
                     let out = &mut out[..out_len];
                     let n = if self.is_epub && self.epub.chapters_cached {
-                        let cf_str = self.epub.cache_file_str();
-                        let ch_base = self.epub.chapter_table[self.epub.chapter as usize].0;
-                        k.read_cache_chunk(cf_str, ch_base + at, out)?
+                        self.epub.read_text(k, at, out)?
                     } else {
                         k.read_chunk(name, at, out)?
                     };
@@ -611,12 +606,10 @@ impl ReaderApp {
             let (nb, nl) = self.name_copy();
             let name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
             let pf_result = if self.is_epub && self.epub.chapters_cached {
-                let cf_str = self.epub.cache_file_str();
-                let ch = self.epub.chapter as usize;
-                let ch_base = self.epub.chapter_table[ch].0;
                 let left = (self.file_size as usize).saturating_sub(pf_offset as usize);
                 let want = left.min(self.pg.prefetch.len());
-                k.read_cache_chunk(cf_str, ch_base + pf_offset, &mut self.pg.prefetch[..want])
+                self.epub
+                    .read_text(k, pf_offset, &mut self.pg.prefetch[..want])
             } else {
                 k.read_chunk(name, pf_offset, &mut self.pg.prefetch)
             };

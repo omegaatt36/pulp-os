@@ -248,6 +248,7 @@ impl EpubState {
 
         // A parsed table may have failed validation; never retain its ranges.
         self.chapter_table.fill((0, 0));
+        self.chunks.clear();
         log::info!("epub: building v3 cache for {} chapters", self.spine.len());
         // ensure image subdir exists (images stay in _PULP/_XXXXXXX/)
         let dir_buf = self.cache_dir;
@@ -837,6 +838,32 @@ mod limit_tests {
             bytes.len()
         );
         cache::parse_v3_header(&bytes).unwrap()
+    }
+
+    #[test]
+    fn valid_empty_cached_chapter_reads_as_eof_in_both_profiles() {
+        let mut kernel = Kernel::new(SdStorage::new(VirtualStorage::memory()));
+        for large in [false, true] {
+            let mut state = EpubState::new();
+            state.spine.count = 1;
+            state.chapters_cached = true;
+            state.ch_cached[0] = true;
+            if large {
+                state.profile = super::super::metadata::MemProfile::for_status(
+                    pulp_board_logic::memory::PsramStatus::Ready {
+                        bytes: 8 * 1024 * 1024,
+                    },
+                );
+            }
+            let mut out = [0xa5; 8];
+            assert_eq!(
+                state.read_text(&mut kernel.handle(), 0, &mut out).unwrap(),
+                0
+            );
+            assert_eq!(out, [0xa5; 8]);
+            state.ch_cached[0] = false;
+            assert!(state.read_text(&mut kernel.handle(), 0, &mut out).is_err());
+        }
     }
 
     #[test]

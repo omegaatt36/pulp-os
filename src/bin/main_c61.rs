@@ -56,7 +56,7 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 // heavy statics: kept out of the async future
 
-static STRIP: ConstStaticCell<StripBuffer> = ConstStaticCell::new(StripBuffer::new());
+static STRIP: ConstStaticCell<StripBuffer<'static>> = ConstStaticCell::new(StripBuffer::new());
 static READER: ConstStaticCell<ReaderApp> = ConstStaticCell::new(ReaderApp::new());
 static LAUNCHER: ConstStaticCell<Launcher> = ConstStaticCell::new(Launcher::new());
 static QUICK_MENU: ConstStaticCell<QuickMenu> = ConstStaticCell::new(QuickMenu::new());

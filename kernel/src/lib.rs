@@ -5,6 +5,7 @@
 // sleep screen; distros bring their own proportional fonts
 
 #![no_std]
+#![feature(allocator_api)]
 
 extern crate alloc;
 

@@ -116,12 +116,12 @@ pub fn gray_probe(epd: &mut Epd) -> Result<gray::ProbeTimes, Error> {
 }
 
 /// Feeds the driver one strip at a time from a `draw` closure.
-pub struct FnStrips<'a, F: Fn(&mut StripBuffer)> {
-    pub strip: &'a mut StripBuffer,
+pub struct FnStrips<'a, 'buf, F: Fn(&mut StripBuffer)> {
+    pub strip: &'a mut StripBuffer<'buf>,
     pub draw: F,
 }
 
-impl<F: Fn(&mut StripBuffer)> StripSource for FnStrips<'_, F> {
+impl<F: Fn(&mut StripBuffer)> StripSource for FnStrips<'_, '_, F> {
     fn render_strip(&mut self, rotation: Rotation, idx: u16) -> &[u8] {
         self.strip.begin_strip(rotation, idx);
         (self.draw)(self.strip);

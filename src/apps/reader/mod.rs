@@ -5,6 +5,7 @@ mod pageindex;
 mod paging;
 #[cfg(feature = "sd-metrics")]
 mod profile;
+mod text_cache;
 
 pub use pulp_kernel::util::{Utf8Iter, decode_utf8_char};
 
@@ -62,7 +63,7 @@ fn allocate_decoder_scratch(
 ) -> Result<DecoderScratch, &'static str> {
     crate::kernel::bigbuf::DecoderScratch::zeroed(class, layout)
         .map(DecoderScratch)
-        .map_err(|_| "decoder scratch over budget")
+        .map_err(|e| e.as_str())
 }
 
 // chrome margin: used for header, status, progress bar, loading indicator.
@@ -390,6 +391,7 @@ pub(super) struct EpubState {
     pub(super) profile: metadata::MemProfile,
     // previous / current / next chapter text, keyed by source and chapter
     pub(super) ring: ChapterRing<BigBuf>,
+    chunks: text_cache::TextCache,
     // neighbor chapter being read in bounded steps; unpublished until complete
     pub(super) warm: Option<Warm>,
     // no neighbor reads until the chapter changes (an allocation was refused,
@@ -439,6 +441,7 @@ impl EpubState {
             source: SourceId::NONE,
             profile: metadata::MemProfile::SMALL,
             ring: ChapterRing::new(RingConfig::SMALL),
+            chunks: text_cache::TextCache::new(),
             warm: None,
             warm_blocked: false,
             warm_idle: false,
@@ -458,6 +461,7 @@ impl EpubState {
         }
     }
 
+    #[cfg(any(test, not(target_os = "none")))]
     #[inline]
     pub(super) fn cache_file_str(&self) -> &str {
         cache::cache_filename_str(&self.cache_file)
@@ -501,11 +505,40 @@ impl EpubState {
         }
     }
 
+    pub(super) fn read_text(
+        &mut self,
+        k: &mut KernelHandle<'_>,
+        offset: u32,
+        out: &mut [u8],
+    ) -> crate::error::Result<usize> {
+        let chapter = self.chapter as usize;
+        if self.chapters_cached
+            && chapter < cache::MAX_CACHE_CHAPTERS
+            && self.ch_cached[chapter]
+            && self.chapter_table[chapter].1 == 0
+        {
+            return Ok(0);
+        }
+        let key = self.chapter_key(chapter).ok_or(Error::READ_FAILED)?;
+        let cf = self.cache_file;
+        let name = cache::cache_filename_str(&cf);
+        if self.profile.ring.neighbors {
+            self.chunks.read(key, offset, out, |at, dst| {
+                k.read_cache_chunk(name, at, dst)
+            })
+        } else {
+            let want = out.len().min(key.size.saturating_sub(offset) as usize);
+            let absolute = key.offset.checked_add(offset).ok_or(Error::READ_FAILED)?;
+            k.read_cache_chunk(name, absolute, &mut out[..want])
+        }
+    }
+
     // give up every resident chapter (memory pressure): pages then stream
     // from the cache file, and no neighbor is read until the chapter changes
     pub(super) fn release_chapters(&mut self) {
         let (source, chapter) = (self.source, self.chapter);
         self.ring.clear();
+        self.chunks.clear();
         self.ring.retarget(source, chapter);
         self.warm = None;
         self.warm_blocked = true;
@@ -514,6 +547,7 @@ impl EpubState {
     // drop all book-bound working state (new book, exit, storage reset)
     pub(super) fn clear_working_set(&mut self) {
         self.ring.clear();
+        self.chunks.clear();
         self.images.clear();
         self.warm = None;
         self.warm_blocked = false;
@@ -1587,11 +1621,11 @@ pub(super) fn extract_zip_entry(
     name: &str,
     zip_index: &ZipIndex,
     entry_idx: usize,
-) -> Result<alloc::vec::Vec<u8>, &'static str> {
+) -> Result<BigBuf, &'static str> {
     use core::cell::RefCell;
     let entry = zip_index.entry(entry_idx);
     let k = RefCell::new(k);
-    zip::extract_entry_with_scratch(
+    zip::extract_entry_with_buffer_and_scratch(
         entry,
         entry.local_offset,
         |offset, buf| {
@@ -1599,6 +1633,7 @@ pub(super) fn extract_zip_entry(
                 .read_chunk(name, offset, buf)
                 .map_err(|e: Error| -> &'static str { e.into() })
         },
+        |len| BigBuf::zeroed(BufClass::ZipToc, len).map_err(|e| e.as_str()),
         |layout| allocate_decoder_scratch(crate::kernel::BufClass::ZipToc, layout),
     )
 }
@@ -1610,10 +1645,8 @@ pub fn decode_work_image(
     max_w: u16,
     max_h: u16,
 ) -> Result<crate::kernel::work_queue::DecodedImage, &'static str> {
-    let allocate = |len| {
-        BigBuf::zeroed(crate::kernel::BufClass::ImageData, len)
-            .map_err(|_| "image buffer over budget")
-    };
+    let allocate =
+        |len| BigBuf::zeroed(crate::kernel::BufClass::ImageData, len).map_err(|e| e.as_str());
     let raw = if is_jpeg {
         smol_epub::jpeg::decode_jpeg_fit_with_buffer(data, max_w, max_h, allocate)
     } else {
@@ -1621,11 +1654,8 @@ pub fn decode_work_image(
             allocate_decoder_scratch(crate::kernel::BufClass::ImageData, layout)
         })
     };
-    raw.map(|img| crate::kernel::work_queue::DecodedImage {
-        width: img.width,
-        height: img.height,
-        data: img.data,
-        stride: img.stride,
+    raw.and_then(|img| {
+        crate::kernel::work_queue::DecodedImage::new(img.width, img.height, img.stride, img.data)
     })
 }
 

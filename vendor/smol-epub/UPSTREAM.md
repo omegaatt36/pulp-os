@@ -13,6 +13,14 @@ Differences from the upstream tree besides the patches below: `.github/` and
 
 ## Local patches on top of the base revision
 
+- `src/zip.rs`: `extract_entry_with_buffer_and_scratch` writes directly into
+  caller-owned storage, allowing firmware output and inflate scratch to use
+  PSRAM without an intermediate SRAM `Vec`. Local headers support short
+  reads, offset arithmetic is checked, STORED sizes must agree, and actual
+  DEFLATE output must match its declared size before publication. The owned
+  compatibility API delegates to this path. Covered by
+  `host/tests/zip_destination.rs` and `decoder_scratch.rs`.
+
 Every text smol-epub produces (chapter text, OPF title and creator, TOC labels,
 `strip_html_inplace` output) is valid UTF-8. Malformed input becomes one U+FFFD
 per maximal subpart, the same count as `String::from_utf8_lossy` and the same

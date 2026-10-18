@@ -21,6 +21,9 @@ pub mod memory {
     // SAFETY: the block is exclusively owned.
     unsafe impl Send for MemBuf {}
 
+    // SAFETY: shared references expose initialized bytes only; writes require &mut self.
+    unsafe impl Sync for MemBuf {}
+
     impl MemBuf {
         pub fn addr(&self) -> usize {
             self.ptr.as_ptr() as usize
@@ -60,6 +63,15 @@ pub mod memory {
         // SAFETY: non-zero size.
         let ptr = NonNull::new(unsafe { alloc_zeroed(layout) }).ok_or(MemError::OutOfMemory)?;
         Ok(MemBuf { ptr, layout })
+    }
+
+    pub fn alloc_with_kind(
+        class: MemClass,
+        _kind: pulp_board_logic::memory::AllocationKind,
+        size: usize,
+        align: usize,
+    ) -> Result<MemBuf, MemError> {
+        alloc(class, size, align)
     }
 
     pub fn log_classes() {}

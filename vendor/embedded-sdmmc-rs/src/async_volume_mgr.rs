@@ -1089,6 +1089,42 @@ where
                 }
                 Err(e) => return Err(e),
             };
+            // Whole sectors within one cluster form one bounded card command.
+            // The manager's one-block cache is invalidated before direct I/O;
+            // a partial device failure never advances the file's size/position.
+            if block_offset == 0 {
+                let bytes_per_cluster = match &self.open_volumes[volume_idx].volume_type {
+                    VolumeType::Fat(fat) => fat.bytes_per_cluster(),
+                };
+                let in_cluster = current_offset - current_cluster.0;
+                let run = ((bytes_to_write - written) / Block::LEN)
+                    .min(((bytes_per_cluster - in_cluster) / Block::LEN_U32) as usize)
+                    .min(WRITE_RUN_BLOCKS);
+                if run >= 2 {
+                    let mut blocks: [Block; WRITE_RUN_BLOCKS] =
+                        core::array::from_fn(|_| Block::new());
+                    for (i, block) in blocks[..run].iter_mut().enumerate() {
+                        let at = written + i * Block::LEN;
+                        block.contents.copy_from_slice(&buffer[at..at + Block::LEN]);
+                    }
+                    self.block_cache
+                        .block_device()
+                        .write(&blocks[..run], block_idx)
+                        .await
+                        .map_err(Error::DeviceError)?;
+                    let bytes = run * Block::LEN;
+                    let new_offset = current_offset + bytes as u32;
+                    if new_offset > self.open_files[file_idx].entry.size {
+                        self.open_files[file_idx].update_length(new_offset);
+                    }
+                    self.open_files[file_idx].current_cluster = current_cluster;
+                    self.open_files[file_idx]
+                        .seek_from_start(new_offset)
+                        .unwrap();
+                    written += bytes;
+                    continue;
+                }
+            }
             let to_copy = core::cmp::min(block_avail, bytes_to_write - written);
             let block = if (block_offset == 0) && (to_copy == block_avail) {
                 // we're replacing the whole Block, so the previous contents
@@ -1396,6 +1432,8 @@ where
 
 /// Most whole blocks one file read asks the device for at once.
 const READ_RUN_BLOCKS: usize = 8;
+/// At most 4 KiB of file payload per device write.
+const WRITE_RUN_BLOCKS: usize = 8;
 
 /// Transforms the mode variant into the concrete one that the file should be opened in.
 fn solve_mode_variant(mode: Mode, file_exists: bool) -> Mode {

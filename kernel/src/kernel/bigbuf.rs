@@ -8,7 +8,8 @@
 // "too large / skipped" paths; it never panics. DMA, ISR and runtime data are
 // not expressible here (`BufClass` has no such variant).
 //
-// Contents are zero-initialised.
+// Contents are zero-initialised. On HR8, purpose accounting is separate from
+// lifetime admission: resident state, isolated scratch, or shared cache.
 
 use core::ops::{Deref, DerefMut};
 
@@ -22,8 +23,33 @@ pub enum BufClass {
     StorageCache,
     ZipToc,
     FontGlyphs,
+    FontIndex,
     /// Wi-Fi upload session scratch (directory listing, HTTP and TCP buffers).
     NetScratch,
+}
+
+impl BufClass {
+    fn memory_class(self) -> pulp_board_logic::memory::MemClass {
+        use pulp_board_logic::memory::MemClass;
+        match self {
+            Self::ChapterText => MemClass::ChapterText,
+            Self::ImageData => MemClass::ImageData,
+            Self::PageTable => MemClass::PageTable,
+            Self::DisplayFrame => MemClass::DisplayFrame,
+            Self::StorageCache => MemClass::StorageCache,
+            Self::ZipToc => MemClass::ZipToc,
+            Self::FontGlyphs | Self::FontIndex => MemClass::FontGlyphs,
+            Self::NetScratch => MemClass::NetScratch,
+        }
+    }
+    fn kind(self) -> pulp_board_logic::memory::AllocationKind {
+        use pulp_board_logic::memory::AllocationKind;
+        if matches!(self, Self::FontIndex) {
+            AllocationKind::Cache
+        } else {
+            AllocationKind::for_class(self.memory_class())
+        }
+    }
 }
 
 /// C61 PSRAM budget of the `FontGlyphs` class; callers size their worst case
@@ -32,7 +58,31 @@ pub const FONT_GLYPHS_PSRAM_BYTES: usize = pulp_board_logic::memory::PSRAM_FONT_
 
 /// The allocation failed (heap exhausted, or over the memory budget).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct BufError;
+pub struct BufError(pub pulp_board_logic::memory::MemError);
+
+impl BufError {
+    pub const fn as_str(self) -> &'static str {
+        use pulp_board_logic::memory::MemError;
+        match self.0 {
+            MemError::ClassLimit { .. } => "memory class limit",
+            MemError::PoolExhausted { .. } => "memory pool exhausted",
+            MemError::OutOfMemory => "memory allocator exhausted",
+            MemError::HeapExhausted {
+                heap: pulp_board_logic::memory::HeapKind::Internal,
+            } => "internal allocator exhausted",
+            MemError::HeapExhausted {
+                heap: pulp_board_logic::memory::HeapKind::Scratch,
+            } => "scratch allocator exhausted",
+            MemError::HeapExhausted { .. } => "memory allocator exhausted",
+            MemError::KindLimit {
+                kind: pulp_board_logic::memory::AllocationKind::Cache,
+                ..
+            } => "memory cache limit",
+            MemError::KindLimit { .. } => "memory working set limit",
+            _ => "invalid memory request",
+        }
+    }
+}
 
 /// Layout-aware, exclusively owned decoder scratch, with fallible allocation.
 /// Charged to the requested class and placed using the board policy.
@@ -41,22 +91,27 @@ pub struct DecoderScratch {
 }
 impl DecoderScratch {
     pub fn zeroed(class: BufClass, layout: core::alloc::Layout) -> Result<Self, BufError> {
+        Self::zeroed_for(
+            class,
+            layout,
+            pulp_board_logic::memory::AllocationKind::Scratch,
+        )
+    }
+    fn zeroed_for(
+        class: BufClass,
+        layout: core::alloc::Layout,
+        kind: pulp_board_logic::memory::AllocationKind,
+    ) -> Result<Self, BufError> {
         if layout.size() == 0 {
-            return Err(BufError);
+            return Err(BufError(pulp_board_logic::memory::MemError::ZeroSize));
         }
-        use crate::board_c61::memory::{self, MemClass};
-        let class = match class {
-            BufClass::ChapterText => MemClass::ChapterText,
-            BufClass::ImageData => MemClass::ImageData,
-            BufClass::PageTable => MemClass::PageTable,
-            BufClass::DisplayFrame => MemClass::DisplayFrame,
-            BufClass::StorageCache => MemClass::StorageCache,
-            BufClass::ZipToc => MemClass::ZipToc,
-            BufClass::FontGlyphs => MemClass::FontGlyphs,
-            BufClass::NetScratch => MemClass::NetScratch,
-        };
-        let block =
-            memory::alloc(class, layout.size(), layout.align().max(16)).map_err(|_| BufError)?;
+        let block = crate::board_c61::memory::alloc_with_kind(
+            class.memory_class(),
+            kind,
+            layout.size(),
+            layout.align().max(16),
+        )
+        .map_err(BufError)?;
         Ok(Self { block })
     }
     /// Stable pointer owned by this allocation, valid until it is dropped.
@@ -94,13 +149,14 @@ impl<T: Copy> TypedBuf<T> {
     pub fn filled(class: BufClass, len: usize, value: T) -> Result<Self, BufError> {
         // Also bound zero-sized element counts; all slice indices fit isize.
         if len > isize::MAX as usize {
-            return Err(BufError);
+            return Err(BufError(pulp_board_logic::memory::MemError::Overflow));
         }
-        let layout = core::alloc::Layout::array::<T>(len).map_err(|_| BufError)?;
+        let layout = core::alloc::Layout::array::<T>(len)
+            .map_err(|_| BufError(pulp_board_logic::memory::MemError::Overflow))?;
         let block = if layout.size() == 0 {
             None
         } else {
-            Some(DecoderScratch::zeroed(class, layout)?)
+            Some(DecoderScratch::zeroed_for(class, layout, class.kind())?)
         };
         let mut storage = Self {
             block,
@@ -165,7 +221,7 @@ mod imp {
     use alloc::vec::Vec;
 
     use super::{BufClass, BufError};
-    use crate::board_c61::memory::{self, MemBuf, MemClass};
+    use crate::board_c61::memory::{self, MemBuf};
 
     const ALIGN: usize = 16;
 
@@ -180,22 +236,12 @@ mod imp {
             if len == 0 {
                 return Ok(Self(None));
             }
-            let class = match class {
-                BufClass::ChapterText => MemClass::ChapterText,
-                BufClass::ImageData => MemClass::ImageData,
-                BufClass::PageTable => MemClass::PageTable,
-                BufClass::DisplayFrame => MemClass::DisplayFrame,
-                BufClass::StorageCache => MemClass::StorageCache,
-                BufClass::ZipToc => MemClass::ZipToc,
-                BufClass::FontGlyphs => MemClass::FontGlyphs,
-                BufClass::NetScratch => MemClass::NetScratch,
-            };
-            match memory::alloc(class, len, ALIGN) {
+            match memory::alloc_with_kind(class.memory_class(), class.kind(), len, ALIGN) {
                 Ok(b) => Ok(Self(Some(b))),
                 Err(e) => {
                     log::warn!("bigbuf: {:?} {} B refused: {:?}", class, len, e);
                     memory::log_classes();
-                    Err(BufError)
+                    Err(BufError(e))
                 }
             }
         }
@@ -266,5 +312,75 @@ impl AsRef<[u8]> for BigBuf {
 impl AsMut<[u8]> for BigBuf {
     fn as_mut(&mut self) -> &mut [u8] {
         self.as_mut_slice()
+    }
+}
+
+/// A fallible vector whose backing follows an explicit board memory class.
+/// Unused capacity is initialized too; slices expose only the live prefix.
+pub struct ClassVec<T: Copy> {
+    storage: TypedBuf<T>,
+    len: usize,
+    class: BufClass,
+}
+
+impl<T: Copy> ClassVec<T> {
+    pub const fn new(class: BufClass) -> Self {
+        Self {
+            storage: TypedBuf::empty(),
+            len: 0,
+            class,
+        }
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.storage.len()
+    }
+
+    pub fn try_reserve_exact(&mut self, additional: usize, fill: T) -> Result<(), BufError> {
+        let needed = self
+            .len
+            .checked_add(additional)
+            .ok_or(BufError(pulp_board_logic::memory::MemError::Overflow))?;
+        if needed > self.capacity() {
+            let mut next = TypedBuf::filled(self.class, needed, fill)?;
+            next[..self.len].copy_from_slice(self);
+            self.storage = next;
+        }
+        Ok(())
+    }
+
+    pub fn insert(&mut self, index: usize, value: T) {
+        assert!(index <= self.len && self.len < self.capacity());
+        self.storage.copy_within(index..self.len, index + 1);
+        self.storage[index] = value;
+        self.len += 1;
+    }
+
+    pub fn retain(&mut self, mut keep: impl FnMut(&T) -> bool) {
+        let mut used = 0;
+        for i in 0..self.len {
+            if keep(&self.storage[i]) {
+                self.storage[used] = self.storage[i];
+                used += 1;
+            }
+        }
+        self.len = used;
+    }
+
+    pub fn clear(&mut self) {
+        self.storage = TypedBuf::empty();
+        self.len = 0;
+    }
+}
+
+impl<T: Copy> Deref for ClassVec<T> {
+    type Target = [T];
+    fn deref(&self) -> &[T] {
+        &self.storage[..self.len]
+    }
+}
+impl<T: Copy> DerefMut for ClassVec<T> {
+    fn deref_mut(&mut self) -> &mut [T] {
+        &mut self.storage[..self.len]
     }
 }

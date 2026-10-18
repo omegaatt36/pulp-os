@@ -21,7 +21,6 @@ include!("../../kernel/src/drivers/storage_write_ops.rs");
 
 const ROOT: u32 = 34;
 const DATA: u32 = 35;
-const SECTORS: usize = 8193;
 const NAME: &str = "STATE.BIN";
 const SEED: &[u8] = b"seed";
 
@@ -53,6 +52,7 @@ struct CardState {
     // Fail the nth write to each specified sector, without changing the disk.
     failures: Vec<(u32, usize)>,
     reads: Vec<u32>,
+    writes: Vec<(u32, usize)>,
     write_failed: bool,
 }
 
@@ -70,21 +70,29 @@ impl AsyncBlockDevice for MemoryCard {
 
     async fn write(&mut self, src: &[Block], start: BlockIdx) -> Result<(), Self::Error> {
         let mut state = self.0.borrow_mut();
+        state.writes.push((start.0, src.len()));
+        let mut failed_at = None;
         for (sector, remaining) in &mut state.failures {
             if *sector >= start.0 && *sector < start.0 + src.len() as u32 && *remaining > 0 {
                 *remaining -= 1;
                 if *remaining == 0 {
-                    state.write_failed = true;
-                    return Err(InjectedFailure);
+                    failed_at = Some((*sector - start.0) as usize);
+                    break;
                 }
             }
+        }
+        if let Some(prefix) = failed_at {
+            state.blocks[start.0 as usize..start.0 as usize + prefix]
+                .clone_from_slice(&src[..prefix]);
+            state.write_failed = true;
+            return Err(InjectedFailure);
         }
         state.blocks[start.0 as usize..start.0 as usize + src.len()].clone_from_slice(src);
         Ok(())
     }
 
     async fn num_blocks(&mut self) -> Result<BlockCount, Self::Error> {
-        Ok(BlockCount(SECTORS as u32))
+        Ok(BlockCount(self.0.borrow().blocks.len() as u32))
     }
 }
 
@@ -150,33 +158,44 @@ impl Inner {
     }
 
     fn new() -> Self {
-        // MBR + FAT16 BPB, one FAT (32 sectors), one root sector, 8158
-        // single-sector clusters. STATE.BIN owns cluster 2 and contains "seed".
-        let mut blocks = vec![Block::new(); SECTORS];
+        Self::with_cluster_sectors(1)
+    }
+
+    fn with_cluster_sectors(cluster_sectors: u8) -> Self {
+        let total = 8192u32 * cluster_sectors as u32;
+        let fat_sectors = 32u16 * cluster_sectors as u16;
+        let root_sector = 2 + fat_sectors as usize;
+        let data_sector = root_sector + 1;
+        let mut blocks = vec![Block::new(); total as usize + 1];
         blocks[0][450] = 0x06;
         blocks[0][454..458].copy_from_slice(&1u32.to_le_bytes());
-        blocks[0][458..462].copy_from_slice(&8192u32.to_le_bytes());
+        blocks[0][458..462].copy_from_slice(&total.to_le_bytes());
         blocks[0][510..512].copy_from_slice(&0xaa55u16.to_le_bytes());
         let boot = &mut blocks[1];
         boot[11..13].copy_from_slice(&512u16.to_le_bytes());
-        boot[13] = 1;
+        boot[13] = cluster_sectors;
         boot[14..16].copy_from_slice(&1u16.to_le_bytes());
         boot[16] = 1;
         boot[17..19].copy_from_slice(&16u16.to_le_bytes());
-        boot[19..21].copy_from_slice(&8192u16.to_le_bytes());
+        if let Ok(small) = u16::try_from(total) {
+            boot[19..21].copy_from_slice(&small.to_le_bytes());
+        } else {
+            boot[32..36].copy_from_slice(&total.to_le_bytes());
+        }
         boot[21] = 0xf8;
-        boot[22..24].copy_from_slice(&32u16.to_le_bytes());
+        boot[22..24].copy_from_slice(&fat_sectors.to_le_bytes());
         boot[510..512].copy_from_slice(&0xaa55u16.to_le_bytes());
         blocks[2][..6].copy_from_slice(&[0xf8, 0xff, 0xff, 0xff, 0xff, 0xff]);
-        blocks[ROOT as usize][..11].copy_from_slice(b"STATE   BIN");
-        blocks[ROOT as usize][11] = 0x20;
-        blocks[ROOT as usize][26..28].copy_from_slice(&2u16.to_le_bytes());
-        blocks[ROOT as usize][28..32].copy_from_slice(&(SEED.len() as u32).to_le_bytes());
-        blocks[DATA as usize][..SEED.len()].copy_from_slice(SEED);
+        blocks[root_sector][..11].copy_from_slice(b"STATE   BIN");
+        blocks[root_sector][11] = 0x20;
+        blocks[root_sector][26..28].copy_from_slice(&2u16.to_le_bytes());
+        blocks[root_sector][28..32].copy_from_slice(&(SEED.len() as u32).to_le_bytes());
+        blocks[data_sector][..SEED.len()].copy_from_slice(SEED);
         let card = Rc::new(RefCell::new(CardState {
             blocks,
             failures: Vec::new(),
             reads: Vec::new(),
+            writes: Vec::new(),
             write_failed: false,
         }));
         let mut fat = FatManager::new(MemoryCard(card.clone()), Clock);
@@ -462,4 +481,39 @@ fn open_failure_does_not_attempt_close() {
         "write",
     );
     assert_eq!(inner.events(), [Event::Open]);
+}
+
+#[test]
+fn aligned_cluster_write_is_one_bounded_device_run() {
+    let mut inner = Inner::with_cluster_sectors(8);
+    let data = vec![0x5a; 4096];
+    Operation::Positioned.run(&mut inner, 0, &data).unwrap();
+    let runs: Vec<_> = inner
+        .card
+        .borrow()
+        .writes
+        .iter()
+        .filter(|(_, len)| *len > 1)
+        .copied()
+        .collect();
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].1, 8);
+    assert_eq!(inner.contents(), data);
+}
+
+#[test]
+fn partial_device_run_failure_keeps_old_length_and_retry_reloads_cache() {
+    let mut inner = Inner::with_cluster_sectors(8);
+    let data = vec![0x6a; 4096];
+    inner.fail_write(259 + 3, 1);
+    assert_error(
+        Operation::Positioned.run(&mut inner, 0, &data),
+        ErrorKind::WriteFailed,
+        "write_at",
+    );
+    assert_eq!(inner.contents().len(), SEED.len());
+    inner.mgr.events.borrow_mut().clear();
+    Operation::Positioned.run(&mut inner, 0, &data).unwrap();
+    assert_eq!(inner.contents(), data);
+    inner.assert_released();
 }

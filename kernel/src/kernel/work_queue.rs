@@ -6,12 +6,12 @@
 // generation-based cancellation: bump generation and drain() to
 // discard stale work; no explicit cancel signal needed
 //
-// channel capacity 1 for natural back-pressure; worker drops input
+// Two queued items provide bounded back-pressure; worker drops input
 // buffers before sending results so peak heap is bounded
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::sync::Arc;
 use core::cell::Cell;
 
 use critical_section::Mutex;
@@ -19,11 +19,29 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 
 // 1-bit decoded image
+#[derive(Clone)]
 pub struct DecodedImage {
     pub width: u16,
     pub height: u16,
-    pub data: super::BigBuf,
+    pub data: Arc<super::BigBuf>,
     pub stride: usize,
+}
+
+impl DecodedImage {
+    pub fn new(
+        width: u16,
+        height: u16,
+        stride: usize,
+        data: super::BigBuf,
+    ) -> Result<Self, &'static str> {
+        let data = Arc::try_new(data).map_err(|_| "internal allocator exhausted")?;
+        Ok(Self {
+            width,
+            height,
+            stride,
+            data,
+        })
+    }
 }
 
 impl core::fmt::Debug for DecodedImage {
@@ -130,7 +148,7 @@ pub fn set_active_generation(g: u16) {
 pub enum WorkTask {
     DecodeImage {
         path_hash: u32,
-        data: Vec<u8>,
+        data: super::BigBuf,
         is_jpeg: bool,
         max_w: u16,
         max_h: u16,

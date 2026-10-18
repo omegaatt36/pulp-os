@@ -14,7 +14,7 @@ fn is_black(core: &StripCore, lx: u16, ly: u16) -> bool {
 }
 
 // the whole logical page as one window
-fn page() -> StripCore {
+fn page() -> StripCore<'static> {
     let mut core = StripCore::new();
     // 64 logical rows keep the window inside the strip buffer
     let (px, py, pw, ph) =

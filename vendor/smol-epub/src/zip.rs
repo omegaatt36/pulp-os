@@ -4,7 +4,6 @@
 //! entry and name storage policy. DEFLATE decompression streams in 4 KB
 //! chunks; `try_reserve` is used throughout for graceful OOM handling.
 
-use alloc::vec;
 use alloc::vec::Vec;
 
 const MAX_ENTRY_SIZE: u32 = 192 * 1024; // max uncompressed entry size (OOM guard)
@@ -347,46 +346,74 @@ where
 pub fn extract_entry_with_scratch<E, F, S, C>(
     entry: &ZipEntry,
     local_offset: u32,
-    mut read_fn: F,
-    mut scratch: C,
+    read_fn: F,
+    scratch: C,
 ) -> Result<Vec<u8>, &'static str>
 where
     S: crate::scratch::ScratchStorage,
     C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
     F: FnMut(u32, &mut [u8]) -> Result<usize, E>,
 {
-    let mut header = [0u8; 30];
-    read_fn(local_offset, &mut header).map_err(|_| "zip: read local header failed")?;
-    let skip = ZipIndex::local_header_data_skip(&header)?;
-    let data_offset = local_offset + skip;
+    extract_entry_with_buffer_and_scratch(
+        entry,
+        local_offset,
+        read_fn,
+        |size| {
+            let mut out = Vec::new();
+            out.try_reserve_exact(size)
+                .map_err(|_| "zip: chapter too large for memory")?;
+            out.resize(size, 0);
+            Ok(out)
+        },
+        scratch,
+    )
+}
 
+/// Extract directly into caller-owned, initialized storage. The output is
+/// published only after its actual size matches the central-directory record.
+pub fn extract_entry_with_buffer_and_scratch<E, F, B, A, S, C>(
+    entry: &ZipEntry,
+    local_offset: u32,
+    mut read_fn: F,
+    allocate: A,
+    mut scratch: C,
+) -> Result<B, &'static str>
+where
+    B: AsMut<[u8]>,
+    A: FnOnce(usize) -> Result<B, &'static str>,
+    S: crate::scratch::ScratchStorage,
+    C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
+    F: FnMut(u32, &mut [u8]) -> Result<usize, E>,
+{
     if entry.uncomp_size > MAX_ENTRY_SIZE {
         return Err("zip: entry too large");
     }
-
-    match entry.method {
-        METHOD_STORED => extract_stored(entry, data_offset, &mut read_fn),
-        METHOD_DEFLATE => extract_deflate(entry, data_offset, &mut read_fn, &mut scratch),
-        _ => Err("zip: unsupported compression method"),
+    if !matches!(entry.method, METHOD_STORED | METHOD_DEFLATE) {
+        return Err("zip: unsupported compression method");
     }
-}
-
-fn extract_stored<E, F>(
-    entry: &ZipEntry,
-    data_offset: u32,
-    read_fn: &mut F,
-) -> Result<Vec<u8>, &'static str>
-where
-    F: FnMut(u32, &mut [u8]) -> Result<usize, E>,
-{
-    let size = entry.uncomp_size as usize;
-    log::info!("zip: stored entry ({} bytes)", size);
-
-    let mut out = Vec::new();
-    out.try_reserve_exact(size)
-        .map_err(|_| "zip: chapter too large for memory")?;
-    out.resize(size, 0);
-    read_all(data_offset, &mut out, read_fn)?;
+    if entry.method == METHOD_STORED && entry.comp_size != entry.uncomp_size {
+        return Err("zip: stored size mismatch");
+    }
+    let mut header = [0u8; 30];
+    read_all(local_offset, &mut header, &mut read_fn)?;
+    let skip = ZipIndex::local_header_data_skip(&header)?;
+    let data_offset = local_offset
+        .checked_add(skip)
+        .ok_or("zip: offset overflow")?;
+    data_offset
+        .checked_add(entry.comp_size)
+        .ok_or("zip: offset overflow")?;
+    let mut out = allocate(entry.uncomp_size as usize)?;
+    if out.as_mut().len() != entry.uncomp_size as usize {
+        return Err("zip: destination size mismatch");
+    }
+    match entry.method {
+        METHOD_STORED => read_all(data_offset, out.as_mut(), &mut read_fn)?,
+        METHOD_DEFLATE => {
+            extract_deflate(entry, data_offset, &mut read_fn, &mut scratch, out.as_mut())?
+        }
+        _ => unreachable!(),
+    }
     Ok(out)
 }
 
@@ -397,7 +424,8 @@ fn extract_deflate<E, F, S, C>(
     data_offset: u32,
     read_fn: &mut F,
     scratch: &mut C,
-) -> Result<Vec<u8>, &'static str>
+    output: &mut [u8],
+) -> Result<(), &'static str>
 where
     S: crate::scratch::ScratchStorage,
     C: FnMut(core::alloc::Layout) -> Result<S, &'static str>,
@@ -412,16 +440,14 @@ where
 
     log::info!("zip: deflate stream {} -> {} bytes", comp_size, uncomp_size);
 
-    let mut output = Vec::new();
-    output
-        .try_reserve_exact(uncomp_size)
-        .map_err(|_| "zip: chapter too large for memory")?;
-    output.resize(uncomp_size, 0);
-
     let mut decomp = crate::scratch::Decompressor::new(scratch)?;
     let mut out_pos: usize = 0;
 
-    let mut rbuf = vec![0u8; DEFLATE_READ_BUF];
+    let mut rbuf = crate::scratch::ScratchBytes::new(
+        scratch,
+        core::alloc::Layout::array::<u8>(DEFLATE_READ_BUF)
+            .map_err(|_| "zip: input layout overflow")?,
+    )?;
     let mut in_avail: usize = 0;
     let mut file_pos = data_offset;
     let mut comp_left = comp_size;
@@ -432,14 +458,15 @@ where
             let space = DEFLATE_READ_BUF - in_avail;
             let want = space.min(comp_left);
             match read_fn(file_pos, &mut rbuf[in_avail..in_avail + want]) {
-                Ok(n) if n > 0 => {
+                Ok(n) if n > 0 && n <= want => {
                     file_pos += n as u32;
                     comp_left -= n;
                     in_avail += n;
                 }
-                Ok(_) => {
+                Ok(0) => {
                     comp_left = 0;
                 }
+                Ok(_) => return Err("zip: invalid read length"),
                 Err(_) => return Err("zip: read failed during deflate"),
             }
         }
@@ -456,7 +483,7 @@ where
             };
 
         let (status, consumed, produced) =
-            decompress(&mut *decomp, &rbuf[..in_avail], &mut output, out_pos, flags);
+            decompress(&mut *decomp, &rbuf[..in_avail], output, out_pos, flags);
 
         out_pos += produced;
 
@@ -486,8 +513,10 @@ where
         }
     }
 
-    output.truncate(out_pos);
-    Ok(output)
+    if out_pos != uncomp_size {
+        return Err("zip: decompressed size mismatch");
+    }
+    Ok(())
 }
 
 fn read_all<E, F>(offset: u32, buf: &mut [u8], read_fn: &mut F) -> Result<(), &'static str>
@@ -496,10 +525,18 @@ where
 {
     let mut total = 0usize;
     while total < buf.len() {
-        let n =
-            read_fn(offset + total as u32, &mut buf[total..]).map_err(|_| "zip: read failed")?;
+        let n = read_fn(
+            offset
+                .checked_add(total as u32)
+                .ok_or("zip: offset overflow")?,
+            &mut buf[total..],
+        )
+        .map_err(|_| "zip: read failed")?;
         if n == 0 {
             return Err("zip: unexpected EOF");
+        }
+        if n > buf.len() - total {
+            return Err("zip: invalid read length");
         }
         total += n;
     }

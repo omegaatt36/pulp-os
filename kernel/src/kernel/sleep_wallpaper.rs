@@ -130,13 +130,13 @@ pub fn load_gray(sd: &SdStorage) -> Option<GrayWallpaper> {
 // strips of the two plane images, for `gray::show_planes`: the same blit the
 // 1 bit wallpaper uses, once per plane
 #[cfg(feature = "gray-wallpaper")]
-pub struct GrayStrips<'a> {
-    pub strip: &'a mut StripBuffer,
+pub struct GrayStrips<'a, 'buf> {
+    pub strip: &'a mut StripBuffer<'buf>,
     pub image: &'a GrayWallpaper,
 }
 
 #[cfg(feature = "gray-wallpaper")]
-impl PlaneSource for GrayStrips<'_> {
+impl PlaneSource for GrayStrips<'_, '_> {
     fn render_strip(&mut self, plane: Plane, rotation: Rotation, idx: u16) -> &[u8] {
         self.strip.begin_strip(rotation, idx);
         let img = match plane {

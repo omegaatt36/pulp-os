@@ -29,7 +29,6 @@
 use embassy_time::Instant;
 use log::{error, info, warn};
 
-#[cfg(feature = "partial-refresh")]
 use crate::kernel::bigbuf::{BigBuf, BufClass};
 #[cfg(feature = "partial-refresh")]
 use pulp_board_logic::lifecycle::retry_refresh;
@@ -66,12 +65,12 @@ fn now_ms() -> u64 {
 }
 
 // feeds the SSD1677 driver one strip at a time from the app's `draw`
-struct AppStrips<'a, A: AppLayer> {
-    strip: &'a mut StripBuffer,
+struct AppStrips<'a, 'buf, A: AppLayer> {
+    strip: &'a mut StripBuffer<'buf>,
     app: &'a A,
 }
 
-impl<A: AppLayer> StripSource for AppStrips<'_, A> {
+impl<A: AppLayer> StripSource for AppStrips<'_, '_, A> {
     fn render_strip(&mut self, rotation: Rotation, idx: u16) -> &[u8] {
         self.strip.begin_strip(rotation, idx);
         self.app.draw(self.strip);
@@ -79,9 +78,26 @@ impl<A: AppLayer> StripSource for AppStrips<'_, A> {
     }
 }
 
+// A complete immutable raster is staged through the existing internal strip.
+struct FrameStrips<'a> {
+    pixels: &'a [u8],
+    strip: &'a mut StripBuffer<'static>,
+}
+impl StripSource for FrameStrips<'_> {
+    fn render_strip(&mut self, rotation: Rotation, idx: u16) -> &[u8] {
+        self.strip.begin_strip(rotation, idx);
+        let len = self.strip.data().len();
+        let at = idx as usize * len;
+        self.strip
+            .data_mut()
+            .copy_from_slice(&self.pixels[at..at + len]);
+        self.strip.data()
+    }
+}
+
 // the same draw callback, one window of the partial region at a time
 #[cfg(feature = "partial-refresh")]
-impl<A: AppLayer> WindowSource for AppStrips<'_, A> {
+impl<A: AppLayer> WindowSource for AppStrips<'_, '_, A> {
     fn render_window(&mut self, rotation: Rotation, px: u16, py: u16, pw: u16, rows: u16) -> &[u8] {
         self.strip.begin_window(rotation, px, py, pw, rows);
         self.app.draw(self.strip);
@@ -541,17 +557,43 @@ impl super::Kernel {
             .next(needs_clean || !cfg!(feature = "fast-full-refresh"));
         app.prepare_render(&mut self.handle());
         let started = now_ms();
-        let mut src = AppStrips {
-            strip: &mut *self.strip,
-            app,
+        let frame = match crate::board_c61::memory::status() {
+            pulp_board_logic::memory::PsramStatus::Ready { bytes }
+                if bytes >= pulp_board_logic::memory::PSRAM_LARGE_MIN_BYTES =>
+            {
+                BigBuf::zeroed(BufClass::DisplayFrame, 48_000).ok()
+            }
+            _ => None,
         };
-        let shown = refresh_with_recovery(
-            &mut self.epd,
-            &mut self.hw.power,
-            &mut self.hw.display,
-            &mut src,
-            kind,
-        );
+        let shown = if let Some(mut pixels) = frame {
+            let mut raster =
+                StripBuffer::frame(&mut pixels, self.epd.rotation()).expect("full-frame geometry");
+            app.draw(&mut raster);
+            drop(raster);
+            let mut src = FrameStrips {
+                pixels: &pixels,
+                strip: &mut *self.strip,
+            };
+            refresh_with_recovery(
+                &mut self.epd,
+                &mut self.hw.power,
+                &mut self.hw.display,
+                &mut src,
+                kind,
+            )
+        } else {
+            let mut src = AppStrips {
+                strip: &mut *self.strip,
+                app,
+            };
+            refresh_with_recovery(
+                &mut self.epd,
+                &mut self.hw.power,
+                &mut self.hw.display,
+                &mut src,
+                kind,
+            )
+        };
         info!(
             "display: full refresh kind {:?} {} in {} ms",
             kind,

@@ -9,6 +9,8 @@
 // The firmware is two crates (pulp-kernel, pulp-os) and its files address each
 // other as `pulp_kernel::...` and `crate::...`; this one crate answers to both.
 
+#![feature(allocator_api)]
+
 extern crate alloc;
 // `pulp_kernel::util::*` (reader, fonts) resolves to this crate
 extern crate self as pulp_kernel;

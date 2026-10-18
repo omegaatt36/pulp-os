@@ -21,30 +21,34 @@ pub use pulp_board_logic::strip::{PHYS_BYTES_PER_ROW, STRIP_BUF_SIZE, STRIP_COUN
 use crate::ui::Region;
 use pulp_board_logic::ssd1677::Rotation;
 
-pub struct StripBuffer(StripCore);
+pub struct StripBuffer<'a>(StripCore<'a>);
 
 // begin_window, data, data_mut, window, begin_strip, blit_1bpp, ... come from
 // StripCore through Deref; only the Region view and begin_window's warning
 // are defined here.
-impl Deref for StripBuffer {
-    type Target = StripCore;
+impl<'a> Deref for StripBuffer<'a> {
+    type Target = StripCore<'a>;
 
     #[inline]
-    fn deref(&self) -> &StripCore {
+    fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for StripBuffer {
+impl DerefMut for StripBuffer<'_> {
     #[inline]
-    fn deref_mut(&mut self) -> &mut StripCore {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl StripBuffer {
+impl<'a> StripBuffer<'a> {
     pub const fn new() -> Self {
         Self(StripCore::new())
+    }
+
+    pub fn frame(bytes: &'a mut [u8], rotation: Rotation) -> Option<Self> {
+        StripCore::frame(bytes, rotation).map(Self)
     }
 
     pub fn begin_window(&mut self, rotation: Rotation, x: u16, y: u16, w: u16, h: u16) {
@@ -72,20 +76,20 @@ impl StripBuffer {
     }
 }
 
-impl Default for StripBuffer {
+impl Default for StripBuffer<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl OriginDimensions for StripBuffer {
+impl OriginDimensions for StripBuffer<'_> {
     fn size(&self) -> Size {
         let (w, h) = self.0.logical_size();
         Size::new(w as u32, h as u32)
     }
 }
 
-impl DrawTarget for StripBuffer {
+impl DrawTarget for StripBuffer<'_> {
     type Color = BinaryColor;
     type Error = core::convert::Infallible;
 

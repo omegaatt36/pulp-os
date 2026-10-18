@@ -7,16 +7,17 @@
 //   * the C61 address map the placement rules are written against;
 //   * which allocation classes may live in PSRAM (DMA buffers/descriptors,
 //     ISR-visible data and the runtime heap never may);
-//   * per-class and per-pool budgets with checked arithmetic (a request
+//   * per-class budgets on small parts, aggregate lifetime pools on HR8,
+//     and checked arithmetic (a request
 //     over budget is an `Err`, never a panic and never an out-of-memory spiral);
 //   * the PSRAM bring-up state machine (not initialised / ready / degraded) and
 //     the fallback to smaller internal limits;
 //   * the PSRAM smoke test (`selftest`) over a word-memory trait;
-//   * the inventory of every large (>= 4 KiB) allocation in the firmware with
+//   * an estimated inventory of large (>= 4 KiB) allocations with
 //     its classification.
 //
 // Nothing here touches hardware. The kernel's `board_c61::memory` registers the
-// PSRAM region on its own `EspHeap` (never on the global heap, see below) and
+// PSRAM regions on private `EspHeap`s (never on the global heap, see below) and
 // charges every allocation against a `MemoryBudget` of this module.
 
 // ---------------------------------------------------------------------------
@@ -218,6 +219,59 @@ const _: () = assert!(C61_RAM_END - C61_RAM_START == C61_RAM_LEN + C61_RECLAIMED
 /// Every reservation is charged rounded up to this (allocator headers).
 pub const ALLOC_GRANULE: usize = 16;
 
+// HR8 partitions: scratch has its own physical heap; resident/cache share a
+// heap but separate aggregate admissions. Class limits remain soft targets.
+pub const LARGE_RESERVE_BYTES: usize = 512 * KIB;
+pub const RESIDENT_BYTES: usize = MIB;
+pub const SCRATCH_ARENA_BYTES: usize = 1536 * KIB;
+// Leave space for headers/alignment inside the scratch arena itself.
+pub const SCRATCH_PAYLOAD_BYTES: usize = SCRATCH_ARENA_BYTES - 16 * KIB;
+pub const SHARED_CACHE_BYTES: usize = 5 * MIB;
+const _: () = assert!(
+    LARGE_RESERVE_BYTES + RESIDENT_BYTES + SCRATCH_ARENA_BYTES + SHARED_CACHE_BYTES
+        == PSRAM_MAX_BYTES
+);
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum AllocationKind {
+    Resident,
+    Scratch,
+    Cache,
+}
+impl AllocationKind {
+    pub const ALL: [Self; 3] = [Self::Resident, Self::Scratch, Self::Cache];
+    pub const fn for_class(class: MemClass) -> Self {
+        match class {
+            MemClass::ChapterText | MemClass::ImageData | MemClass::StorageCache => Self::Cache,
+            MemClass::NetScratch => Self::Scratch,
+            _ => Self::Resident,
+        }
+    }
+    pub const fn limit(self) -> usize {
+        match self {
+            Self::Resident => RESIDENT_BYTES,
+            Self::Scratch => SCRATCH_PAYLOAD_BYTES,
+            Self::Cache => SHARED_CACHE_BYTES,
+        }
+    }
+}
+
+/// A physical allocator, distinct from the allocation's purpose/lifetime.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum HeapKind {
+    Internal,
+    Psram,
+    Scratch,
+}
+
+pub const fn external_heap_kind(kind: AllocationKind, isolated_scratch: bool) -> HeapKind {
+    if isolated_scratch && matches!(kind, AllocationKind::Scratch) {
+        HeapKind::Scratch
+    } else {
+        HeapKind::Psram
+    }
+}
+
 // ---------------------------------------------------------------------------
 // classes and regions
 
@@ -412,8 +466,16 @@ pub enum MemError {
     /// PSRAM status changed while reservations made under the old status are
     /// still alive (their region would no longer match the accounting).
     StatusChangeWhileLive,
+    KindLimit {
+        kind: AllocationKind,
+        limit: usize,
+        used: usize,
+        requested: usize,
+    },
     /// The budget said yes but the allocator had no block (fragmentation).
     OutOfMemory,
+    /// Physical allocation failure, including which independent heap failed.
+    HeapExhausted { heap: HeapKind },
 }
 
 // ---------------------------------------------------------------------------
@@ -590,6 +652,7 @@ fn selftest_words(words: usize) -> impl Iterator<Item = usize> {
 /// A successful reservation. Hand it back to `MemoryBudget::release`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Reservation {
+    pub kind: AllocationKind,
     pub class: MemClass,
     pub region: Region,
     /// Bytes charged (request rounded up, see `charge`).
@@ -613,7 +676,7 @@ pub fn charge(size: usize, align: usize) -> Result<usize, MemError> {
         .ok_or(MemError::Overflow)
 }
 
-/// Per-class limit in `region` for the given PSRAM status.
+/// Per-class cap on small profiles; a diagnostic soft target on HR8.
 pub const fn class_limit(status: PsramStatus, region: Region, class: MemClass) -> usize {
     match region {
         Region::Internal => match class {
@@ -673,11 +736,12 @@ pub const fn pool_limit_for(wifi: bool, status: PsramStatus, region: Region) -> 
         Region::Internal => internal_heap_bytes(wifi),
         Region::Psram => {
             let bytes = psram_heap_bytes(status);
-            if bytes > PSRAM_RESERVE_BYTES {
-                bytes - PSRAM_RESERVE_BYTES
+            let reserve = if bytes >= PSRAM_LARGE_MIN_BYTES {
+                LARGE_RESERVE_BYTES
             } else {
-                0
-            }
+                PSRAM_RESERVE_BYTES
+            };
+            if bytes > reserve { bytes - reserve } else { 0 }
         }
     }
 }
@@ -690,6 +754,8 @@ pub struct MemoryBudget {
     pool_used: [usize; 2],
     peak: [[usize; CLASS_COUNT]; 2],
     pool_peak: [usize; 2],
+    kind_used: [usize; 3],
+    kind_peak: [usize; 3],
 }
 
 impl MemoryBudget {
@@ -709,6 +775,8 @@ impl MemoryBudget {
             pool_used: [0; 2],
             peak: [[0; CLASS_COUNT]; 2],
             pool_peak: [0; 2],
+            kind_used: [0; 3],
+            kind_peak: [0; 3],
         }
     }
 
@@ -770,6 +838,13 @@ impl MemoryBudget {
         pool_limit_for(self.wifi, self.status, region)
     }
 
+    pub const fn kind_used(&self, kind: AllocationKind) -> usize {
+        self.kind_used[kind as usize]
+    }
+    pub const fn kind_peak(&self, kind: AllocationKind) -> usize {
+        self.kind_peak[kind as usize]
+    }
+
     /// Reserve with automatic placement (`region_for`).
     pub fn reserve(
         &mut self,
@@ -781,12 +856,24 @@ impl MemoryBudget {
         self.reserve_in(region, class, size, align)
     }
 
-    /// Reserve in an explicit region. `RegionForbidden` for DMA/ISR/runtime
+    /// Reserve in an explicit region with the class's default lifetime.
+    /// `RegionForbidden` for DMA/ISR/runtime
     /// classes in PSRAM, whatever the status.
     pub fn reserve_in(
         &mut self,
         region: Region,
         class: MemClass,
+        size: usize,
+        align: usize,
+    ) -> Result<Reservation, MemError> {
+        self.reserve_in_with_kind(region, class, AllocationKind::for_class(class), size, align)
+    }
+
+    pub fn reserve_in_with_kind(
+        &mut self,
+        region: Region,
+        class: MemClass,
+        kind: AllocationKind,
         size: usize,
         align: usize,
     ) -> Result<Reservation, MemError> {
@@ -799,18 +886,32 @@ impl MemoryBudget {
 
         let limit = self.class_limit(region, class);
         let used = self.used[r][c];
-        match used.checked_add(bytes) {
-            Some(total) if total <= limit => {}
-            Some(_) => {
-                return Err(MemError::ClassLimit {
-                    class,
-                    region,
-                    limit,
-                    used,
+        let large = region == Region::Psram
+            && matches!(self.status, PsramStatus::Ready { bytes } if bytes >= PSRAM_LARGE_MIN_BYTES);
+        if large {
+            let kind_used = self.kind_used[kind as usize];
+            if bytes > kind.limit().saturating_sub(kind_used) {
+                return Err(MemError::KindLimit {
+                    kind,
+                    limit: kind.limit(),
+                    used: kind_used,
                     requested: bytes,
                 });
             }
-            None => return Err(MemError::Overflow),
+        } else {
+            match used.checked_add(bytes) {
+                Some(total) if total <= limit => {}
+                Some(_) => {
+                    return Err(MemError::ClassLimit {
+                        class,
+                        region,
+                        limit,
+                        used,
+                        requested: bytes,
+                    });
+                }
+                None => return Err(MemError::Overflow),
+            }
         }
 
         let pool = self.pool_limit(region);
@@ -828,11 +929,17 @@ impl MemoryBudget {
             None => return Err(MemError::Overflow),
         }
 
+        if region == Region::Psram {
+            let index = kind as usize;
+            self.kind_used[index] += bytes;
+            self.kind_peak[index] = self.kind_peak[index].max(self.kind_used[index]);
+        }
         self.used[r][c] = used + bytes;
         self.pool_used[r] = pool_used + bytes;
         self.peak[r][c] = self.peak[r][c].max(self.used[r][c]);
         self.pool_peak[r] = self.pool_peak[r].max(self.pool_used[r]);
         Ok(Reservation {
+            kind,
             class,
             region,
             bytes,
@@ -844,11 +951,17 @@ impl MemoryBudget {
     pub fn release(&mut self, res: Reservation) -> Result<(), MemError> {
         let r = res.region.index();
         let c = res.class.index();
-        if self.used[r][c] < res.bytes || self.pool_used[r] < res.bytes {
+        if self.used[r][c] < res.bytes
+            || self.pool_used[r] < res.bytes
+            || (res.region == Region::Psram && self.kind_used[res.kind as usize] < res.bytes)
+        {
             return Err(MemError::ReleaseUnderflow {
                 class: res.class,
                 region: res.region,
             });
+        }
+        if res.region == Region::Psram {
+            self.kind_used[res.kind as usize] -= res.bytes;
         }
         self.used[r][c] -= res.bytes;
         self.pool_used[r] -= res.bytes;
@@ -1025,7 +1138,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         4096,
         DmaBuffer,
         Required,
-        "DMA; STRIP (4,014 B) is copied through this, never DMA'd directly",
+        "DMA; STRIP (4,024 B) is copied through this, never DMA'd directly",
     ),
     item(
         "SPI DMA descriptors",
@@ -1058,19 +1171,19 @@ pub const INVENTORY: &[InventoryItem] = &[
         "embassy executor task arena",
         "src/bin/main_c61.rs __embassy_main POOL (final release ELF)",
         Static,
-        14_688,
+        23_472,
         Runtime,
         Required,
-        "measured C61 main-task POOL, offline and combined 14,688 B; internal, included in the ELF static span; other task pools are separate",
+        "measured C61 main-task POOL, offline and combined 23,472 B; internal, included in the ELF static span; other task pools are separate",
     ),
     item(
         "main stack (.stack)",
         "linker .stack = _stack_start - _stack_end (final C61 release ELF)",
         Stack,
-        89_084,
+        STACK_MIN_BYTES,
         Runtime,
         Required,
-        "measured linker allocation: C61 offline 89,084 B, Wi-Fi 72,696 B, partial 89,028 B, partial+Wi-Fi 72,648 B; esp-rtos main task; excludes runtime watermark evidence",
+        "minimum linker allocation, checked against every release ELF; actual stack size depends on the build and is reported by the ELF check; runtime watermark is separate",
     ),
     item(
         "dir_cache title scan buffer",
@@ -1102,9 +1215,9 @@ pub const INVENTORY: &[InventoryItem] = &[
     // --- internal, kept ---
     item(
         "StripBuffer STRIP",
-        "src/bin/main_c61.rs STRIP (4,014 B)",
+        "src/bin/main_c61.rs STRIP (4,024 B)",
         Static,
-        4014,
+        4024,
         Runtime,
         Keep,
         "below 4 KiB, listed because it is the pixel source of every SPI DMA transfer; copied through the DMA TX buffer",
@@ -1113,7 +1226,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         "READER (ReaderApp)",
         "src/bin/main_c61.rs READER (final release ELF)",
         Static,
-        14_144,
+        15_072,
         Runtime,
         Keep,
         "measured C61 static control/hot state, including the inline page text below; typed directory/page/ZIP/TOC backing is separate and must not be counted inside READER",
@@ -1144,7 +1257,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         224 * KIB,
         MemClass::FontGlyphs,
         Candidate,
-        "worst case 2 x 64 KiB reader roles + 3 x 32 KiB auxiliary surfaces (reader title, reader TOC, overlay; body role only); actual-sized backing. Metrics stay in the internal heap; slots use FontGlyphs: body <= 16 KiB metrics (32 KiB transient) + 2 x 16 KiB slots, auxiliary 3 x (4 KiB metrics + 4 KiB slots)",
+        "worst case 2 x 64 KiB reader roles + 3 x 32 KiB auxiliary surfaces (reader title, reader TOC, overlay; body role only); actual-sized backing. Metrics and slots use FontGlyphs Resident backing on HR8: body <= 16 KiB metrics (32 KiB transient) + 2 x 16 KiB slots, auxiliary 3 x (4 KiB metrics + 4 KiB slots)",
     ),
     item(
         "reader font glyph slot tables",
@@ -1162,7 +1275,7 @@ pub const INVENTORY: &[InventoryItem] = &[
         98_304,
         ChapterText,
         Candidate,
-        "largest reader allocation; read-mostly. This is the HR2 / degraded profile (current chapter only). A validated HR8 part keeps a previous/current/next ring instead: 3 x 256 KiB slots (RingConfig::HR8) inside its 1 MiB chapter class, leaving 256 KiB for the inflate window, strip buffers and prefetch",
+        "largest reader allocation; read-mostly. This is the HR2 / degraded profile (current chapter only). A validated HR8 part keeps a previous/current/next ring instead: 3 x 256 KiB slots (RingConfig::HR8) inside the shared Cache pool; inflate uses the separate Scratch heap",
     ),
     item(
         "page prefetch Vec",

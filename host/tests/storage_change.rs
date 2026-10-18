@@ -220,7 +220,7 @@ fn swap_cancels_queued_epub_work_and_loads_the_new_recent_book() {
             generation,
             work_queue::WorkTask::DecodeImage {
                 path_hash: 1,
-                data: vec![],
+                data: pulp_host::kernel::BigBuf::empty(),
                 is_jpeg: false,
                 max_w: 100,
                 max_h: 100,

@@ -16,3 +16,9 @@ went on to read every remaining block of the cluster (64 blocks, ~32 ms on an
 SPI SD card) for each directory or file open. The loop is now labelled
 `'outer` and both exits leave the whole walk. The same two-hunk change is in
 timcki/plump `vendor/embedded-sdmmc-rs`.
+
+`async_volume_mgr.rs` batches aligned file writes into runs of at most eight
+sectors within the current cluster. Direct I/O invalidates the manager's
+one-block cache; file size and position advance only after a run succeeds.
+`host/tests/storage_write_ops.rs` covers batching, partial device failures,
+retry, and the existing close/flush error semantics.

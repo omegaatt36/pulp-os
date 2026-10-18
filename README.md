@@ -2,7 +2,7 @@
 
 A bare-metal, async e-reader operating system for the OnePage C61, a RISC-V e-paper device.
 
-Read EPUB and TXT books with crisp typography and zero fluff. Written in pure Rust (`no_std`), featuring no-framebuffer strip rendering, monomorphized static dispatch, class-budgeted memory hierarchy, and an async runtime powered by Embassy on `esp-rtos`.
+Read EPUB and TXT books with crisp typography and zero fluff. Written in pure Rust (`no_std`), featuring PSRAM frame rendering with an internal strip fallback, monomorphized static dispatch, budgeted memory pools, and an async runtime powered by Embassy on `esp-rtos`.
 
 ---
 
@@ -11,7 +11,7 @@ Read EPUB and TXT books with crisp typography and zero fluff. Written in pure Ru
 | | OnePage C61 |
 |---|---|
 | **MCU** | ESP32-C61 (RV32IMAC @ 160 MHz) |
-| **Internal RAM** | ~314 KB HP SRAM (~158 KB heap) |
+| **Internal RAM** | ~314.6 KiB usable HP SRAM; 158.5 KiB heap offline / 114.5 KiB with Wi-Fi |
 | **PSRAM** | 2–8 MiB SPI PSRAM @ 40 MHz |
 | **Flash** | 16 MB SPI Flash (DIO @ 40 MHz) |
 | **Display** | 800×480 SSD1677 Mono EPD |
@@ -181,9 +181,9 @@ Apps can read the date and its source through `KernelHandle::current_datetime()`
 ## Architecture Highlights
 
 - **Kernel / App Split**: Clean abstraction separation. The kernel provides drivers, async scheduling, storage, bookmarks, and font rasterization. Apps never touch raw hardware.
-- **Strip Rendering**: Streams 12 × 40-row display strips (4 KB each) directly over SPI DMA instead of allocating a 48 KB full framebuffer.
+- **Frame / Strip Rendering**: Validated 8 MiB parts draw a 48,000-byte frame once, then stage 12 × 40-row strips through internal DMA buffers. Smaller parts or refused allocations use strip rendering.
 - **Zero Dynamic Dispatch**: All app dispatch and lifecycle transitions are monomorphized via macros (`with_app!`), eliminating vtables and dynamic allocation overhead.
-- **Class-Budgeted Memory**: Explicit pool budgeting for PSRAM and internal SRAM to guarantee that ISRs, DMA descriptors, and task stacks never touch external memory.
+- **Memory Pools**: 8 MiB PSRAM has a separate 1.5 MiB scratch heap, 1 MiB resident admission, 5 MiB shared cache admission, and 512 KiB reserve. Smaller parts retain class caps; ISRs, DMA descriptors, and task stacks remain internal.
 - **Shared SPI Bus Arbitration**: Display and SD card share SPI2 without bus collisions using scoped critical sections.
 
 ---
@@ -191,6 +191,7 @@ Apps can read the date and its source through `KernelHandle::current_datetime()`
 ## Documentation
 
 - [OnePage ESP32-C61 Memory Hierarchy](docs/c61-memory-hierarchy.md) – Detailed architectural breakdown of SRAM, PSRAM, Flash, and SD Card storage tiers.
+- [C61 + 8 MiB PSRAM Memory Model](docs/c61-memory-model-v2.md) – Resident/scratch/cache allocation, implemented fixes, and remaining design work (繁體中文).
 
 ---
 

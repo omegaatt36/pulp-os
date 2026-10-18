@@ -21,7 +21,8 @@ pub const PHYS_BYTES_PER_ROW: usize = (WIDTH as usize) / 8;
 pub const STRIP_BUF_SIZE: usize = PHYS_BYTES_PER_ROW * STRIP_ROWS as usize;
 pub const STRIP_COUNT: u16 = HEIGHT / STRIP_ROWS;
 
-pub struct StripCore {
+pub struct StripCore<'a> {
+    external: Option<&'a mut [u8]>,
     buf: [u8; STRIP_BUF_SIZE],
     rotation: Rotation,
     win_x: u16,
@@ -31,9 +32,10 @@ pub struct StripCore {
     row_bytes: u16,
 }
 
-impl StripCore {
+impl<'a> StripCore<'a> {
     pub const fn new() -> Self {
         Self {
+            external: None,
             buf: [0xFF; STRIP_BUF_SIZE],
             rotation: Rotation::Deg270,
             win_x: 0,
@@ -44,6 +46,26 @@ impl StripCore {
         }
     }
 
+    /// Borrow a full physical raster for a single app draw pass.
+    pub fn frame(bytes: &'a mut [u8], rotation: Rotation) -> Option<Self> {
+        if bytes.len() != PHYS_BYTES_PER_ROW * HEIGHT as usize {
+            return None;
+        }
+        bytes.fill(0xff);
+        let mut core = Self::new();
+        core.external = Some(bytes);
+        core.rotation = rotation;
+        core.win_h = HEIGHT;
+        Some(core)
+    }
+
+    fn bytes(&self) -> &[u8] {
+        self.external.as_deref().unwrap_or(&self.buf)
+    }
+    fn bytes_mut(&mut self) -> &mut [u8] {
+        self.external.as_deref_mut().unwrap_or(&mut self.buf)
+    }
+
     pub fn begin_strip(&mut self, rotation: Rotation, strip_idx: u16) {
         self.rotation = rotation;
         self.win_x = 0;
@@ -52,7 +74,7 @@ impl StripCore {
         self.win_h = STRIP_ROWS;
         self.row_bytes = PHYS_BYTES_PER_ROW as u16;
 
-        self.buf[..STRIP_BUF_SIZE].fill(0xFF);
+        self.bytes_mut()[..STRIP_BUF_SIZE].fill(0xFF);
     }
 
     /// Returns `true` when `h` was clamped to what the strip buffer holds.
@@ -78,18 +100,18 @@ impl StripCore {
         self.win_h = h;
         self.row_bytes = rb as u16;
 
-        self.buf[..total].fill(0xFF);
+        self.bytes_mut()[..total].fill(0xFF);
         clamped
     }
 
     pub fn data(&self) -> &[u8] {
         let total = self.row_bytes as usize * self.win_h as usize;
-        &self.buf[..total]
+        &self.bytes()[..total]
     }
 
     pub fn data_mut(&mut self) -> &mut [u8] {
         let total = self.row_bytes as usize * self.win_h as usize;
-        &mut self.buf[..total]
+        &mut self.bytes_mut()[..total]
     }
 
     pub fn window(&self) -> (u16, u16, u16, u16) {
@@ -165,9 +187,9 @@ impl StripCore {
         let bit = 7 - (local_x as u16 % 8);
 
         if black {
-            self.buf[idx] &= !(1 << bit);
+            self.bytes_mut()[idx] &= !(1 << bit);
         } else {
-            self.buf[idx] |= 1 << bit;
+            self.bytes_mut()[idx] |= 1 << bit;
         }
     }
 
@@ -283,7 +305,7 @@ impl StripCore {
                         let buf_x = (gy + y as i32 - wx) as usize;
                         let byte_col = buf_x / 8;
                         let inv_mask = !(1u8 << (7 - (buf_x & 7)));
-                        self.buf[dst_row_base + byte_col] &= inv_mask;
+                        self.bytes_mut()[dst_row_base + byte_col] &= inv_mask;
                     }
                 }
             } else {
@@ -292,7 +314,7 @@ impl StripCore {
                         let buf_x = (gy + y as i32 - wx) as usize;
                         let byte_col = buf_x / 8;
                         let mask = 1u8 << (7 - (buf_x & 7));
-                        self.buf[dst_row_base + byte_col] |= mask;
+                        self.bytes_mut()[dst_row_base + byte_col] |= mask;
                     }
                 }
             }
@@ -404,13 +426,16 @@ impl StripCore {
         for ly in ly0..ly1 {
             let row = ly * rb;
             if first_byte == last_byte {
-                edge_op(&mut self.buf[row + first_byte], first_mask & last_mask);
+                edge_op(
+                    &mut self.bytes_mut()[row + first_byte],
+                    first_mask & last_mask,
+                );
             } else {
-                edge_op(&mut self.buf[row + first_byte], first_mask);
+                edge_op(&mut self.bytes_mut()[row + first_byte], first_mask);
                 for b in first_byte + 1..last_byte {
-                    self.buf[row + b] = fill;
+                    self.bytes_mut()[row + b] = fill;
                 }
-                edge_op(&mut self.buf[row + last_byte], last_mask);
+                edge_op(&mut self.bytes_mut()[row + last_byte], last_mask);
             }
         }
     }
@@ -431,7 +456,7 @@ pub fn draw_bringup_pattern(core: &mut StripCore) {
     core.fill_logical_rect(0, h - 24, 24, h, true);
 }
 
-impl Default for StripCore {
+impl Default for StripCore<'_> {
     fn default() -> Self {
         Self::new()
     }
