@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 struct Func {
+    #[allow(dead_code)] // kept for `Debug` output
     addr: u32,
     size: u32,
     name: String,
@@ -46,12 +47,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut sym_map: BTreeMap<u32, (String, u32)> = BTreeMap::new();
     for sym in obj.symbols() {
-        if sym.kind() == SymbolKind::Text && sym.size() > 0 {
-            if let Ok(name) = sym.name() {
-                if !name.starts_with('$') && !name.starts_with(".L") {
-                    sym_map.insert(sym.address() as u32, (name.to_string(), sym.size() as u32));
-                }
-            }
+        if sym.kind() == SymbolKind::Text
+            && sym.size() > 0
+            && let Ok(name) = sym.name()
+            && !name.starts_with('$')
+            && !name.starts_with(".L")
+        {
+            sym_map.insert(sym.address() as u32, (name.to_string(), sym.size() as u32));
         }
     }
 
@@ -202,7 +204,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let (depth, path) = compute_wcsd(addr, &functions, &mut memo, &mut visiting);
         depths.push((depth, addr, path));
     }
-    depths.sort_by(|a, b| b.0.cmp(&a.0));
+    depths.sort_by_key(|d| std::cmp::Reverse(d.0));
 
     println!("\nTop 15 Call Chains with Largest Worst-Case Cumulative Stack Depth:");
     println!("--------------------------------------------------------------------------------");

@@ -125,7 +125,7 @@ impl DirCache {
             }
             let name = e.name_str().as_bytes();
             if name.len() >= 5
-                && name[name.len() - 5..name.len() - 4] == [b'.']
+                && name[name.len() - 5..name.len() - 4] == *b"."
                 && name[name.len() - 4..].eq_ignore_ascii_case(b"EPUB")
             {
                 return Some((i, e.name, e.name_len));

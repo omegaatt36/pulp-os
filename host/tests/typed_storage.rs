@@ -1,3 +1,5 @@
+// the allocator impls only forward to `System` with the caller's layout
+#![allow(clippy::undocumented_unsafe_blocks)]
 use core::num::NonZeroU32;
 use pulp_host::kernel::{BufClass, TypedBuf};
 use std::alloc::{GlobalAlloc, Layout, System};

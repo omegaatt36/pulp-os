@@ -20,7 +20,6 @@ embassy-futures.workspace     = true
 embassy-sync.workspace        = true
 embedded-hal.workspace        = true
 embedded-hal-async.workspace  = true
-embedded-hal-bus.workspace    = true
 embedded-graphics-core.workspace = true
 embedded-graphics.workspace   = true
 embedded-sdmmc.workspace      = true
@@ -48,3 +47,6 @@ gray-wallpaper    = []
 # CJK pack read counters and one log line per preparation (forwarded by the root
 # `sd-metrics` feature). Off: no counters, no clock reads, no log lines.
 sd-metrics        = []
+
+[lints]
+workspace = true

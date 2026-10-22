@@ -5,6 +5,7 @@ use embedded_graphics::{
     primitives::PrimitiveStyle, primitives::Rectangle, text::Text,
 };
 
+use super::InfallibleExt;
 use crate::drivers::strip::StripBuffer;
 use crate::ui::stack_fmt::BorrowedFmt;
 
@@ -129,14 +130,14 @@ pub fn draw_progress_bar(strip: &mut StripBuffer, region: Region, pct: u8) {
         .to_rect()
         .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
         .draw(strip)
-        .unwrap();
+        .unwrap_infallible();
 
     // 1px border shows full extent even at 0%
     region
         .to_rect()
         .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1))
         .draw(strip)
-        .unwrap();
+        .unwrap_infallible();
 
     // filled portion inside the border
     if pct > 0 && region.w > 2 && region.h > 2 {
@@ -148,7 +149,7 @@ pub fn draw_progress_bar(strip: &mut StripBuffer, region: Region, pct: u8) {
         )
         .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
         .draw(strip)
-        .unwrap();
+        .unwrap_infallible();
     }
 }
 
@@ -168,7 +169,7 @@ pub fn draw_loading_indicator(strip: &mut StripBuffer, region: Region, msg: &str
         .to_rect()
         .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
         .draw(strip)
-        .unwrap();
+        .unwrap_infallible();
 
     // format "msg...pct%"
     let mut buf = [0u8; 48];
@@ -182,5 +183,5 @@ pub fn draw_loading_indicator(strip: &mut StripBuffer, region: Region, msg: &str
     let baseline_y = region.y as i32 + (region.h as i32 + 9) / 2;
     Text::new(text, Point::new(region.x as i32 + 2, baseline_y), style)
         .draw(strip)
-        .unwrap();
+        .unwrap_infallible();
 }

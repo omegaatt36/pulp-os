@@ -31,3 +31,6 @@ path = "src/bin/stack_analyzer.rs"
 
 [dev-dependencies]
 serde_json = "1"
+
+[lints]
+workspace = true

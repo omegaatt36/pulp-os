@@ -41,3 +41,6 @@ fontdue = "0.9"
 fontdue = "0.9"
 pulp-board-logic = { path = "../board-logic" }
 pulp-fontpack = { path = "../fontpack" }
+
+[lints]
+workspace = true

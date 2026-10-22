@@ -1503,7 +1503,7 @@ mod tests {
                 let bytes = ram_stream(&f.log, ram);
                 for (i, b) in bytes.iter().enumerate() {
                     if i == off {
-                        assert_eq!(*b, 0xFF & !mask, "corner ({lx},{ly}) ram {ram:#x}");
+                        assert_eq!(*b, !mask, "corner ({lx},{ly}) ram {ram:#x}");
                     } else {
                         assert_eq!(*b, 0xFF, "corner ({lx},{ly}) stray byte at {i}");
                     }
@@ -1538,7 +1538,7 @@ mod tests {
             for bx in 0..100usize {
                 let b = bw[py * 100 + bx];
                 if bx == 0 {
-                    assert_eq!(b, 0xFF & !(0x80 >> 3), "row {py}"); // bit 4 cleared
+                    assert_eq!(b, !(0x80 >> 3), "row {py}"); // bit 4 cleared
                 } else {
                     assert_eq!(b, 0xFF);
                 }

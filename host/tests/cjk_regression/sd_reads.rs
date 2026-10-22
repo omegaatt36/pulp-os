@@ -34,7 +34,7 @@ fn window() -> String {
     t.push_str("臺未中");
     t.push(MARKER as char);
     t.push(HEADING_OFF as char);
-    t.push_str("灣");
+    t.push('灣');
     t
 }
 

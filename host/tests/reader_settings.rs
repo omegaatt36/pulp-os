@@ -344,7 +344,7 @@ fn settings_file_is_read_up_to_512_bytes() {
     f.push_str(&"# padding line to push the next key past the read window\n".repeat(10));
     f.push_str("swap_buttons=1\n");
     assert!(f.len() > 512);
-    let mut card = card();
+    let card = card();
     card.write_in_pulp(config::SETTINGS_FILE, f.as_bytes())
         .expect("seed SETTINGS.TXT");
     let mut r = SettingsRig::new(card);
@@ -365,7 +365,7 @@ fn settings_app_loads_defaults_when_there_is_no_file() {
 
 #[test]
 fn settings_app_loads_a_saved_file_and_sanitizes_it() {
-    let mut card = card();
+    let card = card();
     card.write_in_pulp(
         config::SETTINGS_FILE,
         b"sleep_timeout=900\nbook_font=3\nswap_buttons=1\nwifi_ssid=home\nwifi_pass=pw\n",
@@ -466,7 +466,7 @@ fn settings_app_edits_steps_clamps_and_saves() {
 
 #[test]
 fn settings_app_keeps_wifi_credentials_when_saving_other_values() {
-    let mut card = card();
+    let card = card();
     card.write_in_pulp(config::SETTINGS_FILE, b"wifi_ssid=cafe\nwifi_pass=latte\n")
         .expect("seed SETTINGS.TXT");
     let mut r = SettingsRig::new(card);
@@ -525,7 +525,7 @@ fn book_bytes(paragraphs: usize) -> Vec<u8> {
 fn saved_book_font_and_theme_decide_the_reader_layout() {
     // AppManager::load_eager_settings -> propagate_fonts: the saved settings
     // values decide the reader's layout
-    let mut card = card();
+    let card = card();
     card.write_in_pulp(config::SETTINGS_FILE, b"book_font=4\nreading_theme=3\n")
         .expect("seed SETTINGS.TXT");
     card.write_file("BOOK.TXT", &book_bytes(24))

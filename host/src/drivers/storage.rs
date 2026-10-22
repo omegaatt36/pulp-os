@@ -270,6 +270,8 @@ pub struct SubdirFile<'a> {
 }
 
 impl SubdirFile<'_> {
+    // fallible length, not a container size: `is_empty` would add nothing
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> R<u32> {
         Ok(self.len)
     }

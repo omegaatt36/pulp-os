@@ -11,6 +11,7 @@ use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::PrimitiveStyle;
 
 use crate::drivers::strip::StripBuffer;
+use crate::ui::InfallibleExt;
 use crate::ui::Region;
 
 #[inline]
@@ -20,7 +21,7 @@ pub fn draw_selection(strip: &mut StripBuffer, region: Region, selected: bool) -
             .to_rect()
             .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
             .draw(strip)
-            .unwrap();
+            .unwrap_infallible();
         BinaryColor::Off
     } else {
         BinaryColor::On
@@ -38,7 +39,7 @@ pub fn draw_selection_if_visible(
             .to_rect()
             .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
             .draw(strip)
-            .unwrap();
+            .unwrap_infallible();
         BinaryColor::Off
     } else if selected {
         BinaryColor::Off

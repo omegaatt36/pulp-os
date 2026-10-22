@@ -44,10 +44,7 @@ fn a_refused_large_table_falls_back_and_a_refused_small_one_fails() {
         acquire_table::<usize, _>(ready(8 * MIB), |_| Err("no memory")),
         Err("no memory")
     );
-    assert_eq!(
-        acquire_table(ready(2 * MIB), |n| Ok::<_, ()>(n)),
-        Ok((512, 512))
-    );
+    assert_eq!(acquire_table(ready(2 * MIB), Ok::<_, ()>), Ok((512, 512)));
 }
 
 #[test]

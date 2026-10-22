@@ -7,6 +7,7 @@
 use core::fmt::Write;
 
 use crate::fonts::bitmap::BitmapFont;
+use crate::ui::InfallibleExt;
 use crate::ui::{Alignment, BitmapDynLabel, Region};
 
 // format and draw a position indicator like "3/15" or "3/15 ..."
@@ -26,7 +27,7 @@ pub fn draw_position_indicator<const N: usize>(
     if let Some(s) = suffix {
         let _ = write!(label, "{}", s);
     }
-    label.draw(strip).unwrap();
+    label.draw(strip).unwrap_infallible();
 }
 
 pub fn fmt_position(buf: &mut [u8], current: usize, total: usize) -> usize {

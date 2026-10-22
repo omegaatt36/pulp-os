@@ -10,6 +10,7 @@ use crate::ui::stack_fmt::StackFmt;
 use crate::ui::{Alignment, Region, wrap_next, wrap_prev};
 
 use super::selectable_row::draw_selection_if_visible;
+use crate::ui::InfallibleExt;
 
 const OVERLAY_W: u16 = 400;
 const OVERLAY_X: u16 = (SCREEN_W - OVERLAY_W) / 2;
@@ -338,7 +339,7 @@ impl QuickMenu {
                 .to_rect()
                 .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
                 .draw(strip)
-                .unwrap();
+                .unwrap_infallible();
         }
 
         let mut val_buf = StackFmt::<20>::new();

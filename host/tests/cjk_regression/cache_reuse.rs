@@ -1,3 +1,5 @@
+// the allocator impls only forward to `System` with the caller's layout
+#![allow(clippy::undocumented_unsafe_blocks)]
 use crate::cjk_support;
 
 use pulp_fontpack::PageGlyphSlot;

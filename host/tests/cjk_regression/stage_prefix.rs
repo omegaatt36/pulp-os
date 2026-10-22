@@ -34,7 +34,7 @@ const LATIN_WORDS: [&str; 6] = ["alpha", "beta", "gamma", "delta", "epsilon", "z
 fn cjk_paragraph(g: &mut Lcg, scalars: usize) -> String {
     let mut s = String::new();
     for _ in 0..scalars {
-        if g.next() % 7 == 0 {
+        if g.next().is_multiple_of(7) {
             s.push_str(g.pick(&PUNCT));
         } else {
             s.push_str(g.pick(&CJK));

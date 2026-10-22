@@ -386,7 +386,7 @@ fn convert_pbm_to_png(dir: &Path) -> Result<(), Failure> {
                 .next()
                 .ok_or_else(|| Failure::Runtime("truncated pbm data".into()))?;
 
-            let stride = (width + 7) / 8;
+            let stride = width.div_ceil(8);
             if data.len() != stride * height {
                 return Err(Failure::Runtime(format!(
                     "pbm data size mismatch: {} vs {}",

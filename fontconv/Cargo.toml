@@ -25,3 +25,6 @@ pulp-fontpack = { path = "../fontpack", features = ["builder"] }
 fontdue       = "0.9"
 # default features off: matches the lock entry (default features pull const-oid)
 sha2          = { version = "0.11", default-features = false }
+
+[lints]
+workspace = true

@@ -65,15 +65,26 @@ tasks:
   fmt:
     desc: cargo fmt --check
     cmds:
-      - cargo fmt -p pulp-os -p pulp-kernel -p pulp-board-logic -p board-harness -- --check
+      - cargo fmt --all -- --check
+
+  clippy:
+    desc: clippy on the firmware crates (all feature builds) and the host crates with their tests; warnings fail
+    cmds:
+      - cargo clippy --no-deps --release --locked --target riscv32imac-unknown-none-elf -p pulp-os -p pulp-kernel -p pulp-board-logic -p pulp-fontpack -- -D warnings
+      - cargo clippy --no-deps --release --locked --target riscv32imac-unknown-none-elf --features partial-refresh,wifi -p pulp-os -p pulp-kernel -- -D warnings
+      - cargo clippy --no-deps --all-targets --locked --features pulp-fontpack/builder -p pulp-host -p pulp-fontpack -p pulp-fontconv -p pulp-board-logic --target host-tuple --config 'unstable.build-std=["std","test"]' -- -D warnings
+      # the harness tests compile kernel sources against a shim HAL, so lints there do not
+      # describe the firmware; only its binaries are checked
+      - cargo clippy --no-deps --bins --locked -p board-harness --target host-tuple --config 'unstable.build-std=["std","test"]' -- -D warnings
 
   acceptance:
-    desc: Full software acceptance pipeline (build, test, verify, fmt)
+    desc: Full software acceptance pipeline (build, test, verify, fmt, clippy)
     cmds:
       - task: build
       - task: test
       - task: verify
       - task: fmt
+      - task: clippy
       - cmd: |
           echo
           echo "Software acceptance passed."

@@ -135,7 +135,9 @@ pub fn init(peripheral: PSRAM<'static>) -> PsramStatus {
     };
     let psram = Psram::new(peripheral, config);
     let (start, size) = psram.raw_parts();
-    // Keep the peripheral token for the whole run.
+    // Keep the peripheral token for the whole run. `Psram` has no `Drop` today;
+    // the explicit forget keeps that true if esp-hal ever adds one.
+    #[allow(clippy::forget_non_drop)]
     core::mem::forget(psram);
     let start = start as usize;
 

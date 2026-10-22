@@ -226,11 +226,11 @@ impl C61SleepEntry {
             wake.spec().gpio,
             wake.spec().level
         );
-        // SAFETY (the `steal` fallback): `lpwr` is only `None` after a previous
-        // `sleep`, which never returns, so the fallback cannot run twice and
-        // nothing else holds LPWR.
         let lpwr = match self.lpwr.take() {
             Some(l) => l,
+            // SAFETY: `lpwr` is only `None` after a previous `sleep`, which
+            // never returns, so the fallback cannot run twice and nothing else
+            // holds LPWR.
             None => unsafe { LPWR::steal() },
         };
         // RtcSleepConfig::deep(): default deep sleep; nothing in RTC memory is

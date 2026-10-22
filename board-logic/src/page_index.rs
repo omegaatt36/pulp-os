@@ -393,11 +393,13 @@ impl Reader {
         bytes: &[u8],
         sink: &mut impl FnMut(usize, u32, u8, u8),
     ) -> Result<(), Reject> {
-        if bytes.len() % ENTRY_BYTES != 0 || self.seen + bytes.len() / ENTRY_BYTES > self.count {
+        if !bytes.len().is_multiple_of(ENTRY_BYTES)
+            || self.seen + bytes.len() / ENTRY_BYTES > self.count
+        {
             return Err(Reject::Truncated);
         }
         self.hash.update(bytes);
-        for e in bytes.chunks_exact(ENTRY_BYTES) {
+        for e in bytes.as_chunks::<ENTRY_BYTES>().0 {
             let offset = u32::from_le_bytes([e[0], e[1], e[2], e[3]]);
             let ok = match self.previous {
                 None => offset == 0,

@@ -131,7 +131,7 @@ impl<'a> Pack<'a> {
             .ok_or(PackError::BadLayout)?;
 
         let mut prev = None;
-        for (i, raw) in index.chunks_exact(INDEX_RECORD_LEN).enumerate() {
+        for (i, raw) in index.as_chunks::<INDEX_RECORD_LEN>().0.iter().enumerate() {
             let rec = Record::decode(raw).ok_or(PackError::BadLayout)?;
             prev = Some(rec.validate(i as u32, prev, header.bitmap_len)?);
         }

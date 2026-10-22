@@ -342,12 +342,7 @@ fn prepared_static_and_dynamic_labels_keep_latin_style_alignment_and_inversion()
         );
         let latin_advance = font.advance('A') as u16;
         let total_width = latin_advance + 2 * 17;
-        let x = region.x
-            + if divisor == 0 {
-                0
-            } else {
-                (region.w - total_width) / divisor
-            };
+        let x = region.x + (region.w - total_width).checked_div(divisor).unwrap_or(0);
         glyph_in_band(
             &f,
             x + latin_advance,

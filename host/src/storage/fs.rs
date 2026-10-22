@@ -198,7 +198,7 @@ impl Fs for HostFs {
 
     fn len(&self, path: &str) -> Option<u32> {
         let meta = std::fs::metadata(self.full(path)).ok()?;
-        meta.is_file().then(|| meta.len() as u32)
+        meta.is_file().then_some(meta.len() as u32)
     }
 
     fn read_at(&self, path: &str, offset: u32, buf: &mut [u8]) -> io::Result<usize> {

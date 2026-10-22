@@ -22,6 +22,7 @@ use crate::kernel::config::{
     NUM_READING_THEMES, SLEEP_TIMEOUT_STEP, SystemSettings, WifiConfig, parse_settings_txt,
     reading_theme, write_settings_txt,
 };
+use crate::ui::InfallibleExt;
 use crate::ui::{
     Alignment, BUTTON_BAR_H, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, LARGE_MARGIN, Region,
     SECTION_GAP, StackFmt, TITLE_Y, wrap_next, wrap_prev,
@@ -497,14 +498,14 @@ impl App<AppId> for SettingsApp {
         BitmapLabel::new(title_region, "Settings", self.ui_fonts.heading)
             .alignment(Alignment::CenterLeft)
             .draw_prepared(strip, &self.label_fonts.view())
-            .unwrap();
+            .unwrap_infallible();
 
         if !self.loaded {
             let r = Region::new(LABEL_X, self.items_top, 200, ROW_H);
             BitmapLabel::new(r, "Loading...", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
                 .draw_prepared(strip, &self.label_fonts.view())
-                .unwrap();
+                .unwrap_infallible();
             return;
         }
 
@@ -525,14 +526,14 @@ impl App<AppId> for SettingsApp {
             .alignment(Alignment::CenterLeft)
             .inverted(selected)
             .draw_prepared(strip, &self.label_fonts.view())
-            .unwrap();
+            .unwrap_infallible();
 
             self.format_value(item_idx, &mut val_buf);
             BitmapLabel::new(self.value_region(vi), val_buf.as_str(), self.ui_fonts.body)
                 .alignment(Alignment::Center)
                 .inverted(selected)
                 .draw_prepared(strip, &self.label_fonts.view())
-                .unwrap();
+                .unwrap_infallible();
         }
     }
 }

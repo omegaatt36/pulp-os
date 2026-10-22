@@ -66,10 +66,9 @@ impl TextCache {
                                 .iter()
                                 .enumerate()
                                 .max_by_key(|(_, e)| {
-                                    self.clock.wrapping_sub(e.as_ref().unwrap().age)
+                                    e.as_ref().map_or(0, |e| self.clock.wrapping_sub(e.age))
                                 })
-                                .unwrap()
-                                .0
+                                .map_or(0, |(slot, _)| slot)
                         });
                     // Drop the victim before allocating its replacement.
                     self.entries[slot] = None;
@@ -112,7 +111,9 @@ impl TextCache {
                 }
             };
             self.clock = self.clock.wrapping_add(1);
-            let entry = self.entries[slot].as_mut().unwrap();
+            let Some(entry) = self.entries[slot].as_mut() else {
+                return Err(Error::READ_FAILED);
+            };
             entry.age = self.clock;
             let within = at - block as usize;
             let n = (want - done).min(entry.data.len() - within);

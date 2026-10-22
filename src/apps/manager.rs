@@ -342,10 +342,8 @@ impl AppManager {
                         self.reader.on_suspend();
                     }
                 }
-                AppId::Settings => {
-                    if is_active {
-                        self.settings.on_enter(&mut self.launcher.ctx, k);
-                    }
+                AppId::Settings if is_active => {
+                    self.settings.on_enter(&mut self.launcher.ctx, k);
                 }
                 _ => {}
             }

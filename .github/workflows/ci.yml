@@ -13,7 +13,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # host tests, rustfmt: the software side of `task acceptance`
+  # host tests, rustfmt, clippy: the software side of `task acceptance`
   host:
     runs-on: ubuntu-latest
     steps:
@@ -28,6 +28,7 @@ jobs:
         with:
           key: host
       - run: task fmt
+      - run: task clippy
       # the upload browser tests execute assets/upload.html under node
       - run: task test
 

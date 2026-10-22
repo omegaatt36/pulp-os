@@ -131,7 +131,7 @@ fn row_padding_bits_beyond_the_glyph_width_are_zero() {
         for i in 0..pack.header().glyph_count {
             let (c, g) = pack.glyph_at(i).unwrap();
             let w = g.metrics.width as usize;
-            if w % 8 == 0 || g.metrics.height == 0 {
+            if w.is_multiple_of(8) || g.metrics.height == 0 {
                 continue;
             }
             let stride = w.div_ceil(8);

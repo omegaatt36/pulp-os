@@ -655,6 +655,7 @@ mod tests {
                 p.power_cycle(&mut d).unwrap();
                 let permit = p.begin_sd_init().unwrap();
                 // keep the permit outstanding by leaking it; state stays SdInitializing
+                #[allow(clippy::forget_non_drop)]
                 core::mem::forget(permit);
             }
             RailState::SdActive => {

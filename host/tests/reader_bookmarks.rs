@@ -129,7 +129,6 @@ fn not_loaded_means_no_lookup_and_no_save() {
     assert!(bm.find(b"A.TXT").is_none());
     let mut out = [BmListEntry::EMPTY; 16];
     assert_eq!(bm.load_all(&mut out), 0);
-    drop(h);
     k.bookmarks_load();
     let mut h = k.handle();
     let bm = h.bookmark_cache_mut();
@@ -299,7 +298,6 @@ fn save_find_update_and_remove() {
     assert_eq!(bm.load_all(&mut out), 1);
     // removing something that is not there is a no-op: the flush clears the
     // dirty flag of the first remove, the no-op must not set it again
-    drop(h);
     k.bookmarks_flush();
     assert!(!k.handle().bookmark_cache_mut().is_dirty());
     k.handle().bookmark_cache_mut().remove(b"NOPE.TXT");
@@ -315,7 +313,6 @@ fn flush_writes_the_baseline_record_layout() {
     let bm = h.bookmark_cache_mut();
     bm.save(b"BOOK.TXT", 0x0102_0304, 7);
     bm.save(b"B2.EPU", 9, 0);
-    drop(h);
     k.bookmarks_flush();
     assert!(!k.handle().bookmark_cache_mut().is_dirty());
     let f = bkmk(&k).unwrap();
@@ -631,30 +628,30 @@ fn damaged_bookmark_files_are_tolerated() {
     assert!(r.bookmark_find(b"A.TXT").is_some());
 
     // shorter than one record: nothing decoded
-    let mut r = rig_from(&[0xAA; 47]);
+    let r = rig_from(&[0xAA; 47]);
     assert_eq!(r.bookmark_list_into(&mut out), 0);
 
     // trailing partial record is ignored
     let mut f = record(b"A.TXT", 10, 1, 1, 1, 5);
     f.extend_from_slice(&[0xFF; 20]);
-    let mut r = rig_from(&f);
+    let r = rig_from(&f);
     assert_eq!(r.bookmark_find(b"A.TXT").unwrap().byte_offset, 10);
     assert_eq!(r.bookmark_list_into(&mut out), 1);
 
     // flags without the valid bit: slot present but not a bookmark
-    let mut r = rig_from(&record(b"A.TXT", 10, 1, 0, 1, 5));
+    let r = rig_from(&record(b"A.TXT", 10, 1, 0, 1, 5));
     assert!(r.bookmark_find(b"A.TXT").is_none());
     assert_eq!(r.bookmark_list_into(&mut out), 0);
 
     // name_len beyond the 32-byte field is clamped (no out-of-range panic,
     // the cache stays loaded); what a clamped name matches is not specified
-    let mut r = rig_from(&record(b"A.TXT", 10, 1, 1, 1, 255));
+    let r = rig_from(&record(b"A.TXT", 10, 1, 1, 1, 255));
     let _ = r.bookmark_list_into(&mut out);
 
     // wrong hash for the stored name: that slot never matches
     let mut f = record(b"A.TXT", 10, 1, 1, 1, 5);
     f[0] ^= 0xFF;
-    let mut r = rig_from(&f);
+    let r = rig_from(&f);
     assert!(r.bookmark_find(b"A.TXT").is_none());
 
     // pure garbage of the maximum size and beyond: at most 16 slots are read
@@ -679,7 +676,7 @@ fn damaged_bookmark_files_are_tolerated() {
             n.len() as u8,
         ));
     }
-    let mut r = rig_from(&f);
+    let r = rig_from(&f);
     assert!(r.bookmark_find(b"BOOK15.TXT").is_some());
     assert!(r.bookmark_find(b"BOOK16.TXT").is_none());
 }

@@ -1314,23 +1314,6 @@ fn goto_image_page(r: &mut Rig) -> usize {
     panic!("no image page");
 }
 
-// Next until the reader is at `want` (chapter, page)
-fn goto(r: &mut Rig, want: (u16, usize)) {
-    for _ in 0..MAX_STEPS {
-        let here = (r.chapter(), r.page());
-        if here == want {
-            return;
-        }
-        r.press(Action::Next);
-        assert_ne!(
-            (r.chapter(), r.page()),
-            here,
-            "Next cannot reach {want:?}, stuck at {here:?}"
-        );
-    }
-    panic!("never reached {want:?}");
-}
-
 fn goto_page(r: &mut Rig, page: usize) {
     while r.page() < page {
         let before = r.page();

@@ -125,8 +125,6 @@ impl DecoderScratch {
         self.len() == 0
     }
 }
-// SAFETY: uniquely owned memory; the allocator is synchronized.
-unsafe impl Send for DecoderScratch {}
 
 /// Fallible board-placed storage initialized from a valid `Copy` value.
 /// Typed references are exposed only after every element has been written.

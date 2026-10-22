@@ -51,7 +51,7 @@ fn le16(b: &[u8]) -> u16 {
 fn open_issues_exactly_one_44_byte_read_at_offset_0() {
     for bytes in [GOLDEN.to_vec(), GOLDEN_EMPTY.to_vec()] {
         let (r, log) = open_with(bytes.clone(), bytes.len() as u64);
-        let r = r.ok().expect("opens");
+        let r = r.expect("opens");
         assert_eq!(reads(&log), [(0u64, 44usize)]);
         // accessors do not read
         let _ = r.header();
@@ -644,7 +644,7 @@ fn a_source_shorter_than_the_declared_file_gives_io_not_a_panic() {
     for n in 44..=139usize {
         let spy = Spy::bytes(GOLDEN[..n].to_vec());
         let log = spy.log();
-        let mut r = PackReader::open(spy, 139).ok().expect("header is within n");
+        let mut r = PackReader::open(spy, 139).expect("header is within n");
         for c in ['A', '\u{FFFF}', '\u{20BB7}', '\u{10FFFF}', 'Z'] {
             match r.find(c) {
                 Ok(Some(g)) => {
@@ -710,7 +710,7 @@ fn find_and_read_bitmap_stay_within_the_read_budget_for_every_pack_size() {
             let l = reads(&log);
             let probes = &l[before..];
             assert!(
-                probes.len() >= 1 && probes.len() <= max_probes(n as u32),
+                !probes.is_empty() && probes.len() <= max_probes(n as u32),
                 "n={n} i={i}: {}",
                 probes.len()
             );
@@ -1286,12 +1286,12 @@ fn probes_for(rng: &mut Lcg, v: &[u8]) -> Vec<char> {
     let mut p = vec!['\0', char::MAX, 'A', '\u{FFFF}', '\u{10000}', '\u{20BB7}'];
     for i in 0..12usize {
         let s = 44 + 22 * i;
-        if v.len() >= s + 4 {
-            if let Some(c) = char::from_u32(get_u32(v, s)) {
-                p.push(c);
-                p.extend(prev_char(c));
-                p.extend(next_char(c));
-            }
+        if v.len() >= s + 4
+            && let Some(c) = char::from_u32(get_u32(v, s))
+        {
+            p.push(c);
+            p.extend(prev_char(c));
+            p.extend(next_char(c));
         }
     }
     for _ in 0..6 {
@@ -1311,7 +1311,7 @@ fn mutation_sweep_over_valid_packs_never_panics_and_never_reads_out_of_bounds() 
         large,
         build_pack(&SYNTH_INFO, &budget_entries(1)).unwrap(),
     ];
-    let mut rng = Lcg::new(0xC0FFEE_0001);
+    let mut rng = Lcg::new(0x00C0_FFEE_0001);
     let mut st = Stats::default();
     for it in 0..6000 {
         let base = &bases[(it % bases.len() as u32) as usize];
@@ -1357,15 +1357,13 @@ fn random_pack(rng: &mut Lcg) -> Vec<u8> {
         recs.push(r);
     }
     let pad = rng.below(4);
-    for _ in 0..pad {
-        bitmap.push(0);
-    }
+    bitmap.resize(bitmap.len() + pad as usize, 0);
     raw_pack(&GOLDEN_INFO, &recs, &bitmap)
 }
 
 #[test]
 fn random_packs_with_consistent_headers_agree_with_the_whole_file_parser() {
-    let mut rng = Lcg::new(0xBADC0DE_5);
+    let mut rng = Lcg::new(0xBADC_0DE5);
     let mut st = Stats::default();
     for _ in 0..5000 {
         let v = random_pack(&mut rng);

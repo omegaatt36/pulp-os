@@ -56,7 +56,7 @@ fn writes_exact_borrowed_storage_on_all_routes_with_scaling_and_padding() {
             let input = png(kind, pattern);
             let compressed = miniz_oxide::deflate::compress_to_vec(&input, 6);
             for (max_w, max_h, width, height) in [(19, 11, 19, 11), (10, 6, 10, 6)] {
-                let stride = (width as usize + 7) / 8;
+                let stride = (width as usize).div_ceil(8);
                 let size = stride * height as usize;
                 let mut expected = vec![0; size];
                 for y in 0..height as usize {
@@ -68,7 +68,7 @@ fn writes_exact_borrowed_storage_on_all_routes_with_scaling_and_padding() {
                                 // the 19 x 11 source pixel of this one: the
                                 // nearest neighbour of the scaled-down picture
                                 let (sx, sy) = (x * 19 / width as usize, y * 11 / height as usize);
-                                ((sx / cell as usize) + (sy / cell as usize)) % 2 == 0
+                                ((sx / cell as usize) + (sy / cell as usize)).is_multiple_of(2)
                             }
                             _ => unreachable!(),
                         };

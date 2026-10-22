@@ -12,3 +12,6 @@ license      = "MIT"
 # crate (pulp-kernel); there is no test-only copy.
 # Host test command: `cargo test-board-logic`.
 [dependencies]
+
+[lints]
+workspace = true

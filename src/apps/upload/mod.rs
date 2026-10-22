@@ -37,6 +37,7 @@ use crate::fonts::bitmap::BitmapFont;
 use crate::kernel::bigbuf::{BufClass, DecoderScratch};
 use crate::kernel::config::WifiConfig;
 use crate::kernel::tasks;
+use crate::ui::InfallibleExt;
 use crate::ui::{
     Alignment, BitmapLabel, ButtonFeedback, CONTENT_TOP, LARGE_MARGIN, QrSymbol, Region, stack_fmt,
 };
@@ -556,7 +557,7 @@ async fn render_screen(
         BitmapLabel::new(heading_region, "Upload", heading)
             .alignment(Alignment::CenterLeft)
             .draw(s)
-            .unwrap();
+            .unwrap_infallible();
 
         for (i, line) in lines.iter().enumerate() {
             if line.is_empty() {
@@ -567,7 +568,7 @@ async fn render_screen(
             BitmapLabel::new(region, line, body)
                 .alignment(Alignment::Center)
                 .draw(s)
-                .unwrap();
+                .unwrap_infallible();
         }
 
         if let Some(qr) = qr {
@@ -578,7 +579,7 @@ async fn render_screen(
             BitmapLabel::new(footer_region, text, body)
                 .alignment(Alignment::Center)
                 .draw(s)
-                .unwrap();
+                .unwrap_infallible();
         }
 
         bumps.draw(s);

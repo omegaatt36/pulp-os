@@ -155,10 +155,7 @@ fn c61_wifi_image_contains_the_radio_driver() {
         "esp_wifi_init_internal",
         "esp_wifi_connect_internal",
     ] {
-        assert!(
-            names.iter().any(|n| *n == sym),
-            "symbol {sym} missing (non-absolute)"
-        );
+        assert!(names.contains(&sym), "symbol {sym} missing (non-absolute)");
     }
 }
 
@@ -172,9 +169,6 @@ fn c61_partial_wifi_image_contains_the_radio_driver() {
         "esp_wifi_init_internal",
         "esp_wifi_connect_internal",
     ] {
-        assert!(
-            names.iter().any(|n| *n == sym),
-            "symbol {sym} missing (non-absolute)"
-        );
+        assert!(names.contains(&sym), "symbol {sym} missing (non-absolute)");
     }
 }

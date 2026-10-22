@@ -116,11 +116,11 @@ pub struct CloseToken<'a, T: CloseHandle, const N: usize> {
 impl<T: CloseHandle, const N: usize> CloseToken<'_, T, N> {
     /// Attach once. On misuse, return ownership of the unaccepted raw handle.
     pub fn attach(&mut self, handle: T::Handle) -> Result<(), T::Handle> {
-        if let Some(slot) = self.slot {
-            if matches!(self.owner.slots[slot].get(), Slot::Reserved) {
-                self.owner.slots[slot].set(Slot::Open(handle));
-                return Ok(());
-            }
+        if let Some(slot) = self.slot
+            && matches!(self.owner.slots[slot].get(), Slot::Reserved)
+        {
+            self.owner.slots[slot].set(Slot::Open(handle));
+            return Ok(());
         }
         Err(handle)
     }

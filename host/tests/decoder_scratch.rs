@@ -9,6 +9,7 @@ struct Tracked {
     block: HeapScratch,
     live: Rc<Cell<usize>>,
 }
+// SAFETY: forwards the pointer and length of the owned `HeapScratch`.
 unsafe impl ScratchStorage for Tracked {
     fn ptr(&self) -> *mut u8 {
         self.block.ptr()
@@ -133,11 +134,9 @@ fn kernel_scratch_respects_typed_alignment_and_refuses_impossible_allocation() {
     let block = DecoderScratch::zeroed(BufClass::ImageData, layout).unwrap();
     assert_eq!(block.ptr() as usize % 64, 0);
     assert_eq!(block.len(), 113);
-    assert!(
-        unsafe { std::slice::from_raw_parts(block.ptr(), block.len()) }
-            .iter()
-            .all(|&b| b == 0)
-    );
+    // SAFETY: `ptr()` is valid for `len()` zero-initialised bytes while `block` lives.
+    let bytes = unsafe { std::slice::from_raw_parts(block.ptr(), block.len()) };
+    assert!(bytes.iter().all(|&b| b == 0));
     let impossible = Layout::from_size_align(isize::MAX as usize, 1).unwrap();
     assert!(DecoderScratch::zeroed(BufClass::ImageData, impossible).is_err());
 }

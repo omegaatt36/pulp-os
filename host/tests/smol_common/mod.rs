@@ -52,7 +52,7 @@ pub fn filler(n: usize, seed: u64) -> String {
     let mut rng = Lcg(seed);
     let mut out = String::with_capacity(n);
     for i in 0..n {
-        let space = i > 0 && i + 1 < n && !out.ends_with(' ') && rng.next() % 7 == 0;
+        let space = i > 0 && i + 1 < n && !out.ends_with(' ') && rng.next().is_multiple_of(7);
         out.push(if space {
             ' '
         } else {

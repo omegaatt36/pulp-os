@@ -17,6 +17,7 @@ use crate::fonts;
 use crate::kernel::KernelHandle;
 use crate::kernel::QuickAction;
 use crate::kernel::{BigBuf, BufClass};
+use crate::ui::InfallibleExt;
 use crate::ui::{
     Alignment, BitmapDynLabel, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN,
     Region, SECTION_GAP, TITLE_Y_OFFSET,
@@ -336,29 +337,29 @@ impl App<AppId> for FilesApp {
     async fn background(&mut self, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
         if self.pending_delete_file {
             self.pending_delete_file = false;
-            if let Some(entry) = self.selected_entry() {
-                if !entry.is_dir {
-                    let mut nb = [0u8; 13];
-                    let nl = entry.name_len as usize;
-                    nb[..nl].copy_from_slice(&entry.name[..nl]);
-                    let name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
-                    log::info!("files: deleting {}", name);
+            if let Some(entry) = self.selected_entry()
+                && !entry.is_dir
+            {
+                let mut nb = [0u8; 13];
+                let nl = entry.name_len as usize;
+                nb[..nl].copy_from_slice(&entry.name[..nl]);
+                let name = core::str::from_utf8(&nb[..nl]).unwrap_or("");
+                log::info!("files: deleting {}", name);
 
-                    k.bookmark_cache_mut().remove(&nb[..nl]);
-                    purge_book_cache(k, name);
+                k.bookmark_cache_mut().remove(&nb[..nl]);
+                purge_book_cache(k, name);
 
-                    match k.delete_file(name) {
-                        Ok(()) => {
-                            log::info!("files: deleted {}", name);
-                            k.invalidate_dir_cache();
-                            self.needs_load = true;
-                            self.stale_cache = true;
-                            self.title_scan_idx = 0;
-                            self.title_scanning = true;
-                        }
-                        Err(e) => {
-                            log::warn!("files: delete failed: {}", e);
-                        }
+                match k.delete_file(name) {
+                    Ok(()) => {
+                        log::info!("files: deleted {}", name);
+                        k.invalidate_dir_cache();
+                        self.needs_load = true;
+                        self.stale_cache = true;
+                        self.title_scan_idx = 0;
+                        self.title_scanning = true;
+                    }
+                    Err(e) => {
+                        log::warn!("files: delete failed: {}", e);
                     }
                 }
             }
@@ -369,12 +370,12 @@ impl App<AppId> for FilesApp {
 
         if self.pending_delete_cache {
             self.pending_delete_cache = false;
-            if let Some(entry) = self.selected_entry() {
-                if !entry.is_dir {
-                    let nl = entry.name_len as usize;
-                    let name = core::str::from_utf8(&entry.name[..nl]).unwrap_or("");
-                    purge_book_cache(k, name);
-                }
+            if let Some(entry) = self.selected_entry()
+                && !entry.is_dir
+            {
+                let nl = entry.name_len as usize;
+                let name = core::str::from_utf8(&entry.name[..nl]).unwrap_or("");
+                purge_book_cache(k, name);
             }
             return;
         }
@@ -524,7 +525,7 @@ impl App<AppId> for FilesApp {
         BitmapLabel::new(header_region, "Files", self.ui_fonts.heading)
             .alignment(Alignment::CenterLeft)
             .draw_prepared(strip, &self.label_fonts.view())
-            .unwrap();
+            .unwrap_infallible();
 
         if self.total > 0 {
             let mut status = BitmapDynLabel::<24>::new(STATUS_REGION, self.ui_fonts.body)
@@ -535,7 +536,7 @@ impl App<AppId> for FilesApp {
             }
             status
                 .draw_prepared(strip, &self.label_fonts.view())
-                .unwrap();
+                .unwrap_infallible();
         }
 
         if let Some(e) = self.error {
@@ -544,7 +545,7 @@ impl App<AppId> for FilesApp {
             let _ = core::fmt::Write::write_fmt(&mut label, format_args!("{}", e));
             label
                 .draw_prepared(strip, &self.label_fonts.view())
-                .unwrap();
+                .unwrap_infallible();
             return;
         }
 
@@ -552,7 +553,7 @@ impl App<AppId> for FilesApp {
             BitmapLabel::new(self.row_region(0), "Loading...", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
                 .draw_prepared(strip, &self.label_fonts.view())
-                .unwrap();
+                .unwrap_infallible();
             return;
         }
 
@@ -560,7 +561,7 @@ impl App<AppId> for FilesApp {
             BitmapLabel::new(self.row_region(0), "No files found", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
                 .draw_prepared(strip, &self.label_fonts.view())
-                .unwrap();
+                .unwrap_infallible();
             return;
         }
 
@@ -575,13 +576,13 @@ impl App<AppId> for FilesApp {
                     .alignment(Alignment::CenterLeft)
                     .inverted(i == self.selected)
                     .draw_prepared(strip, &self.label_fonts.view())
-                    .unwrap();
+                    .unwrap_infallible();
             } else {
                 region
                     .to_rect()
                     .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
                     .draw(strip)
-                    .unwrap();
+                    .unwrap_infallible();
             }
         }
     }

@@ -273,6 +273,8 @@ impl ReadAt for Source<'_, '_> {
             Self::Installed { file, stats } => {
                 let mut at = u32::try_from(offset).map_err(|_| failure(ErrorKind::InvalidData))?;
                 while !buf.is_empty() {
+                    // `Tick` is `()` without sd-metrics
+                    #[allow(clippy::let_unit_value)]
                     let began = stats.tick();
                     let n = file.read_at(at, buf)?;
                     stats.read(began, n);
@@ -323,6 +325,8 @@ fn with_pack<T>(
     }
 
     let name = pack_file_name(px);
+    // `Tick` is `()` without sd-metrics
+    #[allow(clippy::let_unit_value)]
     let opening = stats.tick();
     k.with_app_subdir_file(PACK_DIR, name.as_str(), |file| {
         let (source, len, installed) = match file {
@@ -662,7 +666,9 @@ struct RamGuard {
 
 impl RamGuard {
     fn index(&self) -> &RamIndex<BigBuf> {
-        self.index.as_ref().unwrap()
+        self.index
+            .as_ref()
+            .expect("the index is only taken when the guard drops")
     }
 }
 
@@ -1654,6 +1660,12 @@ impl VisibleText {
     }
 }
 
+impl Default for VisibleText {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// One app's bounded label caches; reset on exit/suspend, never shared with
 /// background work in another app. Preparation errors remain drawable.
 pub struct SurfaceFonts {
@@ -1713,5 +1725,11 @@ impl SurfaceFonts {
             BODY_PIXELS[idx],
             HEADING_PIXELS[idx],
         )
+    }
+}
+
+impl Default for SurfaceFonts {
+    fn default() -> Self {
+        Self::new()
     }
 }

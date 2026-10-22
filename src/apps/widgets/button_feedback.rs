@@ -14,6 +14,7 @@ use crate::board::{SCREEN_H, SCREEN_W};
 use crate::drivers::strip::StripBuffer;
 use crate::fonts::bitmap::BitmapFont;
 use crate::fonts::font_data;
+use crate::ui::InfallibleExt;
 use crate::ui::{Alignment, Region};
 
 // the physical keys the overlay labels, by position: on the
@@ -200,7 +201,7 @@ impl ButtonFeedback {
             r.to_rect()
                 .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
                 .draw(strip)
-                .unwrap();
+                .unwrap_infallible();
 
             let action = mapper.map_button(def.button);
             let label = action_label(action);

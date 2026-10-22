@@ -22,7 +22,7 @@ fn luminance(p: Pattern, x: u32, y: u32, w: u32) -> u8 {
         Pattern::White => 255,
         Pattern::Checker { cell } => {
             let cell = u32::from(cell);
-            if (x / cell + y / cell) % 2 == 0 {
+            if (x / cell + y / cell).is_multiple_of(2) {
                 0
             } else {
                 255

@@ -580,7 +580,7 @@ pub fn window_fault(start: usize, bytes: usize) -> Option<PsramFault> {
     if bytes == 0 {
         return None;
     }
-    let ok = start % 4 == 0
+    let ok = start.is_multiple_of(4)
         && start >= C61_EXTMEM_START
         && matches!(start.checked_add(bytes), Some(end) if end <= C61_EXTMEM_END);
     if ok {
@@ -741,7 +741,7 @@ pub const fn pool_limit_for(wifi: bool, status: PsramStatus, region: Region) -> 
             } else {
                 PSRAM_RESERVE_BYTES
             };
-            if bytes > reserve { bytes - reserve } else { 0 }
+            bytes.saturating_sub(reserve)
         }
     }
 }

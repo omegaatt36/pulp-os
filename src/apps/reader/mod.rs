@@ -34,6 +34,7 @@ use crate::kernel::bookmarks;
 use crate::kernel::work_queue;
 use crate::kernel::work_queue::DecodedImage;
 use crate::kernel::{BufClass, TypedBuf};
+use crate::ui::InfallibleExt;
 use crate::ui::{
     Alignment, BATTERY_REGION, BUTTON_BAR_H, BatteryStatus, CONTENT_TOP, Region, StackFmt,
     TITLE_Y_OFFSET,
@@ -971,11 +972,9 @@ impl ReaderApp {
         let pct = if in_chapter_phase {
             let _ = write!(lbuf, "Caching {}/{}", cached_ch, total_ch);
             // chapters: 0% to 80%
-            if total_ch > 0 {
-                ((cached_ch * 80) / total_ch).min(80) as u8
-            } else {
-                80
-            }
+            (cached_ch * 80)
+                .checked_div(total_ch)
+                .map_or(80, |p| p.min(80)) as u8
         } else {
             // image phase: 80% to 100%
             if img_found > 0 {
@@ -1386,7 +1385,7 @@ impl ReaderApp {
             n += 1;
         }
 
-        if self.is_epub && self.epub.toc.as_ref().map_or(false, |t| !t.is_empty()) {
+        if self.is_epub && self.epub.toc.as_ref().is_some_and(|t| !t.is_empty()) {
             self.qa_buf[n] = QuickAction::trigger(QA_TOC, "Contents", "Open");
             n += 1;
         }
@@ -1670,7 +1669,7 @@ fn draw_chrome_text(
         .to_rect()
         .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
         .draw(strip)
-        .unwrap();
+        .unwrap_infallible();
     if text.is_empty() {
         return;
     }
@@ -1682,7 +1681,7 @@ fn draw_chrome_text(
         let style = MonoTextStyle::new(&FONT_9X18, BinaryColor::On);
         Text::new(text, Point::new(pos.x, pos.y + 18), style)
             .draw(strip)
-            .unwrap();
+            .unwrap_infallible();
     }
 }
 
@@ -1894,7 +1893,14 @@ impl App<AppId> for ReaderApp {
                     return Transition::None;
                 }
                 ActionEvent::Press(Action::Select) | ActionEvent::Press(Action::NextJump) => {
-                    let entry = &self.epub.toc.as_ref().unwrap().entries[self.epub.toc_selected];
+                    let Some(entry) = self
+                        .epub
+                        .toc
+                        .as_ref()
+                        .and_then(|toc| toc.entries.get(self.epub.toc_selected))
+                    else {
+                        return Transition::None;
+                    };
                     if entry.spine_idx != 0xFFFF {
                         log::info!(
                             "toc: jumping to \"{}\" -> spine {}",
@@ -2035,25 +2041,25 @@ impl App<AppId> for ReaderApp {
                     self.state = State::NeedIndex;
                 }
             }
-            QA_TOC => {
-                if self.is_epub && self.epub.toc.as_ref().map_or(false, |t| !t.is_empty()) {
-                    let toc = self.epub.toc.as_ref().unwrap();
-                    log::info!("toc: opening ({} entries)", toc.len());
-                    self.epub.toc_selected = 0;
-                    self.epub.toc_scroll = 0;
-                    for i in 0..toc.len() {
-                        if toc.entries[i].spine_idx == self.epub.chapter {
-                            self.epub.toc_selected = i;
-                            let vis = (self.text_area_h / self.font_line_h) as usize;
-                            if self.epub.toc_selected >= vis {
-                                self.epub.toc_scroll = self.epub.toc_selected + 1 - vis;
-                            }
-                            break;
+            QA_TOC if self.is_epub => {
+                let Some(toc) = self.epub.toc.as_ref().filter(|t| !t.is_empty()) else {
+                    return;
+                };
+                log::info!("toc: opening ({} entries)", toc.len());
+                self.epub.toc_selected = 0;
+                self.epub.toc_scroll = 0;
+                for i in 0..toc.len() {
+                    if toc.entries[i].spine_idx == self.epub.chapter {
+                        self.epub.toc_selected = i;
+                        let vis = (self.text_area_h / self.font_line_h) as usize;
+                        if self.epub.toc_selected >= vis {
+                            self.epub.toc_scroll = self.epub.toc_selected + 1 - vis;
                         }
+                        break;
                     }
-                    self.state = State::ShowToc;
-                    ctx.mark_dirty(PAGE_REGION);
                 }
+                self.state = State::ShowToc;
+                ctx.mark_dirty(PAGE_REGION);
             }
             _ => {}
         }
@@ -2158,7 +2164,7 @@ impl App<AppId> for ReaderApp {
             )
             .alignment(Alignment::CenterLeft)
             .draw_prepared(strip, &self.title_fonts.view())
-            .unwrap();
+            .unwrap_infallible();
         }
 
         self.battery_status.draw(strip);
@@ -2250,7 +2256,9 @@ impl App<AppId> for ReaderApp {
         }
 
         if self.state == State::ShowToc {
-            let toc_ref = self.epub.toc.as_ref().unwrap();
+            let Some(toc_ref) = self.epub.toc.as_ref() else {
+                return;
+            };
             let toc_len = toc_ref.len();
             let tx = self.text_margin as i32;
             let ty = self.text_y as i32;
@@ -2274,7 +2282,7 @@ impl App<AppId> for ReaderApp {
                         )
                         .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
                         .draw(strip)
-                        .unwrap();
+                        .unwrap_infallible();
                     }
 
                     let fg = if selected {
@@ -2314,10 +2322,10 @@ impl App<AppId> for ReaderApp {
                     };
                     Text::new(marker, Point::new(0, y), style)
                         .draw(strip)
-                        .unwrap();
+                        .unwrap_infallible();
                     Text::new(entry.title_str(), Point::new(tx, y), style)
                         .draw(strip)
-                        .unwrap();
+                        .unwrap_infallible();
                 }
             }
             return;
@@ -2456,7 +2464,7 @@ impl App<AppId> for ReaderApp {
                     let mut cell = [0u8; 4];
                     Text::new(ch.encode_utf8(&mut cell), Point::new(x, y), style)
                         .draw(strip)
-                        .unwrap();
+                        .unwrap_infallible();
                     x += FONT_9X18.character_size.width as i32;
                 }
             }
@@ -2501,7 +2509,7 @@ impl App<AppId> for ReaderApp {
                 .to_rect()
                 .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
                 .draw(strip)
-                .unwrap();
+                .unwrap_infallible();
             let text = pbuf.as_str();
             if let Some(f) = cf {
                 f.draw_aligned(
@@ -2517,7 +2525,7 @@ impl App<AppId> for ReaderApp {
                 let style = MonoTextStyle::new(&FONT_9X18, BinaryColor::Off);
                 Text::new(text, Point::new(pos.x, pos.y + 18), style)
                     .draw(strip)
-                    .unwrap();
+                    .unwrap_infallible();
             }
         }
     }

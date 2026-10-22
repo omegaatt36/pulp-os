@@ -81,18 +81,16 @@ fn high_bit_rate_decodes_are_bit_exact_on_every_route() {
         deflated.extend_from_slice(&compressed);
         for (i, &(w, h)) in BOUNDS.iter().enumerate() {
             let a = decode_jpeg_fit(bytes, w, h).unwrap();
-            let b =
-                decode_jpeg_streaming(read_at(&stored), 7, bytes.len() as u32, w, h).unwrap();
-            let c = decode_jpeg_deflate_streaming(
-                read_at(&deflated),
-                3,
-                compressed.len() as u32,
-                w,
-                h,
-            )
-            .unwrap();
+            let b = decode_jpeg_streaming(read_at(&stored), 7, bytes.len() as u32, w, h).unwrap();
+            let c =
+                decode_jpeg_deflate_streaming(read_at(&deflated), 3, compressed.len() as u32, w, h)
+                    .unwrap();
             let hash = fnv(&a);
-            assert_eq!(hash, fnv(&b), "{name} {w}x{h}: streaming differs from buffer");
+            assert_eq!(
+                hash,
+                fnv(&b),
+                "{name} {w}x{h}: streaming differs from buffer"
+            );
             assert_eq!(hash, fnv(&c), "{name} {w}x{h}: deflate differs from buffer");
             seen.push((name, i, hash));
         }

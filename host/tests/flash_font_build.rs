@@ -80,7 +80,7 @@ fn rejection(fixture: &Fixture, paths: &[PathBuf]) -> String {
 fn valid_configured_pack_is_embedded() {
     let fixture = Fixture::new();
     let path = fixture.write_pack(&valid_pack());
-    firmware::generate_flash_fonts_in(&fixture.output(), &[path.clone()]);
+    firmware::generate_flash_fonts_in(&fixture.output(), std::slice::from_ref(&path));
     let output = fs::read_to_string(fixture.output()).unwrap();
     assert!(output.contains("include_bytes!"));
     assert!(output.contains(path.canonicalize().unwrap().to_str().unwrap()));
@@ -102,7 +102,7 @@ fn malformed_records_are_rejected_before_embedding() {
         bytes[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
         assert!(Header::decode(&bytes, bytes.len() as u64).is_ok());
         let path = fixture.write_pack(&bytes);
-        let message = rejection(&fixture, &[path.clone()]);
+        let message = rejection(&fixture, std::slice::from_ref(&path));
         assert!(message.contains(path.to_str().unwrap()), "{message}");
         assert!(message.contains(&format!("{expected:?}")), "{message}");
     }

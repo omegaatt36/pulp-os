@@ -393,12 +393,12 @@ impl UploadWriter<'_> {
 
     pub fn append(&mut self, data: &[u8]) -> core::result::Result<(), UploadError> {
         let result = match self.writer.as_mut() {
-            Some(writer) if !self.failed => writer.append(data),
+            Some(writer) if !self.failed => writer.append(data).map(|()| writer.written()),
             _ => Err(Error::new(ErrorKind::WriteFailed, "upload: failed writer")),
         };
         match result {
-            Ok(()) => {
-                self.len = self.writer.as_ref().unwrap().written();
+            Ok(written) => {
+                self.len = written;
                 Ok(())
             }
             Err(error) => {
@@ -412,10 +412,11 @@ impl UploadWriter<'_> {
     }
 
     pub fn commit(mut self) -> core::result::Result<(), UploadError> {
-        if self.failed {
-            return Err(Error::new(ErrorKind::WriteFailed, "upload: failed writer").into());
-        }
-        let result = self.writer.take().unwrap().close();
+        let writer = match self.writer.take() {
+            Some(writer) if !self.failed => writer,
+            _ => return Err(Error::new(ErrorKind::WriteFailed, "upload: failed writer").into()),
+        };
+        let result = writer.close();
         match result {
             Ok(()) => {
                 self.pending_delete = false;
@@ -780,6 +781,8 @@ pub struct SubdirFile<'a> {
 }
 
 impl SubdirFile<'_> {
+    // fallible length, not a container size: `is_empty` would add nothing
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> crate::error::Result<u32> {
         self.inner
             .mgr

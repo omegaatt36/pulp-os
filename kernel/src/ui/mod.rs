@@ -4,12 +4,14 @@
 // font-dependent widgets (BitmapLabel, QuickMenu, ButtonFeedback)
 // live in the distro's apps::widgets module
 
+mod infallible_ext;
 pub mod layout;
 pub mod qr;
 pub mod stack_fmt;
 pub mod statusbar;
 mod widget;
 
+pub use infallible_ext::InfallibleExt;
 pub use layout::{
     CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN, SECTION_GAP, TITLE_Y, TITLE_Y_OFFSET,
 };

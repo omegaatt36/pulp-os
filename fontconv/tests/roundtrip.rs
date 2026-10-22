@@ -100,10 +100,11 @@ impl ReadAt for Spy<'_> {
             return Err(SpyErr::OutOfRange);
         }
         buf.copy_from_slice(&self.data[offset as usize..end as usize]);
-        if let Some((p, x)) = self.flip {
-            if p >= offset && p < end {
-                buf[(p - offset) as usize] ^= x;
-            }
+        if let Some((p, x)) = self.flip
+            && p >= offset
+            && p < end
+        {
+            buf[(p - offset) as usize] ^= x;
         }
         Ok(())
     }

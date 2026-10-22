@@ -20,7 +20,7 @@ pub const HTTP_FIXED_MAX_BYTES: usize = 8 * 1024;
 /// radio tasks for a whole work buffer.
 pub const FLUSH_SLICE_BYTES: usize = 4 * 1024;
 
-const _: () = assert!(FLUSH_SLICE_BYTES % SECTOR_BYTES == 0);
+const _: () = assert!(FLUSH_SLICE_BYTES.is_multiple_of(SECTOR_BYTES));
 
 /// The work buffer must hold the part headers, the delimiter holdback
 /// (`CRLF--` plus up to 120 boundary bytes, plus the two bytes that decide

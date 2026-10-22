@@ -204,7 +204,12 @@ pub fn parse_header(head: &[u8]) -> Result<Header, Error> {
         return Err(Error::Truncated);
     }
     let mut palette_lum = [0u8; 256];
-    for (i, e) in head[palette_at..palette_end].chunks_exact(4).enumerate() {
+    for (i, e) in head[palette_at..palette_end]
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .enumerate()
+    {
         // BGRA
         palette_lum[i] = lum(e[2], e[1], e[0]);
     }
@@ -229,7 +234,7 @@ fn row_luminance(row: &[u8], h: &Header, lum_row: &mut [u8; WIDTH]) {
             *l = h.palette_lum[i as usize];
         }
     } else {
-        for (l, px) in lum_row.iter_mut().zip(row[..WIDTH * 3].chunks_exact(3)) {
+        for (l, px) in lum_row.iter_mut().zip(row[..WIDTH * 3].as_chunks::<3>().0) {
             // BGR
             *l = lum(px[2], px[1], px[0]);
         }

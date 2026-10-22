@@ -9,6 +9,7 @@ use crate::drivers::strip::StripBuffer;
 use crate::fonts;
 use crate::kernel::KernelHandle;
 use crate::kernel::bookmarks::{self, BmListEntry};
+use crate::ui::InfallibleExt;
 use crate::ui::{
     Alignment, BitmapDynLabel, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W, HEADER_W, LARGE_MARGIN,
     Region, SECTION_GAP, TITLE_Y_OFFSET,
@@ -263,7 +264,7 @@ impl HomeApp {
     fn bm_visible_lines(&self) -> usize {
         let available = SCREEN_H.saturating_sub(self.bm_list_y());
         let rows = (available / BM_ROW_STRIDE) as usize;
-        rows.max(1).min(bookmarks::SLOTS)
+        rows.clamp(1, bookmarks::SLOTS)
     }
 
     fn bm_row_region(&self, i: usize) -> Region {
@@ -544,7 +545,7 @@ impl HomeApp {
         BitmapLabel::new(title_region, "onepage-pulp", self.ui_fonts.heading)
             .alignment(Alignment::Center)
             .draw_prepared(strip, &self.label_fonts.view())
-            .unwrap();
+            .unwrap_infallible();
 
         for i in 0..self.item_count {
             let label = self.item_label(i);
@@ -552,7 +553,7 @@ impl HomeApp {
                 .alignment(Alignment::Center)
                 .inverted(i == self.selected)
                 .draw_prepared(strip, &self.label_fonts.view())
-                .unwrap();
+                .unwrap_infallible();
         }
     }
 
@@ -566,7 +567,7 @@ impl HomeApp {
         BitmapLabel::new(header_region, "Bookmarks", self.ui_fonts.heading)
             .alignment(Alignment::CenterLeft)
             .draw_prepared(strip, &self.label_fonts.view())
-            .unwrap();
+            .unwrap_infallible();
 
         if self.bm_count > 0 {
             let mut status = BitmapDynLabel::<20>::new(self.bm_status_region(), self.ui_fonts.body)
@@ -574,14 +575,14 @@ impl HomeApp {
             let _ = write!(status, "{}/{}", self.bm_selected + 1, self.bm_count);
             status
                 .draw_prepared(strip, &self.label_fonts.view())
-                .unwrap();
+                .unwrap_infallible();
         }
 
         if self.bm_count == 0 {
             BitmapLabel::new(self.bm_row_region(0), "No bookmarks", self.ui_fonts.body)
                 .alignment(Alignment::CenterLeft)
                 .draw_prepared(strip, &self.label_fonts.view())
-                .unwrap();
+                .unwrap_infallible();
             return;
         }
 
@@ -599,7 +600,7 @@ impl HomeApp {
                     .alignment(Alignment::CenterLeft)
                     .inverted(idx == self.bm_selected)
                     .draw_prepared(strip, &self.label_fonts.view())
-                    .unwrap();
+                    .unwrap_infallible();
             }
         }
     }
@@ -617,12 +618,9 @@ fn humanize_bm_entry(entry: &mut BmListEntry) {
         return;
     }
     let n = nlen.min(entry.title.len());
-    let dot_pos = src.iter().position(|&b| b == b'.').unwrap_or(n);
     for i in 0..n {
         entry.title[i] = if i == 0 {
             src[i]
-        } else if i > dot_pos {
-            src[i].to_ascii_lowercase()
         } else {
             src[i].to_ascii_lowercase()
         };

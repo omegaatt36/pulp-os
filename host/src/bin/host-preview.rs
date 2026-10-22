@@ -99,10 +99,10 @@ fn ready(rig: &mut Rig, name: &str) -> Result<(), String> {
 
 fn run(o: Options) -> Result<(), String> {
     let fixtures = standard();
-    if let Some(name) = &o.fixture {
-        if !fixtures.iter().any(|f| f.name == name) {
-            return Err(format!("unknown fixture: {name}; use --help"));
-        }
+    if let Some(name) = &o.fixture
+        && !fixtures.iter().any(|f| f.name == name)
+    {
+        return Err(format!("unknown fixture: {name}; use --help"));
     }
     std::fs::create_dir_all(&o.output).map_err(|e| format!("{}: {e}", o.output.display()))?;
     for f in fixtures

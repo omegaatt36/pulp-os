@@ -482,8 +482,8 @@ pub fn validate_flash_set(packs: &[FlashPackInfo]) -> Result<usize, FlashSetErro
 }
 
 /// The configured pack of `pixel_size`, if there is one.
-pub fn select_flash_pack<'a, B: ?Sized>(
-    packs: &'a [(u16, &'static B)],
+pub fn select_flash_pack<B: ?Sized>(
+    packs: &[(u16, &'static B)],
     pixel_size: u16,
 ) -> Option<&'static B> {
     packs

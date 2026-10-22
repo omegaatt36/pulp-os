@@ -16,7 +16,7 @@ fn replacement(px: u16, advance: u16) -> Vec<u8> {
         let offset = 44 + 22 * record + 12;
         bytes[offset..offset + 2].copy_from_slice(&advance.to_le_bytes());
     }
-    for bitmap in bytes[44 + 22 * count..].chunks_exact_mut(3) {
+    for bitmap in bytes[44 + 22 * count..].as_chunks_mut::<3>().0 {
         bitmap.copy_from_slice(&REPLACED_ROWS);
     }
     bytes

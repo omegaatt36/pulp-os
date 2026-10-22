@@ -418,7 +418,7 @@ impl<R: ReadAt> PackReader<R> {
             done = end;
         }
         let mut prev = None;
-        for (i, raw) in dest.chunks_exact(INDEX_RECORD_LEN).enumerate() {
+        for (i, raw) in dest.as_chunks::<INDEX_RECORD_LEN>().0.iter().enumerate() {
             let rec = Record::decode(raw).ok_or(FontError::Corrupt(PackError::BadLayout))?;
             let index = u32::try_from(i).map_err(|_| FontError::Corrupt(PackError::BadLayout))?;
             prev = Some(

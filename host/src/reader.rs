@@ -55,7 +55,7 @@ fn pender(_context: *mut ()) {}
 
 struct ImageWorker(&'static Executor);
 
-// the executor is only ever polled under the mutex below
+// SAFETY: the executor is only ever polled under the mutex below
 unsafe impl Send for ImageWorker {}
 
 static IMAGE_WORKER: OnceLock<Mutex<ImageWorker>> = OnceLock::new();
@@ -136,7 +136,6 @@ impl Rig {
         self.ctx.set_message(name.as_bytes());
         let mut h = self.k.handle();
         self.app.on_enter(&mut self.ctx, &mut h);
-        drop(h);
         self.apply_text_width();
         self.settle();
     }
@@ -147,7 +146,6 @@ impl Rig {
         self.ctx.set_message(name.as_bytes());
         let mut h = self.k.handle();
         self.app.on_enter(&mut self.ctx, &mut h);
-        drop(h);
         probe::drop_fonts(&mut self.app);
         self.apply_text_width();
         self.settle();
@@ -165,7 +163,6 @@ impl Rig {
         self.apply_text_width();
         let mut h = self.k.handle();
         block_on(self.app.background(&mut self.ctx, &mut h));
-        drop(h);
         if probe::is_epub(&self.app) {
             run_image_worker();
         }
@@ -227,7 +224,6 @@ impl Rig {
         self.ctx.set_message(name.as_bytes());
         let mut h = self.k.handle();
         self.app.on_enter(&mut self.ctx, &mut h);
-        drop(h);
         self.apply_text_width();
     }
 
@@ -414,7 +410,6 @@ impl Rig {
     pub fn resume(&mut self) {
         let mut h = self.k.handle();
         self.app.on_resume(&mut self.ctx, &mut h);
-        drop(h);
         self.apply_text_width();
         self.settle();
     }
@@ -448,7 +443,6 @@ impl Rig {
     pub fn save_position(&mut self) {
         let mut h = self.k.handle();
         self.app.save_position(h.bookmark_cache_mut());
-        drop(h);
     }
 
     // BookmarkCache::save on the kernel's cache (the direct cache drive)

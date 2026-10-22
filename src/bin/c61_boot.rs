@@ -82,7 +82,7 @@ esp_bootloader_esp_idf::esp_app_desc!();
 const KEY_TICK_MS: u64 = 10;
 /// Card detect runs every this many ticks (CD_SAMPLE_INTERVAL_MS / tick).
 const CD_EVERY_TICKS: u32 = CD_SAMPLE_INTERVAL_MS / KEY_TICK_MS as u32;
-const _: () = assert!(CD_SAMPLE_INTERVAL_MS % KEY_TICK_MS as u32 == 0);
+const _: () = assert!(CD_SAMPLE_INTERVAL_MS.is_multiple_of(KEY_TICK_MS as u32));
 /// Battery measurement period of this bring-up loop: 30 s
 /// (BATTERY_INTERVAL_TICKS = 3000 x 10 ms).
 const BATTERY_EVERY_TICKS: u32 = 3000;
@@ -280,20 +280,23 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
             }
         }
 
-        if ticks % USB_EVERY_TICKS == 0
+        if ticks.is_multiple_of(USB_EVERY_TICKS)
             && let Some(ev) = usb_port.poll()
         {
             info!("usb: {:?}", ev);
         }
-        if ticks % BATTERY_EVERY_TICKS == 0 {
+        if ticks.is_multiple_of(BATTERY_EVERY_TICKS) {
             report_battery(&mut battery_mon);
         }
 
-        if ticks % CD_EVERY_TICKS != 0 {
+        if !ticks.is_multiple_of(CD_EVERY_TICKS) {
             continue;
         }
         // card detect: debounced insert/remove -> re-init. (A real UI owns this
         // poll; this loop only proves the flow compiles and links.)
+        // `on_card_event` both tests and records the insert, so the arm is not
+        // collapsed into a guard
+        #[allow(clippy::collapsible_match)]
         match cd.sample(card_detect.level_high()) {
             Some(CardEvent::Removed) => {
                 up.health.on_card_event(CardEvent::Removed);
@@ -312,7 +315,7 @@ async fn main(_spawner: embassy_executor::Spawner) -> ! {
             }
             None => {}
         }
-        if ticks % (250 * CD_EVERY_TICKS) == 0 {
+        if ticks.is_multiple_of(250 * CD_EVERY_TICKS) {
             info!("pulp-os c61 boot: alive");
         }
     }

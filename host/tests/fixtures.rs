@@ -815,7 +815,11 @@ fn lum(p: Pattern, x: u32, y: u32, w: u32) -> u8 {
         Pattern::White => 255,
         Pattern::Checker { cell } => {
             let c = cell as u32;
-            if (x / c + y / c) % 2 == 0 { 0 } else { 255 }
+            if (x / c + y / c).is_multiple_of(2) {
+                0
+            } else {
+                255
+            }
         }
         Pattern::HorizontalGradient => {
             if w > 1 {
@@ -1361,7 +1365,7 @@ fn standard_txt_set_covers_every_text_shape_r8_names() {
             "{name}: needs a line of >= 400 bytes (must wrap)"
         );
         assert!(
-            spec.lines.iter().any(|l| l.len() >= 1 && l.len() <= 60),
+            spec.lines.iter().any(|l| !l.is_empty() && l.len() <= 60),
             "{name}: needs short lines too"
         );
     }
@@ -2826,7 +2830,7 @@ fn assert_decoded_matches(img: &DecodedImage, spec: &ImageSpec, what: &str) {
                         Pattern::Black => true,
                         Pattern::White => false,
                         Pattern::Checker { cell } => {
-                            (x / cell as usize + y / cell as usize) % 2 == 0
+                            (x / cell as usize + y / cell as usize).is_multiple_of(2)
                         }
                         Pattern::HorizontalGradient => unreachable!(),
                     };

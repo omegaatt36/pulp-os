@@ -5,7 +5,8 @@ use crate::smol_common;
 use smol_common::*;
 use smol_epub::html_strip::strip_html_inplace;
 
-const RUBY: &str = "<p><ruby>漢<rp>(</rp><rt>かん</rt><rp>)</rp>字<rp>(</rp><rt>じ</rt><rp>)</rp></ruby>です</p>";
+const RUBY: &str =
+    "<p><ruby>漢<rp>(</rp><rt>かん</rt><rp>)</rp>字<rp>(</rp><rt>じ</rt><rp>)</rp></ruby>です</p>";
 
 fn streamed(html: &str, chunk: usize) -> String {
     String::from_utf8(plain(&route_feed(html.as_bytes(), chunk, 64))).unwrap()

@@ -276,7 +276,7 @@ fn files_cancelled_select_does_not_open_a_book_on_its_release() {
     let _guard = READER_LOCK.lock().unwrap();
     let mut k = Kernel::new(card("A.TXT", 111));
     k.bookmarks_load();
-    let mut apps = apps(&mut k);
+    let apps = apps(&mut k);
     apps.launcher.ctx.take_redraw();
     let ctx = &mut apps.launcher.ctx;
     assert_eq!(

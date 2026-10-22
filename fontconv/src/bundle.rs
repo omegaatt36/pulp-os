@@ -460,10 +460,10 @@ fn is_owned_dir(dir: &Path) -> bool {
     if !stamp.is_file() || stamp.is_symlink() {
         return false;
     }
-    if let Ok(content) = fs::read_to_string(&stamp) {
-        if let Ok(json) = JsonParser::parse_str(&content) {
-            return json.get("format").and_then(|v| v.as_str()) == Some(FORMAT);
-        }
+    if let Ok(content) = fs::read_to_string(&stamp)
+        && let Ok(json) = JsonParser::parse_str(&content)
+    {
+        return json.get("format").and_then(|v| v.as_str()) == Some(FORMAT);
     }
     false
 }

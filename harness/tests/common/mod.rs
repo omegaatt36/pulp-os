@@ -96,10 +96,10 @@ pub fn ascii_runs(data: &[u8], min: usize) -> Vec<&[u8]> {
             _ => {}
         }
     }
-    if let Some(s) = start {
-        if data.len() - s >= min {
-            runs.push(&data[s..]);
-        }
+    if let Some(s) = start
+        && data.len() - s >= min
+    {
+        runs.push(&data[s..]);
     }
     runs
 }

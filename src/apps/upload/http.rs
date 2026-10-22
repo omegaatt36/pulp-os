@@ -141,7 +141,7 @@ impl SessionToken {
     }
 
     pub fn as_str(&self) -> &str {
-        // SAFETY: from_bytes produces only ASCII hexadecimal digits.
+        // `from_bytes` produces only ASCII hexadecimal digits.
         core::str::from_utf8(&self.0).expect("token is ASCII")
     }
 

@@ -1189,7 +1189,7 @@ pub(super) fn wrap_proportional(
                     cursor_x = 0;
                     for k in line_start..i {
                         let c = buf[k];
-                        if c >= FIRST_CHAR && c <= 0x7E {
+                        if (FIRST_CHAR..=0x7E).contains(&c) {
                             cursor_x += glyphs[(c - FIRST_CHAR) as usize].advance as u32;
                         }
                     }

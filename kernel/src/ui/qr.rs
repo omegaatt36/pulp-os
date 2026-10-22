@@ -13,6 +13,7 @@ use embedded_graphics::{
     pixelcolor::BinaryColor, prelude::*, primitives::PrimitiveStyle, primitives::Rectangle,
 };
 
+use super::InfallibleExt;
 use crate::drivers::strip::StripBuffer;
 use crate::ui::Region;
 
@@ -132,7 +133,7 @@ impl QrSymbol {
             .to_rect()
             .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
             .draw(strip)
-            .unwrap();
+            .unwrap_infallible();
 
         let window = strip.logical_window();
         let side = self.side;
@@ -158,7 +159,7 @@ impl QrSymbol {
                 )
                 .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
                 .draw(strip)
-                .unwrap();
+                .unwrap_infallible();
             }
         }
     }
@@ -252,7 +253,7 @@ impl QrSymbol {
         let data = FORMAT_ECC_L << 3 | mask;
         let mut rem = data;
         for _ in 0..10 {
-            rem = rem << 1 ^ (rem >> 9) * 0x537;
+            rem = (rem << 1) ^ ((rem >> 9) * 0x537);
         }
         let bits = (data << 10 | rem) ^ 0x5412;
         let bit = |i: i32| bits >> i & 1 != 0;
@@ -349,14 +350,14 @@ fn put_bits(cw: &mut [u8], len: &mut usize, val: u32, count: usize) {
 
 fn mask_hit(mask: u32, x: u32, y: u32) -> bool {
     match mask {
-        0 => (x + y) % 2 == 0,
-        1 => y % 2 == 0,
-        2 => x % 3 == 0,
-        3 => (x + y) % 3 == 0,
-        4 => (x / 3 + y / 2) % 2 == 0,
+        0 => (x + y).is_multiple_of(2),
+        1 => y.is_multiple_of(2),
+        2 => x.is_multiple_of(3),
+        3 => (x + y).is_multiple_of(3),
+        4 => (x / 3 + y / 2).is_multiple_of(2),
         5 => x * y % 2 + x * y % 3 == 0,
-        6 => (x * y % 2 + x * y % 3) % 2 == 0,
-        _ => ((x + y) % 2 + x * y % 3) % 2 == 0,
+        6 => (x * y % 2 + x * y % 3).is_multiple_of(2),
+        _ => ((x + y) % 2 + x * y % 3).is_multiple_of(2),
     }
 }
 

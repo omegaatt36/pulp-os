@@ -485,10 +485,10 @@ mod tests {
         let trace: Vec<String> = f
             .log
             .iter()
-            .filter_map(|e| match e {
-                Ev::Cmd(c) => Some(std::format!("C{c:02X}")),
-                Ev::Data(d) if d.len() <= 4 => Some(std::format!("D{d:02X?}")),
-                Ev::Data(d) => Some(std::format!("S{}", d.len())),
+            .map(|e| match e {
+                Ev::Cmd(c) => std::format!("C{c:02X}"),
+                Ev::Data(d) if d.len() <= 4 => std::format!("D{d:02X?}"),
+                Ev::Data(d) => std::format!("S{}", d.len()),
             })
             .collect();
         let joined = trace.join(" ");

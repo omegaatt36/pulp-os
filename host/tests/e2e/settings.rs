@@ -61,7 +61,7 @@ fn the_reading_theme_set_in_settings_reaches_the_reader_and_survives_a_reboot() 
     );
 
     // and the choice is still there after a power cycle
-    let mut d = d.reboot();
+    let d = d.reboot();
     assert_eq!(d.apps.system_settings().reading_theme, theme);
     assert_eq!(
         d.pulp_file("SETTINGS.TXT").as_deref(),

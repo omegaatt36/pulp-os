@@ -166,8 +166,8 @@ fn image_is_valid(im: &ImageSpec) -> bool {
         (_, Pattern::Checker { cell: 0 }) => false,
         (ImageKind::PngGray1 | ImageKind::PngPalette8, Pattern::HorizontalGradient) => false,
         (ImageKind::Jpeg, pattern) => {
-            im.width % 8 == 0
-                && im.height % 8 == 0
+            im.width.is_multiple_of(8)
+                && im.height.is_multiple_of(8)
                 && !matches!(pattern, Pattern::Checker { cell } if cell % 8 != 0)
         }
         _ => true,

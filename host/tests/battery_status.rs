@@ -83,11 +83,11 @@ fn percentage_and_icon_render_within_battery_region() {
             for x in 0..480 {
                 if frame.is_black(x, y) {
                     assert!(
-                        x >= BATTERY_REGION.x && x < BATTERY_REGION.x + BATTERY_REGION.w,
+                        (BATTERY_REGION.x..BATTERY_REGION.x + BATTERY_REGION.w).contains(&x),
                         "pixel at ({x}, {y}) outside battery region x"
                     );
                     assert!(
-                        y >= BATTERY_REGION.y && y < BATTERY_REGION.y + BATTERY_REGION.h,
+                        (BATTERY_REGION.y..BATTERY_REGION.y + BATTERY_REGION.h).contains(&y),
                         "pixel at ({x}, {y}) outside battery region y"
                     );
                 }

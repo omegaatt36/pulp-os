@@ -190,58 +190,51 @@ impl EpubState {
         if let Ok(n) = k.read_cache_chunk(cf_str, 0, &mut scratch[..hdr_cap])
             && n >= cache::HEADER_SIZE
         {
-            let hdr_buf: &[u8; cache::HEADER_SIZE] =
-                scratch[..cache::HEADER_SIZE].try_into().unwrap();
-            if let Ok(hdr) = cache::parse_v3_header(hdr_buf) {
-                if cache::validate_v3_header(
+            let hdr_buf: &[u8; cache::HEADER_SIZE] = scratch
+                .first_chunk()
+                .expect("scratch holds at least a header");
+            if let Ok(hdr) = cache::parse_v3_header(hdr_buf)
+                && cache::validate_v3_header(
                     &hdr,
                     self.archive_size,
                     self.name_hash,
                     self.spine.len(),
                 )
                 .is_ok()
-                    && hdr.chapter_count as usize <= self.chapter_table.len()
-                    && cache::validate_v3_source(&hdr, self.source.raw()).is_ok()
-                    && hdr.chapters_complete()
-                {
-                    // read chapter table
-                    let count = hdr.chapter_count as usize;
-                    let tbl_bytes = count * cache::CHAPTER_ENTRY_SIZE;
-                    let tbl_offset = hdr.table_offset();
-                    if tbl_bytes <= scratch.len() {
-                        if let Ok(tn) =
-                            k.read_cache_chunk(cf_str, tbl_offset, &mut scratch[..tbl_bytes])
-                            && tn >= tbl_bytes
-                        {
-                            if cache::parse_chapter_table(
-                                &scratch[..tbl_bytes],
-                                count,
-                                &mut self.chapter_table,
-                            )
+                && hdr.chapter_count as usize <= self.chapter_table.len()
+                && cache::validate_v3_source(&hdr, self.source.raw()).is_ok()
+                && hdr.chapters_complete()
+            {
+                // read chapter table
+                let count = hdr.chapter_count as usize;
+                let tbl_bytes = count * cache::CHAPTER_ENTRY_SIZE;
+                let tbl_offset = hdr.table_offset();
+                if tbl_bytes <= scratch.len()
+                    && let Ok(tn) =
+                        k.read_cache_chunk(cf_str, tbl_offset, &mut scratch[..tbl_bytes])
+                    && tn >= tbl_bytes
+                    && cache::parse_chapter_table(
+                        &scratch[..tbl_bytes],
+                        count,
+                        &mut self.chapter_table,
+                    )
+                    .is_ok()
+                    && file_size.is_some_and(|size| {
+                        validate_text_cache(size, hdr.data_offset(), &self.chapter_table[..count])
                             .is_ok()
-                                && file_size.is_some_and(|size| {
-                                    validate_text_cache(
-                                        size,
-                                        hdr.data_offset(),
-                                        &self.chapter_table[..count],
-                                    )
-                                    .is_ok()
-                                })
-                            {
-                                self.chapters_cached = true;
-                                self.cache_started = true;
-                                for i in 0..count {
-                                    self.ch_cached[i] = true;
-                                }
-                                // ensure image subdir exists for skip markers
-                                let dir_buf = self.cache_dir;
-                                let dir = cache::dir_name_str(&dir_buf);
-                                let _ = k.ensure_app_subdir(dir);
-                                log::info!("epub: v3 cache hit ({} chapters)", count);
-                                return Ok(true);
-                            }
-                        }
+                    })
+                {
+                    self.chapters_cached = true;
+                    self.cache_started = true;
+                    for i in 0..count {
+                        self.ch_cached[i] = true;
                     }
+                    // ensure image subdir exists for skip markers
+                    let dir_buf = self.cache_dir;
+                    let dir = cache::dir_name_str(&dir_buf);
+                    let _ = k.ensure_app_subdir(dir);
+                    log::info!("epub: v3 cache hit ({} chapters)", count);
+                    return Ok(true);
                 }
             }
         }
@@ -685,7 +678,7 @@ impl ReaderApp {
                             adj,
                             reading_ch,
                         );
-                        if let Err(e) = self.epub.cache_chapter_async(k, adj, &name).await {
+                        if let Err(e) = self.epub.cache_chapter_async(k, adj, name).await {
                             log::warn!("epub: priority ch{} failed: {}", adj, e);
                         }
                     }
@@ -708,7 +701,7 @@ impl ReaderApp {
                     return;
                 }
 
-                match self.epub.cache_chapter_async(k, ch, &name).await {
+                match self.epub.cache_chapter_async(k, ch, name).await {
                     Ok(()) => {
                         self.epub.cache_chapter += 1;
                         // try nearby image dispatch before next chapter

@@ -11,7 +11,6 @@ embassy-futures  = "0.1"
 embassy-sync     = "0.7"
 embedded-hal       = "1.0.0"
 embedded-hal-async = "1.0.0"
-embedded-hal-bus   = "0.3.0"
 embedded-graphics-core = "0.4.1"
 embedded-graphics      = "0.8.2"
 embedded-sdmmc = { path = "vendor/embedded-sdmmc-rs", features = ["async"] }
@@ -22,6 +21,20 @@ nb  = "1.1.0"
 log = "0.4.27"
 esp-alloc = { version = "=0.11.0", features = ["internal-heap-stats"] }
 pulp-board-logic = { path = "board-logic" }
+
+[workspace.lints.clippy]
+# index loops over fixed tables and codec state, and the few wide driver entry points,
+# read better as written than split up
+needless_range_loop = "allow"
+too_many_arguments  = "allow"
+# every unsafe block carries a SAFETY comment
+undocumented_unsafe_blocks = "warn"
+# tests and layout checks assert on configuration constants on purpose
+assertions_on_constants = "allow"
+# fixtures name their tuple-heavy shapes inline; aliases would only add indirection
+type_complexity = "allow"
+# a `next` on a test RNG is not an `Iterator`
+should_implement_trait = "allow"
 
 [package]
 edition      = "2024"
@@ -138,6 +151,9 @@ esp-println            = { version = "0.18", default-features = false, features 
 fontdue = "0.9"
 pulp-board-logic = { path = "board-logic" }
 pulp-fontpack = { path = "fontpack" }
+
+[lints]
+workspace = true
 
 [profile.dev]
 opt-level = "s"

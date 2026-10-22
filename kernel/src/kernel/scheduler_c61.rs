@@ -427,15 +427,12 @@ impl super::Kernel {
                             prefetched = true;
                         }
 
-                        let hw_ev = match embassy_time::with_timeout(
+                        let hw_ev = embassy_time::with_timeout(
                             embassy_time::Duration::from_millis(super::timing::TICK_MS),
                             tasks::INPUT_EVENTS.receive(),
                         )
                         .await
-                        {
-                            Ok(ev) => Some(ev),
-                            Err(_) => None,
-                        };
+                        .ok();
 
                         if let Some(ev) = hw_ev {
                             let _ = tasks::IDLE_SLEEP_DUE.try_take();
@@ -450,11 +447,9 @@ impl super::Kernel {
                         }
                     }
 
-                    if success {
-                        if let Err(e) = self.epd.finish_partial_refresh(&mut snapshot) {
-                            warn!("display: finish partial refresh failed: {}", e.as_str());
-                            success = false;
-                        }
+                    if success && let Err(e) = self.epd.finish_partial_refresh(&mut snapshot) {
+                        warn!("display: finish partial refresh failed: {}", e.as_str());
+                        success = false;
                     }
                 }
 
@@ -569,7 +564,6 @@ impl super::Kernel {
             let mut raster =
                 StripBuffer::frame(&mut pixels, self.epd.rotation()).expect("full-frame geometry");
             app.draw(&mut raster);
-            drop(raster);
             let mut src = FrameStrips {
                 pixels: &pixels,
                 strip: &mut *self.strip,
@@ -624,6 +618,9 @@ impl super::Kernel {
             return;
         }
         let level = self.hw.card.pin.level_high();
+        // `on_card_event` both tests and records the insert, so the arm is not
+        // collapsed into a guard
+        #[allow(clippy::collapsible_match)]
         match self.hw.card.detect.sample(level) {
             Some(CardEvent::Removed) => {
                 self.hw.card.health.on_card_event(CardEvent::Removed);
