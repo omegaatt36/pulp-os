@@ -1,6 +1,6 @@
 // text wrapping, page navigation, and load/prefetch
 
-use smol_epub::html_strip::{IMG_REF, MARKER, QUOTE_OFF, QUOTE_ON};
+use smol_epub::html_strip::{IMG_REF, MARKER, QUOTE_OFF, QUOTE_ON, RUBY_OPEN};
 
 use crate::fonts;
 use crate::fonts::bitmap::FIRST_CHAR;
@@ -28,9 +28,15 @@ impl ReaderApp {
         let body_px = fonts::cjk::BODY_PIXELS[idx];
         let heading_px = fonts::cjk::HEADING_PIXELS[idx];
         let previous = self.layout_identity;
+        let ruby_px = self.ruby_px();
         Ok(super::LayoutIdentity {
             body_px,
             heading_px,
+            ruby_px,
+            ruby: match ruby_px {
+                Some(px) => Some(fonts::cjk::bank_identity(k, px)?),
+                None => None,
+            },
             body: if previous.is_some_and(|id| id.body.is_some()) {
                 Some(fonts::cjk::bank_identity(k, body_px)?)
             } else {
@@ -48,6 +54,18 @@ impl ReaderApp {
             max_lines: self.max_lines,
             vertical: self.vertical,
         })
+    }
+
+    // The identity the layout is made for. The readings of ruby groups are set
+    // only when their pack is installed.
+    pub(super) fn adopt_layout_identity(&mut self, identity: super::LayoutIdentity) {
+        self.cjk.set_ruby_px(
+            identity
+                .ruby
+                .filter(|bank| bank.installed)
+                .map(|bank| bank.pixel_size),
+        );
+        self.layout_identity = Some(identity);
     }
 
     fn record_fallback_identity(&mut self, k: &mut KernelHandle<'_>) -> crate::error::Result<()> {
@@ -105,7 +123,7 @@ impl ReaderApp {
             let current = self.current_layout_identity(k)?;
             if current != previous {
                 self.invalidate_layout();
-                self.layout_identity = Some(current);
+                self.adopt_layout_identity(current);
             }
         }
         Ok(())
@@ -132,7 +150,8 @@ impl ReaderApp {
         at_eof: bool,
     ) -> crate::error::Result<usize> {
         if self.layout_identity.is_none() {
-            self.layout_identity = Some(self.current_layout_identity(k)?);
+            let identity = self.current_layout_identity(k)?;
+            self.adopt_layout_identity(identity);
         }
         if self.fonts.is_none() && fonts::font_data::HAS_REGULAR {
             // An explicitly selected mono path keeps its original cell layout.
@@ -921,7 +940,30 @@ pub(super) fn wrap_proportional(
     while i < n {
         let b = buf[i];
 
-        if b == MARKER && i + 1 < n {
+        // A ruby group is one unbreakable scalar as long as the longer of its base
+        // and its reading.
+        let mut group = None;
+        if b == MARKER && i + 1 < n && buf[i + 1] == RUBY_OPEN {
+            match fonts::ruby::read(&buf[..n], i) {
+                fonts::ruby::Read::Group(g) => group = Some(g),
+                // the window ends inside the group: the next window lays it out
+                fonts::ruby::Read::Cut if !at_eof => {
+                    if line_start > 0 {
+                        return Ok((line_start, line_count));
+                    }
+                    return Err(crate::error::Error::from_kind(
+                        crate::error::ErrorKind::BufferTooSmall,
+                    )
+                    .with_source("font layout"));
+                }
+                _ => {
+                    i += 2;
+                    continue;
+                }
+            }
+        }
+
+        if group.is_none() && b == MARKER && i + 1 < n {
             if buf[i + 1] == IMG_REF && i + 2 < n {
                 let path_len = buf[i + 2] as usize;
                 let path_start = i + 3;
@@ -1031,12 +1073,15 @@ pub(super) fn wrap_proportional(
         // UTF-8 multi-byte: decode the full character and measure it
         // using the font's extended glyph tables; a malformed subpart
         // measures as the replacement character
-        if b >= 0x80 || (fonts.has_fallback() && b >= b' ') {
-            let (ch, seq_len) = decode_utf8_char(&buf[..n], i);
+        if group.is_some() || b >= 0x80 || (fonts.has_fallback() && b >= b' ') {
+            let (ch, seq_len) = match &group {
+                Some(g) => (g.first(), g.len),
+                None => decode_utf8_char(&buf[..n], i),
+            };
             *examined = (*examined).max(i + seq_len);
 
             // soft hyphen (U+00AD): zero-width break opportunity
-            if ch == '\u{00AD}' {
+            if group.is_none() && ch == '\u{00AD}' {
                 last_space = i + seq_len;
                 space_flags = styles.flags();
                 cursor_at_space = cursor_x;
@@ -1045,7 +1090,7 @@ pub(super) fn wrap_proportional(
             }
 
             // NBSP and regular spaces: word-break opportunity
-            if is_wrap_space(ch) && !fonts.has_fallback() {
+            if group.is_none() && is_wrap_space(ch) && !fonts.has_fallback() {
                 let sty = styles.style();
                 cursor_x += fonts.advance(' ', sty) as u32;
                 last_space = i + seq_len;
@@ -1070,7 +1115,16 @@ pub(super) fn wrap_proportional(
             }
 
             let sty = styles.style();
-            let adv = fonts.advance(if ch == '\u{a0}' { ' ' } else { ch }, sty) as u32;
+            // the style the text goes on in after a group's base
+            let mut after_group = None;
+            let adv = match &group {
+                Some(g) => {
+                    let (base_len, reading_len, after) = fonts.measure_ruby(g, styles);
+                    after_group = Some(after);
+                    fonts::ruby::span(base_len, reading_len).len
+                }
+                None => fonts.advance(if ch == '\u{a0}' { ' ' } else { ch }, sty) as u32,
+            };
             if fonts.has_fallback() {
                 // A boundary is legal only after a non-opening character and
                 // before a non-closing character. Inseparable groups overhang
@@ -1117,6 +1171,9 @@ pub(super) fn wrap_proportional(
                         return Ok((line_start, line_count));
                     }
                 }
+            }
+            if let Some(after) = after_group {
+                styles = after;
             }
             i += seq_len;
             continue;

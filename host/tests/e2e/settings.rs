@@ -114,6 +114,7 @@ fn swapping_the_buttons_in_settings_remaps_the_front_keys_everywhere() {
         Key::Next,
         Key::Next,
         Key::Next,
+        Key::Next,
         Key::Right,
     ]);
     assert!(d.apps.system_settings().swap_buttons);

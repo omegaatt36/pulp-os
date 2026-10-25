@@ -73,6 +73,8 @@ fn key() -> LayoutKey {
         heading_px: 32,
         body_font: 0x0102_0304_0506_0708,
         heading_font: 0,
+        ruby_px: 0,
+        ruby_font: 0,
         banks: BANK_BODY_USED | BANK_BODY_INSTALLED,
         text_w: 784,
         text_area_h: 440,
@@ -189,6 +191,21 @@ fn every_key_field_invalidates() {
             "heading pack id",
             LayoutKey {
                 heading_font: 5,
+                ..key()
+            },
+        ),
+        (
+            "ruby pack size",
+            LayoutKey {
+                ruby_px: 12,
+                ..key()
+            },
+        ),
+        (
+            "ruby pack id",
+            LayoutKey {
+                ruby_px: 12,
+                ruby_font: 9,
                 ..key()
             },
         ),

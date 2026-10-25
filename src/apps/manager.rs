@@ -593,11 +593,13 @@ impl AppManager {
         let ui_idx = ss.ui_font_size_idx;
         let book_idx = ss.book_font_size_idx;
         let theme_idx = ss.reading_theme;
+        let ruby = ss.ruby;
 
         self.home.set_ui_font_size(ui_idx);
         self.files.set_ui_font_size(ui_idx);
         self.settings.set_ui_font_size(ui_idx);
         self.reader.set_book_font_size(book_idx);
+        self.reader.set_ruby(ruby);
         self.reader.set_reading_theme(theme_idx);
 
         let chrome = fonts::chrome_font();

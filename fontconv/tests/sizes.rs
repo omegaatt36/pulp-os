@@ -4,18 +4,19 @@ mod common;
 use common::*;
 
 #[test]
-fn default_size_constant_is_the_nine_expected_values() {
-    // union of body 16/19/23/28/35 and heading 23/27/32/38/46, 23 once -> 9 ascending values
+fn default_size_constant_is_the_fourteen_expected_values() {
+    // union of body 16/19/23/28/35, heading 23/27/32/38/46 and ruby 10/11/12/14/18, 23 once
+    // -> 14 ascending values
     assert_eq!(
         pulp_fontconv::DEFAULT_SIZES,
-        [16, 19, 23, 27, 28, 32, 35, 38, 46]
+        [10, 11, 12, 14, 16, 18, 19, 23, 27, 28, 32, 35, 38, 46]
     );
     assert_eq!(pulp_fontconv::DEFAULT_SIZES, DEFAULT_SIZES);
 }
 
 #[test]
 fn cli_without_sizes_writes_one_pack_per_default_size() {
-    // no --sizes: nine packs F000xx.PFN for the nine defaults, plus the three text files
+    // no --sizes: fourteen packs F000xx.PFN for the fourteen defaults, plus the three text files
     let cli = cli_run(&bookerly_path(), None, None);
     assert_eq!(cli.run.code, 0, "{}", cli.run.stderr);
     let mut want: Vec<String> = DEFAULT_SIZES.iter().map(|&px| pack_name(px)).collect();

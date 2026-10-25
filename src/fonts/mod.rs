@@ -6,6 +6,7 @@
 
 pub mod bitmap;
 pub mod cjk;
+pub mod ruby;
 pub mod vertical;
 
 #[allow(clippy::all)]
@@ -84,15 +85,20 @@ pub enum Style {
     Bold,
     Italic,
     Heading,
+    // the reading of a ruby group: the small size beside its base text
+    Ruby,
 }
 
 /// Independent style markers retain their state until their own closing marker.
-/// Heading has precedence over nested bold and italic emphasis.
+/// Heading has precedence over nested bold and italic emphasis; the reading of
+/// a ruby group (between its READING and CLOSE markers) is set in its own size
+/// whatever else is active.
 #[derive(Clone, Copy)]
 pub struct StyleState {
     flags: u8,
 }
 impl StyleState {
+    // a ruby reading never spans a line, so the flag is not carried
     pub const fn from_flags(flags: u8) -> Self {
         Self { flags: flags & 7 }
     }
@@ -101,7 +107,8 @@ impl StyleState {
     }
     pub fn apply_marker(&mut self, marker: u8) {
         use smol_epub::html_strip::{
-            BOLD_OFF, BOLD_ON, HEADING_OFF, HEADING_ON, ITALIC_OFF, ITALIC_ON,
+            BOLD_OFF, BOLD_ON, HEADING_OFF, HEADING_ON, ITALIC_OFF, ITALIC_ON, RUBY_CLOSE,
+            RUBY_READING,
         };
         match marker {
             BOLD_ON => self.flags |= 1,
@@ -110,11 +117,15 @@ impl StyleState {
             ITALIC_OFF => self.flags &= !2,
             HEADING_ON => self.flags |= 4,
             HEADING_OFF => self.flags &= !4,
+            RUBY_READING => self.flags |= 8,
+            RUBY_CLOSE => self.flags &= !8,
             _ => {}
         }
     }
     pub fn style(self) -> Style {
-        if self.flags & 4 != 0 {
+        if self.flags & 8 != 0 {
+            Style::Ruby
+        } else if self.flags & 4 != 0 {
             Style::Heading
         } else if self.flags & 1 != 0 {
             Style::Bold
@@ -134,6 +145,12 @@ pub struct FontSet {
     bold: &'static BitmapFont,
     italic: &'static BitmapFont,
     heading: &'static BitmapFont,
+}
+
+// The Latin letters of a ruby reading (romaji, pinyin) come from the smallest
+// body font at every size.
+fn ruby_font() -> &'static BitmapFont {
+    &font_data::REGULAR_BODY_XSMALL
 }
 
 impl FontSet {
@@ -231,6 +248,7 @@ impl FontSet {
             Style::Bold => self.bold,
             Style::Italic => self.italic,
             Style::Heading => self.heading,
+            Style::Ruby => ruby_font(),
         }
     }
 

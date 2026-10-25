@@ -77,7 +77,7 @@ pub const HEADER_SIZE: usize = 128;
 // bump when the stripped text changes (what a chapter strips to), so caches
 // built by the old stripper are rebuilt on the next open
 #[allow(missing_docs)]
-pub const CACHE_FORMAT: u8 = 4;
+pub const CACHE_FORMAT: u8 = 5;
 #[allow(missing_docs)]
 pub const TITLE_CAP: usize = 48;
 #[allow(missing_docs)]

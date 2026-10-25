@@ -45,7 +45,7 @@ use pulp_board_logic::image_lru::{ImageLru, LruConfig};
 use pulp_board_logic::source_id::SourceId;
 use smol_epub::cache;
 use smol_epub::epub::{self, EpubMeta, EpubSpine, TocSource};
-use smol_epub::html_strip::{IMG_REF, MARKER};
+use smol_epub::html_strip::{IMG_REF, MARKER, RUBY_OPEN};
 use smol_epub::zip;
 
 struct DecoderScratch(crate::kernel::bigbuf::DecoderScratch);
@@ -568,7 +568,7 @@ impl Default for ReaderApp {
 }
 
 // Increment when the pagination algorithm changes.
-const LAYOUT_VERSION: u16 = 1;
+const LAYOUT_VERSION: u16 = 2;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) struct LayoutIdentity {
@@ -576,6 +576,9 @@ pub(super) struct LayoutIdentity {
     heading_px: u16,
     body: Option<fonts::cjk::BankIdentity>,
     heading: Option<fonts::cjk::BankIdentity>,
+    // readings of ruby groups are asked for, and the pack they are set in
+    ruby_px: Option<u16>,
+    ruby: Option<fonts::cjk::BankIdentity>,
     version: u16,
     // geometry the lines were wrapped for: a theme or margin change moves the
     // wrap points exactly like a font change does
@@ -666,6 +669,9 @@ pub struct ReaderApp {
     // set in columns, top to bottom and right to left (vertical writing); a
     // line of the page is then a column, `line_len_px` tall
     pub(super) vertical: bool,
+    // readings of ruby groups are set beside their base text (the setting);
+    // they take room in every line, see `apply_font_metrics`
+    pub(super) ruby: bool,
 
     // reading theme: runtime layout derived from READING_THEMES
     pub(super) text_margin: u16, // horizontal margin for text content (from theme)
@@ -729,6 +735,7 @@ impl ReaderApp {
             font_ascent: LINE_H,
             max_lines: LINES_PER_PAGE as u8,
             vertical: false,
+            ruby: false,
 
             text_margin: MARGIN,
             text_y: TEXT_Y,
@@ -792,7 +799,15 @@ impl ReaderApp {
             if col_right <= win_left || col_right - pitch >= win_right {
                 continue;
             }
-            let center = col_right - pitch / 2;
+            // with readings asked for the base sits left of the room they take
+            let (center, reading_center) = match self.ruby_px() {
+                Some(ruby_px) => {
+                    let body_px =
+                        fonts::cjk::BODY_PIXELS[usize::from(self.book_font_size_idx.min(4))];
+                    fonts::ruby::column_centers(col_right, self.font_line_h, body_px, ruby_px)
+                }
+                None => (col_right - pitch / 2, 0),
+            };
             let start = span.start as usize;
             let line = &self.pg.buf[start..start + span.len as usize];
             let mut y = i32::from(self.text_y) + INDENT_PX as i32 * i32::from(span.indent);
@@ -804,6 +819,21 @@ impl ReaderApp {
                     // an image reference left in a line: marker, length, path
                     if line[j + 1] == IMG_REF && j + 2 < line.len() {
                         j += 3 + line[j + 2] as usize;
+                        continue;
+                    }
+                    if line[j + 1] == RUBY_OPEN
+                        && let fonts::ruby::Read::Group(group) = fonts::ruby::read(line, j)
+                    {
+                        let (len, after) = fonts.draw_ruby_column(
+                            strip,
+                            &group,
+                            styles,
+                            (center, reading_center),
+                            y,
+                        );
+                        y += len;
+                        styles = after;
+                        j += group.len;
                         continue;
                     }
                     styles.apply_marker(line[j + 1]);
@@ -885,6 +915,18 @@ impl ReaderApp {
         self.book_font_size_idx = idx;
         self.apply_font_metrics();
         self.rebuild_quick_actions();
+    }
+
+    pub fn set_ruby(&mut self, on: bool) {
+        self.ruby = on;
+        self.apply_font_metrics();
+    }
+
+    // Pack size of the readings when they are asked for. Whether the pack is
+    // installed is found when the layout identity is made.
+    pub(super) fn ruby_px(&self) -> Option<u16> {
+        self.ruby
+            .then(|| fonts::cjk::RUBY_PIXELS[usize::from(self.book_font_size_idx.min(4))])
     }
 
     pub fn set_reading_theme(&mut self, idx: u8) {
@@ -1408,6 +1450,18 @@ impl ReaderApp {
             // apply line spacing: scale native line height by theme percentage
             self.font_line_h = ((native_h as u32 * spacing_pct as u32) / 100).max(1) as u16;
             self.font_ascent = fs.ascent(fonts::Style::Regular);
+            // A reading takes room beside its base text, in every line like
+            // the typesetting of Japanese does: above the base in a row (the
+            // text sits that much lower in it), to the right of it in a column.
+            if let Some(ruby_px) = self.ruby_px() {
+                let body_px = fonts::cjk::BODY_PIXELS[usize::from(self.book_font_size_idx.min(4))];
+                self.font_line_h = self
+                    .font_line_h
+                    .max(fonts::ruby::min_pitch(body_px, ruby_px));
+                if !self.vertical {
+                    self.font_ascent += fonts::ruby::room(ruby_px);
+                }
+            }
             // a line is as long as the text is wide, a column as the text is
             // tall; the other axis holds as many of them as fit
             let lines = if self.vertical {
@@ -2421,7 +2475,8 @@ impl App<AppId> for ReaderApp {
 
                     let start = span.start as usize;
                     let end = start + span.len as usize;
-                    let baseline = self.text_y as i32 + i as i32 * line_h + ascent;
+                    let line_top = self.text_y as i32 + i as i32 * line_h;
+                    let baseline = line_top + ascent;
                     let x_indent = INDENT_PX as i32 * span.indent as i32;
 
                     let line = &self.pg.buf[start..end];
@@ -2431,6 +2486,16 @@ impl App<AppId> for ReaderApp {
                     while j < line.len() {
                         let b = line[j];
                         if b == MARKER && j + 1 < line.len() {
+                            if line[j + 1] == RUBY_OPEN
+                                && let fonts::ruby::Read::Group(group) = fonts::ruby::read(line, j)
+                            {
+                                let (len, after) = prepared
+                                    .draw_ruby_row(strip, &group, styles, cx, baseline, line_top);
+                                cx += len;
+                                styles = after;
+                                j += group.len;
+                                continue;
+                            }
                             styles.apply_marker(line[j + 1]);
                             j += 2;
                             continue;

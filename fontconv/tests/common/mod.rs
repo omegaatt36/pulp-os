@@ -18,8 +18,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use pulp_fontconv::{Input, Output};
 use sha2::{Digest, Sha256};
 
-/// Union of firmware body 16/19/23/28/35 and heading 23/27/32/38/46, deduplicated.
-pub const DEFAULT_SIZES: [u16; 9] = [16, 19, 23, 27, 28, 32, 35, 38, 46];
+/// Union of firmware body 16/19/23/28/35, heading 23/27/32/38/46 and ruby 10/11/12/14/18, deduplicated.
+pub const DEFAULT_SIZES: [u16; 14] = [10, 11, 12, 14, 16, 18, 19, 23, 27, 28, 32, 35, 38, 46];
 
 pub const UPSTREAM: &str = "https://example.invalid/upstream/font";
 pub const IANSUI_UPSTREAM: &str = "https://github.com/ButTaiwan/iansui";

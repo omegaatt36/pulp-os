@@ -18,8 +18,8 @@ pub const CONVERTER_VERSION: &str = env!("CARGO_PKG_VERSION");
 // rasterisation convention version, mixed into every font_id
 pub const CONVENTION_VERSION: u32 = 1;
 pub const LICENSE_NAME: &str = "SIL OFL 1.1";
-// union of firmware body 16/19/23/28/35 and heading 23/27/32/38/46
-pub const DEFAULT_SIZES: [u16; 9] = [16, 19, 23, 27, 28, 32, 35, 38, 46];
+// union of firmware body 16/19/23/28/35, heading 23/27/32/38/46 and ruby 10/11/12/14/18
+pub const DEFAULT_SIZES: [u16; 14] = [10, 11, 12, 14, 16, 18, 19, 23, 27, 28, 32, 35, 38, 46];
 
 pub const LICENSE_FILE: &str = "OFL.TXT";
 pub const PROV_FILE: &str = "PROV.TXT";

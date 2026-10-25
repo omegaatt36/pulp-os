@@ -120,6 +120,11 @@ impl Rig {
         self.apply_text_width();
     }
 
+    // AppManager::propagate_fonts: the Ruby setting
+    pub fn set_ruby(&mut self, on: bool) {
+        self.app.set_ruby(on);
+    }
+
     // Geometry only: wrapping and page offsets remain production ReaderApp logic.
     pub fn set_text_width(&mut self, width: u32) {
         self.text_width_override = Some(width);
@@ -345,6 +350,10 @@ impl Rig {
 
     pub fn font_line_h(&self) -> u16 {
         probe::font_line_h(&self.app)
+    }
+
+    pub fn font_ascent(&self) -> u16 {
+        probe::font_ascent(&self.app)
     }
 
     pub fn text_y(&self) -> u16 {

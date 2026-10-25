@@ -42,7 +42,7 @@ fn two_cli_runs_into_different_directories_are_byte_identical() {
     assert_eq!(r.code, 3, "{}", r.stderr);
     let fa = a.files();
     let fb = read_dir_files(&out);
-    assert_eq!(fa.len(), 9 + 3, "default sizes + three text files");
+    assert_eq!(fa.len(), 14 + 3, "default sizes + three text files");
     assert_eq!(fa.keys().collect::<Vec<_>>(), fb.keys().collect::<Vec<_>>());
     for (name, bytes) in &fa {
         assert!(bytes == &fb[name], "{name} differs between runs");
@@ -138,7 +138,7 @@ fn one_extra_trailing_font_byte_changes_only_the_font_id_field_of_the_packs() {
 
 #[test]
 fn each_size_in_one_run_has_its_own_font_id() {
-    // font_id depends on pixel size: 9 default sizes give 9 distinct ids (header bytes 8..16)
+    // font_id depends on pixel size: 14 default sizes give 14 distinct ids (header bytes 8..16)
     let out = convert_with(&bookerly_bytes(), &DEFAULT_SIZES, None);
     let mut ids: Vec<[u8; 8]> = DEFAULT_SIZES
         .iter()

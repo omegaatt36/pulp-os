@@ -98,14 +98,14 @@ pub const fn next_page(
 // ---------------------------------------------------------------------------
 // record
 
-pub const FORMAT_VERSION: u16 = 1;
+pub const FORMAT_VERSION: u16 = 2;
 const MAGIC: [u8; 4] = *b"PGIX";
 const FOOTER_MAGIC: [u8; 4] = *b"PGOK";
 const FLAG_COMPLETE: u16 = 1;
 
 /// Bytes of one page entry: offset (u32), style flags (u8), indent (u8).
 pub const ENTRY_BYTES: usize = 6;
-pub const KEY_BYTES: usize = 51;
+pub const KEY_BYTES: usize = 61;
 
 /// `LayoutKey::banks` bits: the layout used the body / heading fallback pack
 /// (bits 0, 1) and that pack was installed (bits 2, 3).
@@ -114,8 +114,9 @@ pub const BANK_HEADING_USED: u8 = 1 << 1;
 pub const BANK_BODY_INSTALLED: u8 = 1 << 2;
 pub const BANK_HEADING_INSTALLED: u8 = 1 << 3;
 // byte of the key that holds `banks`: source 8, chapter 2, text size 4, layout
-// version 2, latin signature 4, two pixel sizes 4, two font ids 16
-const BANKS_AT_IN_KEY: usize = 8 + 2 + 4 + 2 + 4 + 2 + 2 + 8 + 8;
+// version 2, latin signature 4, two pixel sizes 4, two font ids 16, ruby pixel
+// size 2 and font id 8
+const BANKS_AT_IN_KEY: usize = 8 + 2 + 4 + 2 + 4 + 2 + 2 + 8 + 8 + 2 + 8;
 pub const HEADER_BYTES: usize = 4 + 2 + 2 + KEY_BYTES + 4 + 4;
 pub const FOOTER_BYTES: usize = 8 + 4 + 4;
 
@@ -140,6 +141,12 @@ pub struct LayoutKey {
     /// Font ids of the packs in use (0 for a bank not in use or not installed).
     pub body_font: u64,
     pub heading_font: u64,
+    /// Pack size the readings of ruby groups are set in, 0 when they are left
+    /// out, and the font id of that pack (0 when it is not installed). Unlike
+    /// the fallback packs, the ruby pack is part of every layout that shows
+    /// readings: whether a chapter holds any is not known beforehand.
+    pub ruby_px: u16,
+    pub ruby_font: u64,
     /// Geometry: text width, text area height, line height, lines per page.
     pub text_w: u32,
     pub text_area_h: u16,
@@ -166,6 +173,8 @@ impl LayoutKey {
         put(&self.heading_px.to_le_bytes());
         put(&self.body_font.to_le_bytes());
         put(&self.heading_font.to_le_bytes());
+        put(&self.ruby_px.to_le_bytes());
+        put(&self.ruby_font.to_le_bytes());
         put(&[self.banks]);
         put(&self.text_w.to_le_bytes());
         put(&self.text_area_h.to_le_bytes());

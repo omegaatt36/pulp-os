@@ -415,7 +415,12 @@ macro_rules! full_cmap_tests {
 }
 
 full_cmap_tests!(
+    px10: 10,
+    px11: 11,
+    px12: 12,
+    px14: 14,
     px16: 16,
+    px18: 18,
     px19: 19,
     px23: 23,
     px27: 27,
@@ -427,9 +432,12 @@ full_cmap_tests!(
 );
 
 #[test]
-fn default_sizes_are_the_nine_this_file_covers() {
+fn default_sizes_are_the_fourteen_this_file_covers() {
     // the macro above lists the sizes literally; keep it in step with the converter default
-    assert_eq!(DEFAULT_SIZES, [16, 19, 23, 27, 28, 32, 35, 38, 46]);
+    assert_eq!(
+        DEFAULT_SIZES,
+        [10, 11, 12, 14, 16, 18, 19, 23, 27, 28, 32, 35, 38, 46]
+    );
 }
 
 #[test]

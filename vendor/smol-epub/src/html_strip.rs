@@ -7,6 +7,7 @@
 //!
 //! Marker encoding: `[0x01, tag]`. Inline: `B`/`b` `I`/`i`.
 //! Block: `H`/`h` `Q`/`q` `S` (hr). Image: `P` (path follows).
+//! Ruby: `R` base text `T` reading `r`, see [`RUBY_OPEN`].
 
 use alloc::vec::Vec;
 
@@ -36,6 +37,22 @@ pub const QUOTE_OFF: u8 = b'q';
 pub const BREAK: u8 = b'S';
 /// Style tag: inline image reference (`[MARKER, IMG_REF, len, path…]`).
 pub const IMG_REF: u8 = b'P';
+
+/// Ruby group start (`[MARKER, RUBY_OPEN]`). A group reads
+/// `OPEN base READING reading CLOSE`: the base text, then the reading set
+/// beside it. A group holds at most [`RUBY_BASE_MAX`] base bytes and
+/// [`RUBY_READING_MAX`] reading bytes, holds no line break or other marker
+/// but [`RUBY_READING`] and [`RUBY_CLOSE`], and is always closed. A group
+/// the markup gave no reading ends at its `CLOSE` without a `READING`.
+pub const RUBY_OPEN: u8 = b'R';
+/// Ruby group: the base text ends, the reading follows (`[MARKER, RUBY_READING]`).
+pub const RUBY_READING: u8 = b'T';
+/// Ruby group end (`[MARKER, RUBY_CLOSE]`).
+pub const RUBY_CLOSE: u8 = b'r';
+/// Most base bytes of one ruby group; a longer base is split into groups.
+pub const RUBY_BASE_MAX: usize = 48;
+/// Most reading bytes of one ruby group; the rest of a longer reading is dropped.
+pub const RUBY_READING_MAX: usize = 48;
 
 /// Returns `true` if `b` is the [`MARKER`] escape byte.
 #[inline]
@@ -74,6 +91,17 @@ enum Phase {
     ImgValStart,
     ImgSrcVal,
     ImgSkipVal,
+}
+
+// where the markup is inside a <ruby> element
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+enum Ruby {
+    Off,
+    // base text, which an <rt> annotates
+    Base,
+    // inside an <rt>: its text is the reading, its tags are ignored
+    Reading,
 }
 
 impl Default for HtmlStripStream {
@@ -133,6 +161,14 @@ pub struct HtmlStripStream {
     pend_w: u8,
     pend_r: u8,
 
+    // ruby: a group is open from its RUBY_OPEN marker to its RUBY_CLOSE one
+    ruby: Ruby,
+    ruby_group: bool,
+    // the next base text starts a group
+    ruby_open_pending: bool,
+    // bytes of the part (base or reading) in progress
+    ruby_len: u8,
+
     // image src capture (<img src="...">)
     img_src: [u8; IMG_SRC_CAP],
     img_w: u8,         // write cursor (accumulation at [3..]) / drain length
@@ -168,6 +204,10 @@ impl HtmlStripStream {
             pending: [0u8; PENDING_CAP],
             pend_w: 0,
             pend_r: 0,
+            ruby: Ruby::Off,
+            ruby_group: false,
+            ruby_open_pending: false,
+            ruby_len: 0,
             img_src: [0u8; IMG_SRC_CAP],
             img_w: 0,
             img_r: 0,
@@ -244,7 +284,7 @@ impl HtmlStripStream {
                     } else if is_html_ws(b) {
                         self.queue_ws();
                     } else {
-                        self.queue_text(b);
+                        self.queue_scalar(&[b]);
                     }
                 }
 
@@ -426,7 +466,7 @@ impl HtmlStripStream {
                             Some(cp) => self.queue_codepoint(cp),
                             None => {
                                 // unrecognised entity; emit literal '&'
-                                self.queue_text(b'&');
+                                self.queue_scalar(b"&");
                             }
                         }
                         self.phase = Phase::Text;
@@ -439,7 +479,7 @@ impl HtmlStripStream {
                         }
                     } else {
                         // invalid char or overflow; emit literal '&'
-                        self.queue_text(b'&');
+                        self.queue_scalar(b"&");
                         self.phase = Phase::Text;
                         advance = false; // reprocess this byte as text
                     }
@@ -625,6 +665,10 @@ impl HtmlStripStream {
 
         // a scalar cut off by the end of input is one U+FFFD
         self.flush_utf8();
+        // a ruby element the input left open
+        self.close_ruby_group();
+        self.ruby = Ruby::Off;
+        self.ruby_open_pending = false;
 
         // drain remaining pending bytes
         while self.pend_r < self.pend_w && op < output.len() {
@@ -681,9 +725,40 @@ impl HtmlStripStream {
         self.utf8 = fx;
     }
 
+    // one scalar of visible text; the only way text reaches `queue_text`
     fn queue_scalar(&mut self, s: &[u8]) {
+        if !self.ruby_admit(s.len()) {
+            return;
+        }
         for &b in s {
             self.queue_text(b);
+        }
+    }
+
+    // Whether `n` more bytes of visible text fit the ruby part in progress.
+    // A base that would outgrow its cap ends its group and goes on in a new
+    // one; the rest of a reading past its cap is dropped.
+    fn ruby_admit(&mut self, n: usize) -> bool {
+        let used = self.ruby_len as usize;
+        match self.ruby {
+            Ruby::Off => return true,
+            Ruby::Base if used + n > RUBY_BASE_MAX => {
+                self.close_ruby_group();
+                self.ruby_open_pending = true;
+                self.ruby_len = 0;
+            }
+            Ruby::Reading if used + n > RUBY_READING_MAX => return false,
+            _ => {}
+        }
+        self.ruby_len += n as u8;
+        true
+    }
+
+    fn close_ruby_group(&mut self) {
+        if self.ruby_group {
+            self.push_pending(MARKER);
+            self.push_pending(RUBY_CLOSE);
+            self.ruby_group = false;
         }
     }
 
@@ -705,6 +780,15 @@ impl HtmlStripStream {
         }
         self.deferred_len = 0;
 
+        // the group starts at its first base text, after the newlines and
+        // style markers that precede it
+        if self.ruby_open_pending {
+            self.push_pending(MARKER);
+            self.push_pending(RUBY_OPEN);
+            self.ruby_open_pending = false;
+            self.ruby_group = true;
+        }
+
         self.push_pending(b);
         self.last_was_space = false;
         self.has_output = true;
@@ -712,7 +796,7 @@ impl HtmlStripStream {
 
     // handle whitespace byte; collapse runs to a single space
     fn queue_ws(&mut self) {
-        if self.last_was_space || !self.has_output {
+        if self.last_was_space || !self.has_output || !self.ruby_admit(1) {
             return;
         }
         self.last_was_space = true;
@@ -730,7 +814,11 @@ impl HtmlStripStream {
         if cp == 0 {
             return;
         }
-        // newline
+        // newline; a reading has none
+        if cp == 0x0A && self.ruby == Ruby::Reading {
+            self.queue_ws();
+            return;
+        }
         if cp == 0x0A {
             self.trailing_nl = self.trailing_nl.saturating_add(1).min(2);
             self.last_was_space = true;
@@ -744,9 +832,7 @@ impl HtmlStripStream {
         // encode to UTF-8 and queue each byte
         let mut tmp = [0u8; 4];
         let n = encode_codepoint_utf8(cp, &mut tmp);
-        for i in 0..n {
-            self.queue_text(tmp[i]);
-        }
+        self.queue_scalar(&tmp[..n]);
     }
 
     // classify accumulated tag name; push close markers to pending, open to deferred
@@ -759,7 +845,12 @@ impl HtmlStripStream {
         let name = &tn[..tn_len];
         let is_close = self.is_close_tag;
 
-        // skip-content tags (script/style/head, ruby rt/rp); open only
+        if self.classify_ruby(name, is_close) {
+            return;
+        }
+
+        // skip-content tags (script/style/head, an <rt> that annotates no
+        // base, <rp>); open only
         if !is_close && let Some(sk) = SkipTag::from_name(name) {
             self.skip_target = Some(sk);
             self.enter_skip = true;
@@ -799,6 +890,61 @@ impl HtmlStripStream {
             self.capture_img = true;
             self.img_w = 3; // reserve [0..3] for marker header
             self.img_is_src = false;
+        }
+    }
+
+    // Ruby markup: <ruby> base <rt> reading </rt> [base <rt> reading </rt>]
+    // </ruby>. Returns true when the tag is dealt with here. An <rt> that
+    // follows no base falls through to the skip-content tags, as <rp> does.
+    fn classify_ruby(&mut self, name: &[u8], is_close: bool) -> bool {
+        match (name, is_close) {
+            (b"ruby", false) => {
+                if self.ruby == Ruby::Off {
+                    self.ruby = Ruby::Base;
+                    self.ruby_open_pending = true;
+                    self.ruby_len = 0;
+                }
+                true
+            }
+            (b"ruby", true) => {
+                self.close_ruby_group();
+                self.ruby = Ruby::Off;
+                self.ruby_open_pending = false;
+                true
+            }
+            (b"rt", false) => match self.ruby {
+                Ruby::Base if self.ruby_group => {
+                    self.push_pending(MARKER);
+                    self.push_pending(RUBY_READING);
+                    self.ruby = Ruby::Reading;
+                    self.ruby_len = 0;
+                    true
+                }
+                Ruby::Reading => true,
+                _ => false,
+            },
+            (b"rt", true) => {
+                if self.ruby == Ruby::Reading {
+                    self.close_ruby_group();
+                    self.ruby = Ruby::Base;
+                    self.ruby_open_pending = true;
+                    self.ruby_len = 0;
+                }
+                true
+            }
+            // a reading is text only
+            _ if self.ruby == Ruby::Reading => true,
+            _ => {
+                // a break ends the base: a group holds no line break
+                if self.ruby == Ruby::Base
+                    && (is_block_element(name) || matches!(name, b"br" | b"hr" | b"img" | b"image"))
+                {
+                    self.close_ruby_group();
+                    self.ruby_open_pending = true;
+                    self.ruby_len = 0;
+                }
+                false
+            }
         }
     }
 

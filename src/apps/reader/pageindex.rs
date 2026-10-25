@@ -54,6 +54,12 @@ impl ReaderApp {
                 banks |= BANK_HEADING_INSTALLED;
             }
         }
+        // the pack of the readings is part of every layout that shows them
+        let (mut ruby_px, mut ruby_font) = (0, 0);
+        if let Some(px) = self.ruby_px() {
+            ruby_px = px;
+            ruby_font = fonts::cjk::bank_identity(k, px)?.font_id;
+        }
         // the built-in metrics; the monospace layout (no font set) has none
         let latin_sig = match self.fonts {
             Some(set) if fonts::font_data::HAS_REGULAR => set.signature(),
@@ -70,6 +76,8 @@ impl ReaderApp {
             banks,
             body_font,
             heading_font,
+            ruby_px,
+            ruby_font,
             text_w: self.text_w,
             text_area_h: self.text_area_h,
             line_h: self.font_line_h,
@@ -173,9 +181,15 @@ impl ReaderApp {
         // absent from its first visible/prefetched windows. Keep that identity
         // so resume checks replacements before using any stored page offsets.
         self.pg.banks_used = want.banks & (BANK_BODY_USED | BANK_HEADING_USED);
-        self.layout_identity = Some(super::LayoutIdentity {
+        self.adopt_layout_identity(super::LayoutIdentity {
             body_px: want.body_px,
             heading_px: want.heading_px,
+            ruby_px: (want.ruby_px != 0).then_some(want.ruby_px),
+            ruby: (want.ruby_px != 0).then_some(fonts::cjk::BankIdentity {
+                pixel_size: want.ruby_px,
+                font_id: want.ruby_font,
+                installed: want.ruby_font != 0,
+            }),
             body: (want.banks & BANK_BODY_USED != 0).then_some(fonts::cjk::BankIdentity {
                 pixel_size: want.body_px,
                 font_id: want.body_font,

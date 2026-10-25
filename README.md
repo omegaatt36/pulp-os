@@ -46,8 +46,8 @@ cargo run-c61-boot            # Hardware bring-up diagnostic image
 # Offline or custom builds (pass explicit features)
 cargo build --release --target riscv32imac-unknown-none-elf
 
-# Vertical writing on the device
-cargo device-fixtures                      # VERTRUBY.EPU into target/device-fixtures
+# Ruby and vertical writing on the device
+cargo device-fixtures                      # VERTRUBY.EPU and HORIRUBY.EPU into target/device-fixtures
 ```
 
 ### Tests & Verification
@@ -93,7 +93,8 @@ An EPUB whose spine declares `page-progression-direction="rtl"` and whose `dc:la
 - **Brackets, dashes, ellipsis, stops:** the pack's vertical presentation form (`U+FE10..FE48`) when it has one. Otherwise brackets and dashes are the horizontal glyph turned a quarter clockwise; `，、。：；` stay upright.
 - **Latin text and digits:** turned a quarter clockwise, on their own advance.
 - **Images:** an inline image takes whole columns, up to 60% of the text width and as tall as the text area. It never straddles a page edge and a page holds one: an image that does not fit, or follows another, starts the next page.
-- **Not yet:** ruby, tate-chu-yoko, emphasis marks.
+- **Ruby:** see below.
+- **Not yet:** tate-chu-yoko, emphasis marks.
 
 Render pages from the real reader without hardware:
 
@@ -103,6 +104,25 @@ cargo run -p pulp-host --bin vertical-preview --target host-tuple \
 ```
 
 `PACK_DIR` holds the `F000nn.PFN` packs from `pulp-fontconv`; `pulp-fontconv pbm-to-png OUT_DIR` converts the PBMs to PNG.
+
+---
+
+## Ruby (furigana)
+
+`<ruby>` readings (the hiragana over a kanji, or zhuyin and pinyin) are set beside their base text, in lines and in columns. Settings → **Ruby: On** turns them on; they are off by default and the book is then laid out as before, readings dropped.
+
+- **Rows:** the reading is centred above its base text. **Columns:** it is centred to the right of it.
+- **Group width:** a base and its reading are one unbreakable unit as long as the longer of the two; the shorter is centred on it. A reading never overhangs its neighbours and a line never breaks inside a group.
+- **Line pitch:** with Ruby on, every line (every column) takes room for a reading, as Japanese typesetting does: the pitch is at least the body size, the ruby size, a 1 px gap and half a ruby size of lead. A looser reading theme keeps its own, larger pitch.
+- **Ruby packs:** a reading is set at about half the body size from its own SD pack: 10, 11, 12, 14 and 18 px for the five book font sizes. They come with the default `pulp-fontconv` sizes and `pulp-fontconv bundle` (`fonts/cjk.json`); copy them to `_PULP/FONTS` with the others. Without the pack for the book font size the readings are left out, the lines keep the room.
+- **Markup:** `<rp>` fallback parentheses are dropped. A group holds at most 48 bytes of base text (a longer base is split into several groups) and 48 bytes of reading (the rest is dropped). An `<rt>` with no base before it, and a second annotation row (`<rtc>`), are dropped.
+
+Check it on the device with `cargo device-fixtures` (`VERTRUBY.EPU`, `HORIRUBY.EPU`: Japanese with hiragana readings, in columns and in lines), and without hardware:
+
+```sh
+cargo run -p pulp-host --bin ruby-preview --target host-tuple \
+  --config 'unstable.build-std=["std","test"]' -- OUT_DIR PACK_DIR [FONT_IDX [THEME [PAGES [off]]]]
+```
 
 ---
 

@@ -33,12 +33,16 @@ use smol_epub::html_strip::{IMG_REF, MARKER};
 
 pub const BODY_PIXELS: [u16; 5] = [16, 19, 23, 28, 35];
 pub const HEADING_PIXELS: [u16; 5] = [23, 27, 32, 38, 46];
+// A ruby reading is about half the body size.
+pub const RUBY_PIXELS: [u16; 5] = [10, 11, 12, 14, 18];
 // Body state: class-placed metrics <=16 KiB (growth can temporarily
 // hold old and new vectors, <=32 KiB), two 700-slot tables (16,800 bytes each
 // on the 32-bit boards), scratch
 // <=4 KiB. Bitmap bytes and slot tables use the explicit FontGlyphs board budget, in PSRAM on
 // C61. Actual-sized slots and bitmaps share the unchanged HR2/degraded cap;
 // combined worst cases may be refused through the existing recoverable path.
+// The reader's ruby role (readings of one page, one small pack size): 256 slots
+// and <=16 KiB of bitmaps, no metrics of its own (they share the table above).
 // Auxiliary surfaces are body role only: <=4 KiB metrics, 170 slots (~4 KiB)
 // and <=32 KiB bitmaps each. Alive together with the reader are its title, its
 // TOC and the manager overlay; Files, Home and Settings clear their surfaces
@@ -48,12 +52,16 @@ pub const HEADING_PIXELS: [u16; 5] = [23, 27, 32, 38, 46];
 // by `clear`: 4 KiB each for the reader, 508 bytes each for an auxiliary surface.
 // Board allocation bound. The 64-bit host uses the same slot counts with
 // larger pointer-sized metadata to simulate preparation, not board heap use.
-pub const CJK_STORAGE_BUDGET: usize = 336 * 1024;
+pub const CJK_STORAGE_BUDGET: usize = 360 * 1024;
 const METRIC_BUDGET: usize = 16 * 1024;
 const SLOT_BUDGET: usize = 700 * size_of::<PageGlyphSlot>();
 const BITMAP_BUDGET: usize = 64 * 1024;
 const CACHE_BUDGET: usize = SLOT_BUDGET + BITMAP_BUDGET + size_of::<OwnedCache>();
 const SCRATCH_BUDGET: usize = 4 * 1024;
+// The ruby role holds the readings of one page: kana of one small size.
+const RUBY_SLOT_BUDGET: usize = 256 * size_of::<PageGlyphSlot>();
+const RUBY_BITMAP_BUDGET: usize = 16 * 1024;
+const RUBY_CACHE_BUDGET: usize = RUBY_SLOT_BUDGET + RUBY_BITMAP_BUDGET + size_of::<OwnedCache>();
 const AUX_SURFACES: usize = 3;
 const AUX_METRIC_BUDGET: usize = 4 * 1024;
 // 170 slots is what 4 KiB holds with the 24-byte slot of the 32-bit targets;
@@ -87,6 +95,7 @@ const _: () = {
         assert!(
             2 * METRIC_BUDGET
                 + 2 * CACHE_BUDGET
+                + RUBY_CACHE_BUDGET
                 + SCRATCH_BUDGET
                 + INDEX_BUDGET
                 + size_of::<CjkState>()
@@ -101,8 +110,10 @@ const _: () = {
 };
 // This checks bitmap allowance alone; slot bytes also consume FontGlyphs
 // on C61, so the allocator can refuse their combined HR2/degraded peak.
-const _: () =
-    assert!(2 * BITMAP_BUDGET + AUX_SURFACES * AUX_BITMAP_BUDGET <= FONT_GLYPHS_PSRAM_BYTES);
+const _: () = assert!(
+    2 * BITMAP_BUDGET + RUBY_BITMAP_BUDGET + AUX_SURFACES * AUX_BITMAP_BUDGET
+        <= FONT_GLYPHS_PSRAM_BYTES
+);
 
 fn failure(kind: ErrorKind) -> Error {
     Error::from_kind(kind).with_source("font")
@@ -788,6 +799,9 @@ pub struct CjkState {
     index_levels: u32,
     body: Option<(u16, OwnedCache)>,
     heading: Option<(u16, OwnedCache)>,
+    // ruby readings: set when the book's readings are shown (`set_ruby_px`)
+    ruby: Option<(u16, OwnedCache)>,
+    ruby_px: Option<u16>,
     // The roles are drawable only when a whole preparation has finished: a paused
     // one leaves a finished body role beside an unfinished heading role.
     ready: bool,
@@ -811,6 +825,8 @@ impl CjkState {
             index_levels: INDEX_LEVELS,
             body: None,
             heading: None,
+            ruby: None,
+            ruby_px: None,
             ready: false,
             pace: Pace::new(),
             heading_role: true,
@@ -832,6 +848,8 @@ impl CjkState {
             index_levels: AUX_INDEX_LEVELS,
             body: None,
             heading: None,
+            ruby: None,
+            ruby_px: None,
             ready: false,
             pace: Pace::new(),
             heading_role: false,
@@ -848,7 +866,17 @@ impl CjkState {
         self.index = IndexBanks::new();
         self.body = None;
         self.heading = None;
+        self.ruby = None;
         self.ready = false;
+    }
+    /// Show the readings of ruby groups, set in the `px` pack; `None` leaves them
+    /// out. Survives `clear` like the writing mode: it is a setting of the book.
+    pub fn set_ruby_px(&mut self, px: Option<u16>) {
+        if self.ruby_px != px {
+            self.ruby = None;
+            self.ready = false;
+        }
+        self.ruby_px = px;
     }
     /// Set text in columns. Survives `clear`: it is the book's writing mode,
     /// not prepared data.
@@ -950,11 +978,16 @@ impl CjkState {
         let mut collection = Ok(());
         let mut any = false;
         let vertical = self.vertical;
+        let ruby_px = self.ruby_px;
         scan_at(text, initial_flags, |at, ch, sty| {
+            // readings left out are not looked up
+            if sty == Style::Ruby && ruby_px.is_none() {
+                return true;
+            }
             if at < prefix {
                 if collection.is_ok() && needs(latin, ch, sty) {
                     any = true;
-                    let px = pixel_size(sty, body_px, heading_px);
+                    let px = pixel_size(sty, body_px, heading_px, ruby_px);
                     collection = note(
                         &mut self.metrics,
                         self.metric_budget,
@@ -1086,9 +1119,13 @@ impl CjkState {
     ) -> Result<()> {
         let mut valid = true;
         let vertical = self.vertical;
+        let ruby_px = self.ruby_px;
         scan(text, initial_flags, |ch, sty| {
+            if sty == Style::Ruby && ruby_px.is_none() {
+                return;
+            }
             if needs(latin, ch, sty) {
-                let px = pixel_size(sty, body_px, heading_px);
+                let px = pixel_size(sty, body_px, heading_px, ruby_px);
                 for c in [Some(ch), vertical_form(vertical, ch)]
                     .into_iter()
                     .flatten()
@@ -1135,6 +1172,7 @@ impl CjkState {
             Err(_) => {
                 self.body = None;
                 self.heading = None;
+                self.ruby = None;
             }
         }
         result
@@ -1147,16 +1185,22 @@ impl CjkState {
         stats: &mut Stats,
     ) -> Result<()> {
         self.pace.start();
-        for (role, px) in [(0, body_px), (1, heading_px)] {
-            let slot = if role == 0 {
-                &mut self.body
-            } else {
-                &mut self.heading
+        let ruby_px = self.ruby_px.unwrap_or(0);
+        for (role, px) in [(0, body_px), (1, heading_px), (2, ruby_px)] {
+            let slot = match role {
+                0 => &mut self.body,
+                1 => &mut self.heading,
+                _ => &mut self.ruby,
             };
-            if role == 1 && (px == body_px || !self.heading_role) {
+            if (role == 1 && (px == body_px || !self.heading_role)) || (role == 2 && px == 0) {
                 *slot = None;
                 continue;
             }
+            let (slot_budget, bitmap_budget) = if role == 2 {
+                (RUBY_SLOT_BUDGET, RUBY_BITMAP_BUDGET)
+            } else {
+                (self.slot_budget, self.bitmap_budget)
+            };
             let count = self
                 .metrics
                 .iter()
@@ -1181,8 +1225,8 @@ impl CjkState {
                     .ok_or(failure(ErrorKind::BufferTooSmall))?;
             }
             let needed = size_of::<OwnedCache>() + count * size_of::<PageGlyphSlot>() + bitmap_len;
-            let cache_budget = self.slot_budget + self.bitmap_budget + size_of::<OwnedCache>();
-            if needed > cache_budget || bitmap_len > self.bitmap_budget {
+            let cache_budget = slot_budget + bitmap_budget + size_of::<OwnedCache>();
+            if needed > cache_budget || bitmap_len > bitmap_budget {
                 return Err(failure(ErrorKind::BufferTooSmall));
             }
             stats.scalars(count);
@@ -1209,7 +1253,7 @@ impl CjkState {
                         drop(slots);
                         if count
                             .checked_mul(size_of::<PageGlyphSlot>())
-                            .is_none_or(|n| n > self.slot_budget)
+                            .is_none_or(|n| n > slot_budget)
                         {
                             return Err(failure(ErrorKind::BufferTooSmall));
                         }
@@ -1222,7 +1266,7 @@ impl CjkState {
                         bitmaps = BigBuf::zeroed(BufClass::FontGlyphs, bitmap_len)
                             .map_err(|_| failure(ErrorKind::OutOfMemory))?;
                     }
-                    if bitmaps.len() > self.bitmap_budget {
+                    if bitmaps.len() > bitmap_budget {
                         return Err(failure(ErrorKind::BufferTooSmall));
                     }
                     let mut cache = PageCache::new(slots, bitmaps, cache_budget)
@@ -1276,6 +1320,7 @@ impl CjkState {
             state: self,
             body_px,
             heading_px,
+            ruby_px: self.ruby_px,
             vertical: self.vertical,
         }
     }
@@ -1286,6 +1331,7 @@ impl CjkState {
         self.body
             .iter()
             .chain(self.heading.iter())
+            .chain(self.ruby.iter())
             .find(|(size, _)| *size == px)?
             .1
             .get(ch)
@@ -1317,6 +1363,8 @@ pub struct LayoutFonts<'a> {
     state: &'a CjkState,
     body_px: u16,
     heading_px: u16,
+    // None: the readings of ruby groups are left out
+    ruby_px: Option<u16>,
     vertical: bool,
 }
 pub type PreparedFonts<'a> = LayoutFonts<'a>;
@@ -1345,7 +1393,10 @@ impl LayoutFonts<'_> {
                 9
             };
         }
-        let key = (pixel_size(sty, self.body_px, self.heading_px), ch);
+        let key = (
+            pixel_size(sty, self.body_px, self.heading_px, self.ruby_px),
+            ch,
+        );
         self.state
             .metrics
             .binary_search_by_key(&key, Entry::key)
@@ -1362,12 +1413,83 @@ impl LayoutFonts<'_> {
     pub fn vertical(&self) -> bool {
         self.vertical
     }
+    /// Pack size the readings of ruby groups are set in; `None` when they are left out.
+    pub fn ruby_px(&self) -> Option<u16> {
+        self.ruby_px
+    }
+    /// Length along the line of the base of `group` and of its reading (0 when
+    /// readings are left out), and the style the text goes on in after the base.
+    pub fn measure_ruby(
+        &self,
+        group: &super::ruby::Group<'_>,
+        styles: StyleState,
+    ) -> (u32, u32, StyleState) {
+        let mut base = 0u32;
+        let after = group.each_base(styles, |ch, sty| base += u32::from(self.advance(ch, sty)));
+        let mut reading = 0u32;
+        if self.ruby_px.is_some() {
+            group.each_reading(|ch| reading += u32::from(self.advance(ch, Style::Ruby)));
+        }
+        (base, reading, after)
+    }
+    /// Set a ruby group in a row at `x`: its base on `baseline`, its reading in the
+    /// room above the base, whose em box starts at `line_top`. Returns the length
+    /// of the group and the style after it.
+    pub fn draw_ruby_row(
+        &self,
+        s: &mut StripBuffer,
+        group: &super::ruby::Group<'_>,
+        styles: StyleState,
+        x: i32,
+        baseline: i32,
+        line_top: i32,
+    ) -> (i32, StyleState) {
+        let (base_len, reading_len, after) = self.measure_ruby(group, styles);
+        let span = super::ruby::span(base_len, reading_len);
+        let mut bx = x + span.base_at as i32;
+        group.each_base(styles, |ch, sty| {
+            bx += i32::from(self.draw_char(s, ch, sty, bx, baseline));
+        });
+        if let Some(px) = self.ruby_px.filter(|_| reading_len > 0) {
+            let mut rx = x + span.reading_at as i32;
+            let rb = line_top + super::ruby::row_reading_baseline(px);
+            group.each_reading(|ch| {
+                rx += i32::from(self.draw_char(s, ch, Style::Ruby, rx, rb));
+            });
+        }
+        (span.len as i32, after)
+    }
+    /// Set a ruby group in a column whose base text is centred on `base_center`
+    /// and whose reading is centred on `reading_center`, both starting at `top`.
+    /// Returns the length of the group and the style after it.
+    pub fn draw_ruby_column(
+        &self,
+        s: &mut StripBuffer,
+        group: &super::ruby::Group<'_>,
+        styles: StyleState,
+        centers: (i32, i32),
+        top: i32,
+    ) -> (i32, StyleState) {
+        let (base_len, reading_len, after) = self.measure_ruby(group, styles);
+        let span = super::ruby::span(base_len, reading_len);
+        let mut by = top + span.base_at as i32;
+        group.each_base(styles, |ch, sty| {
+            by += i32::from(self.draw_vertical_char(s, ch, sty, centers.0, by));
+        });
+        if self.ruby_px.is_some() && reading_len > 0 {
+            let mut ry = top + span.reading_at as i32;
+            group.each_reading(|ch| {
+                ry += i32::from(self.draw_vertical_char(s, ch, Style::Ruby, centers.1, ry));
+            });
+        }
+        (span.len as i32, after)
+    }
     /// Advance along a column. Everything the pack supplies is one em, and so
     /// are the dashes and ellipsis of the Latin set (turned into an em cell);
     /// other Latin-set scalars are turned sideways on their own advance.
     fn vertical_advance(&self, ch: char, sty: Style) -> u16 {
         if needs(self.latin, ch, sty) || super::vertical::presentation_form(ch).is_some() {
-            return pixel_size(sty, self.body_px, self.heading_px);
+            return pixel_size(sty, self.body_px, self.heading_px, self.ruby_px);
         }
         if super::font_data::HAS_REGULAR {
             self.latin.advance(ch, sty).into()
@@ -1387,7 +1509,7 @@ impl LayoutFonts<'_> {
         top: i32,
     ) -> u16 {
         use super::vertical::{Setting, em_ascent, presentation_form, setting, turned_origin};
-        let px = pixel_size(sty, self.body_px, self.heading_px);
+        let px = pixel_size(sty, self.body_px, self.heading_px, self.ruby_px);
         let left = center_x - i32::from(px) / 2;
         let ascent = em_ascent(px);
         if !needs(self.latin, ch, sty) {
@@ -1509,7 +1631,7 @@ impl LayoutFonts<'_> {
                 .draw_char_fg(s, ch, fg, x, baseline)
                 .into();
         }
-        let px = pixel_size(sty, self.body_px, self.heading_px);
+        let px = pixel_size(sty, self.body_px, self.heading_px, self.ruby_px);
         let Some(g) = self.state.get(px, ch) else {
             return draw_missing_box(s, px, fg, x, baseline);
         };
@@ -1559,8 +1681,12 @@ fn fallback_info(pixel_size: u16) -> pulp_fontpack::FontInfo {
         ascent: pixel_size,
     }
 }
-fn pixel_size(sty: Style, body: u16, heading: u16) -> u16 {
-    if sty == Style::Heading { heading } else { body }
+fn pixel_size(sty: Style, body: u16, heading: u16, ruby: Option<u16>) -> u16 {
+    match sty {
+        Style::Heading => heading,
+        Style::Ruby => ruby.unwrap_or(body),
+        _ => body,
+    }
 }
 fn needs(latin: FontSet, ch: char, sty: Style) -> bool {
     ch >= ' '
@@ -1575,6 +1701,7 @@ fn style_flags(style: Style) -> u8 {
         Style::Bold => 1,
         Style::Italic => 2,
         Style::Heading => 4,
+        Style::Ruby => 8,
     }
 }
 fn scan(text: &[u8], initial_flags: u8, mut f: impl FnMut(char, Style)) {

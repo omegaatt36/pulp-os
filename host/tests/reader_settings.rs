@@ -127,6 +127,7 @@ fn defaults_are_the_baseline_values() {
     assert_eq!(s.ui_font_size_idx, 2);
     assert_eq!(s.reading_theme, 1);
     assert!(!s.swap_buttons);
+    assert!(!s.ruby, "readings are asked for, not assumed");
     let (p, w) = parse(b"");
     assert_eq!(p.sleep_timeout, s.sleep_timeout);
     assert_eq!(p.reading_theme, s.reading_theme);
@@ -214,6 +215,10 @@ fn corrupt_values_keep_the_previous_value() {
     assert!(s.swap_buttons);
     let (s, _) = parse(b"swap_buttons=1\nswap_buttons=0\n");
     assert!(!s.swap_buttons, "last assignment wins");
+    let (s, _) = parse(b"ruby=1\n");
+    assert!(s.ruby);
+    let (s, _) = parse(b"ruby=yes\n");
+    assert!(!s.ruby, "anything but 1/true is false");
 }
 
 #[test]
@@ -280,7 +285,7 @@ fn serialized_text_is_the_baseline_text() {
     let text = String::from_utf8(written(&s, &w)).unwrap();
     assert_eq!(
         text,
-        "# pulp-os settings\n# lines starting with # are ignored\n\n# power settings\nsleep_timeout=10\nghost_clear=10\n\n# font settings\nbook_font=2\nui_font=2\n\n# reading settings (0=Compact, 1=Default, 2=Relaxed, 3=Spacious)\nreading_theme=1\n\n# control settings\nswap_buttons=0\n\n# wifi credentials for upload mode\nwifi_ssid=ssid\nwifi_pass=pw\n"
+        "# pulp-os settings\n# lines starting with # are ignored\n\n# power settings\nsleep_timeout=10\nghost_clear=10\n\n# font settings\nbook_font=2\nui_font=2\n\n# reading settings (0=Compact, 1=Default, 2=Relaxed, 3=Spacious)\nreading_theme=1\nruby=0\n\n# control settings\nswap_buttons=0\n\n# wifi credentials for upload mode\nwifi_ssid=ssid\nwifi_pass=pw\n"
     );
 }
 
@@ -430,10 +435,15 @@ fn settings_app_edits_steps_clamps_and_saves() {
     edit(&mut r, 4, Action::PrevJump, 9);
     assert_eq!(r.settings().reading_theme, 0);
     edit(&mut r, 5, Action::NextJump, 1);
-    assert!(r.settings().swap_buttons);
+    assert!(r.settings().ruby);
     edit(&mut r, 5, Action::PrevJump, 1);
-    assert!(!r.settings().swap_buttons, "swap toggles both ways");
+    assert!(!r.settings().ruby, "ruby toggles both ways");
     edit(&mut r, 5, Action::NextJump, 1);
+    edit(&mut r, 6, Action::NextJump, 1);
+    assert!(r.settings().swap_buttons);
+    edit(&mut r, 6, Action::PrevJump, 1);
+    assert!(!r.settings().swap_buttons, "swap toggles both ways");
+    edit(&mut r, 6, Action::NextJump, 1);
 
     assert!(
         r.file().is_none(),
@@ -449,9 +459,10 @@ fn settings_app_edits_steps_clamps_and_saves() {
             s.book_font_size_idx,
             s.ui_font_size_idx,
             s.reading_theme,
+            s.ruby,
             s.swap_buttons
         ),
-        (5, 100, 0, 4, 0, true)
+        (5, 100, 0, 4, 0, true, true)
     );
 
     // a fresh boot reads back exactly what was saved
@@ -459,8 +470,13 @@ fn settings_app_edits_steps_clamps_and_saves() {
     r2.boot();
     let t = r2.settings();
     assert_eq!(
-        (t.sleep_timeout, t.book_font_size_idx, t.swap_buttons),
-        (5, 0, true)
+        (
+            t.sleep_timeout,
+            t.book_font_size_idx,
+            t.ruby,
+            t.swap_buttons
+        ),
+        (5, 0, true, true)
     );
 }
 

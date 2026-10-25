@@ -237,7 +237,7 @@ fn upstream_url_with_a_control_character_or_empty_is_a_usage_error_and_leaves_no
 
 #[test]
 fn iansui_provenance_names_the_font_upstream_and_licence_with_the_repo_licence_text() {
-    // default sizes through the CLI: 9 packs; font sha/len pinned from shasum; the repo's OFL.txt copied verbatim
+    // default sizes through the CLI: 14 packs; font sha/len pinned from shasum; the repo's OFL.txt copied verbatim
     let path = require_iansui!();
     let lic_path = repo_root().join("OFL.txt");
     let tmp = TempDir::new();
@@ -258,7 +258,7 @@ fn iansui_provenance_names_the_font_upstream_and_licence_with_the_repo_licence_t
         "https://github.com/ButTaiwan/iansui"
     );
     assert_eq!(get(&prov, "license_name"), "SIL OFL 1.1");
-    assert_eq!(get(&prov, "pack_count"), "9");
+    assert_eq!(get(&prov, "pack_count"), "14");
     assert_eq!(files["OFL.TXT"], std::fs::read(&lic_path).unwrap());
     assert_eq!(get(&prov, "license_sha256"), sha256_hex(&files["OFL.TXT"]));
     for px in DEFAULT_SIZES {

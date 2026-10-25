@@ -84,6 +84,7 @@ pub struct SystemSettings {
 
     // reading settings
     pub reading_theme: u8, // index into READING_THEMES
+    pub ruby: bool,        // set the readings of ruby (furigana) beside their base text
 
     // control settings
     pub swap_buttons: bool, // swap Back/Select with Left/Right physical buttons
@@ -103,6 +104,7 @@ impl SystemSettings {
             book_font_size_idx: DEFAULT_FONT_SIZE_IDX,
             ui_font_size_idx: DEFAULT_FONT_SIZE_IDX,
             reading_theme: DEFAULT_READING_THEME,
+            ruby: false,
             swap_buttons: false,
         }
     }
@@ -223,6 +225,9 @@ fn apply_setting(key: &[u8], val: &[u8], s: &mut SystemSettings, w: &mut WifiCon
                 s.reading_theme = v as u8;
             }
         }
+        b"ruby" => {
+            s.ruby = val == b"1" || val == b"true";
+        }
         b"swap_buttons" => {
             s.swap_buttons = val == b"1" || val == b"true";
         }
@@ -308,6 +313,7 @@ pub fn write_settings_txt(s: &SystemSettings, w: &WifiConfig, buf: &mut [u8]) ->
 
     wr.put(b"\n# reading settings (0=Compact, 1=Default, 2=Relaxed, 3=Spacious)\n");
     wr.kv_num(b"reading_theme", s.reading_theme as u16);
+    wr.kv_num(b"ruby", if s.ruby { 1 } else { 0 });
 
     wr.put(b"\n# control settings\n");
     wr.kv_num(b"swap_buttons", if s.swap_buttons { 1 } else { 0 });

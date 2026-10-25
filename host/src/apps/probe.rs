@@ -85,6 +85,10 @@ pub fn font_line_h(a: &ReaderApp) -> u16 {
     a.font_line_h
 }
 
+pub fn font_ascent(a: &ReaderApp) -> u16 {
+    a.font_ascent
+}
+
 pub fn text_y(a: &ReaderApp) -> u16 {
     a.text_y
 }

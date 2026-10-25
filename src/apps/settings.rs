@@ -1,12 +1,13 @@
 // settings app UI; configuration types live in kernel::config
 //
-// settings items (6 total, all fit on one screen at default font):
+// settings items (7 total, all fit on one screen at default font):
 //   0: Sleep After    – power management
 //   1: Ghost Clear    – e-paper refresh interval
 //   2: Book Font      – reading font size
 //   3: UI Font        – chrome font size
 //   4: Reading Theme  – Compact / Default / Relaxed / Spacious
-//   5: Swap Buttons   – swap Back/OK with Left/Right for left-handed use
+//   5: Ruby           – readings (furigana) beside their base text
+//   6: Swap Buttons   – swap Back/OK with Left/Right for left-handed use
 
 use core::fmt::Write as _;
 
@@ -39,7 +40,7 @@ const COL_GAP: u16 = 8;
 const VALUE_X: u16 = LABEL_X + LABEL_W + COL_GAP;
 const VALUE_W: u16 = FULL_CONTENT_W - LABEL_W - COL_GAP;
 
-const NUM_ITEMS: usize = 6;
+const NUM_ITEMS: usize = 7;
 const HEADING_ITEMS_GAP: u16 = SECTION_GAP;
 
 impl Default for SettingsApp {
@@ -167,7 +168,8 @@ impl SettingsApp {
             2 => "Book Font",
             3 => "UI Font",
             4 => "Theme",
-            5 => "Swap Buttons",
+            5 => "Ruby",
+            6 => "Swap Buttons",
             _ => "",
         }
     }
@@ -204,6 +206,9 @@ impl SettingsApp {
                 let _ = write!(buf, "{}", theme.name);
             }
             5 => {
+                let _ = write!(buf, "{}", if self.settings.ruby { "On" } else { "Off" });
+            }
+            6 => {
                 let _ = write!(
                     buf,
                     "{}",
@@ -252,6 +257,9 @@ impl SettingsApp {
                 }
             }
             5 => {
+                self.settings.ruby = !self.settings.ruby;
+            }
+            6 => {
                 self.settings.swap_buttons = !self.settings.swap_buttons;
             }
             _ => return,
@@ -290,6 +298,9 @@ impl SettingsApp {
                 }
             }
             5 => {
+                self.settings.ruby = !self.settings.ruby;
+            }
+            6 => {
                 self.settings.swap_buttons = !self.settings.swap_buttons;
             }
             _ => return,
