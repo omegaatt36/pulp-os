@@ -1648,7 +1648,61 @@ impl LayoutFonts<'_> {
         );
         m.advance
     }
+    /// Draws a prepared glyph magnified by whole pixels (flash cards).
+    pub fn draw_char_scaled(
+        &self,
+        s: &mut StripBuffer,
+        ch: char,
+        sty: Style,
+        fg: BinaryColor,
+        x: i32,
+        baseline: i32,
+        scale: u16,
+    ) -> u16 {
+        let px = pixel_size(sty, self.body_px, self.heading_px, self.ruby_px);
+        let scale = scale.max(1);
+        let Some(g) = self.state.get(px, ch) else {
+            return draw_missing_box(s, px, fg, x, baseline);
+        };
+        let m = g.metrics;
+        let (w, h) = (usize::from(m.width), usize::from(m.height));
+        let sw = w * usize::from(scale);
+        let stride = w.div_ceil(8);
+        if stride == 0 || h == 0 {
+            return m.advance * scale;
+        }
+        if sw.div_ceil(8) > SCALED_ROW_BYTES || g.bitmap.len() < stride * h {
+            return draw_missing_box(s, px, fg, x, baseline);
+        }
+        let gx = x + i32::from(m.offset_x) * i32::from(scale);
+        let gy = baseline + i32::from(m.offset_y) * i32::from(scale);
+        let mut row = [0u8; SCALED_ROW_BYTES];
+        for (r, src) in g.bitmap.chunks_exact(stride).take(h).enumerate() {
+            row.fill(0);
+            for sx in 0..sw {
+                let on = src[sx / usize::from(scale) / 8] & (0x80 >> (sx / usize::from(scale) % 8));
+                if on != 0 {
+                    row[sx / 8] |= 0x80 >> (sx % 8);
+                }
+            }
+            for rep in 0..usize::from(scale) {
+                s.blit_1bpp(
+                    &row,
+                    0,
+                    sw,
+                    1,
+                    sw.div_ceil(8),
+                    gx,
+                    gy + (r * usize::from(scale) + rep) as i32,
+                    fg == BinaryColor::On,
+                );
+            }
+        }
+        m.advance * scale
+    }
 }
+// widest magnified glyph row: a 46 px glyph at 4x is 23 bytes
+const SCALED_ROW_BYTES: usize = 24;
 // An invariant failure remains drawable without reaching a source.
 // Preparation validates visible keys before the reader publishes Ready.
 fn draw_missing_box(s: &mut StripBuffer, px: u16, fg: BinaryColor, x: i32, baseline: i32) -> u16 {

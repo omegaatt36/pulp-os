@@ -6,6 +6,8 @@
 build-c61    = "build --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi"
 run-c61      = "run --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi --bin pulp-os-c61"
 check-c61    = "check --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi"
+build-c61-cards = "build --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,flashcards"
+run-c61-cards = "run --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,flashcards --bin pulp-os-c61"
 build-c61-gray-wp = "build --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper"
 run-c61-gray-wp = "run --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper --bin pulp-os-c61"
 check-c61-gray-wp = "check --release --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,gray-wallpaper"

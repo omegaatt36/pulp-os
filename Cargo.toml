@@ -73,6 +73,11 @@ wifi = [
   "pulp-kernel/wifi",
 ]
 
+# Flash cards app (kana and SD vocabulary decks) and its Home entry (off by
+# default). No dependencies: the glyphs come from the SD font pack the reader
+# already uses.
+flashcards = []
+
 # Partial refresh (off by default).
 # Build with `cargo build-c61-partial`.
 partial-refresh = ["pulp-kernel/partial-refresh"]

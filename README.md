@@ -126,6 +126,39 @@ cargo run -p pulp-host --bin ruby-preview --target host-tuple \
 
 ---
 
+## Flash Cards
+
+Optional, off by default: build with `--features flashcards` (or
+`cargo build-c61-cards`) for a **Flash cards** entry on Home. It drills the
+built-in kana, or vocabulary decks from the SD card, with a Leitner box per
+card; with no clock, a card falls due a number of answers later, not days. The
+glyphs come from the 35 px SD font pack.
+
+The menu picks what to drill:
+
+- **Script / Cards / Rows**: hiragana, katakana or both; basic, voiced,
+  contracted or loanword sounds; or a single row (k-, sh-, ...).
+- **Direction**: kana to romaji, romaji to kana, or mixed. The two directions
+  keep separate progress.
+- **Focus**: all cards, or only the ones seen and not yet known.
+- **Overview**: the gojuon chart (a dot is new, a boxed kana is known), or the
+  new / learning / known counts of a vocabulary deck.
+
+A card counts as known after three hits in a row; the hint under a flipped card
+shows how many are left.
+
+A deck is `_PULP/VOCAB/{N5,N4,N3,N2,N1,CUSTOM}.TSV`, UTF-8, one word per line:
+`kanji<TAB>kana<TAB>gloss[<TAB>pitch]`. No vocabulary ships with the firmware.
+
+The optional `pitch` column is the pitch-accent number of the reading: `0` for
+flat (低高高…), `n` for a fall after the n-th mora (`1` is 頭高, `2`.. is 中高,
+or 尾高 when n is the last mora). The flipped card draws it as a contour over
+the reading: a line at the high or low level above each mora, with a stroke
+where the pitch changes. A word with two accents (`0,2`) shows two contours,
+the first nearest the reading; an accent past the reading's last mora is
+ignored, and a kana-only word shows its reading once it has a pitch. A device
+has no speaker, so this stands in for the audio.
+
 ## EPUB Streaming Limits
 
 Text chapters use bounded streaming rather than the 192 KiB in-memory extraction limit:

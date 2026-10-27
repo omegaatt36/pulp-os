@@ -21,10 +21,16 @@ const ITEM_GAP: u16 = 14;
 const ITEM_STRIDE: u16 = ITEM_H + ITEM_GAP;
 const ITEM_X: u16 = (SCREEN_W - ITEM_W) / 2;
 const TITLE_ITEM_GAP: u16 = 24;
-const MAX_ITEMS: usize = 5;
-// the Upload entry exists only when the Wi-Fi boundary is compiled in; the
-// offline firmware has no menu path into upload mode
-const UPLOAD_ITEMS: usize = cfg!(feature = "wifi") as usize;
+const MAX_ITEMS: usize = 6;
+// entries after Settings: Upload exists only when the Wi-Fi boundary is
+// compiled in (the offline firmware has no menu path into upload mode),
+// the flash cards only with the `flashcards` feature
+const EXTRA_ENTRIES: &[(&str, AppId)] = &[
+    #[cfg(feature = "wifi")]
+    ("Upload", AppId::Upload),
+    #[cfg(feature = "flashcards")]
+    ("Flash cards", AppId::Flashcards),
+];
 
 // bookmark list layout (matches Files app)
 const BM_ROW_H: u16 = 52;
@@ -45,6 +51,7 @@ fn compute_item_regions(heading_line_h: u16) -> [Region; MAX_ITEMS] {
         Region::new(ITEM_X, item_y + ITEM_STRIDE * 2, ITEM_W, ITEM_H),
         Region::new(ITEM_X, item_y + ITEM_STRIDE * 3, ITEM_W, ITEM_H),
         Region::new(ITEM_X, item_y + ITEM_STRIDE * 4, ITEM_W, ITEM_H),
+        Region::new(ITEM_X, item_y + ITEM_STRIDE * 5, ITEM_W, ITEM_H),
     ]
 }
 
@@ -94,7 +101,7 @@ impl HomeApp {
             ui_fonts: uf,
             label_fonts: fonts::cjk::SurfaceFonts::new(),
             item_regions: compute_item_regions(uf.heading.line_height),
-            item_count: 3 + UPLOAD_ITEMS, // updated after load; may include Continue
+            item_count: 3 + EXTRA_ENTRIES.len(), // updated after load; may include Continue
             recent_book: [0u8; 32],
             recent_book_len: 0,
             needs_load_recent: false,
@@ -194,7 +201,7 @@ impl HomeApp {
     }
 
     fn rebuild_item_count(&mut self) {
-        self.item_count = if self.recent_book_len > 0 { 4 } else { 3 } + UPLOAD_ITEMS;
+        self.item_count = if self.recent_book_len > 0 { 4 } else { 3 } + EXTRA_ENTRIES.len();
         if self.selected >= self.item_count {
             self.selected = 0;
         }
@@ -217,10 +224,9 @@ impl HomeApp {
             0 => "Files",
             1 => "Bookmarks",
             2 => "Settings",
-            #[cfg(feature = "wifi")]
-            _ => "Upload",
-            #[cfg(not(feature = "wifi"))]
-            _ => "Settings",
+            _ => EXTRA_ENTRIES
+                .get(idx - 3)
+                .map_or("Settings", |&(label, _)| label),
         }
     }
 
@@ -237,10 +243,11 @@ impl HomeApp {
             0 => MenuAction::Push(AppId::Files),
             1 => MenuAction::OpenBookmarks,
             2 => MenuAction::Push(AppId::Settings),
-            #[cfg(feature = "wifi")]
-            _ => MenuAction::Push(AppId::Upload),
-            #[cfg(not(feature = "wifi"))]
-            _ => MenuAction::Push(AppId::Settings),
+            _ => MenuAction::Push(
+                EXTRA_ENTRIES
+                    .get(idx - 3)
+                    .map_or(AppId::Settings, |&(_, app)| app),
+            ),
         }
     }
 

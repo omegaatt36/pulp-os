@@ -3,6 +3,8 @@
 // AppId is defined here (the distro side) the kernel attempts to be generic
 
 pub mod files;
+#[cfg(feature = "flashcards")]
+pub mod flashcards;
 pub mod home;
 pub mod manager;
 pub mod reader;
@@ -16,15 +18,19 @@ use crate::kernel::app::AppIdType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppId {
-    Home,
-    Files,
-    Reader,
-    Settings,
+    Home = 0,
+    Files = 1,
+    Reader = 2,
+    Settings = 3,
     // upload bypasses the App trait; AppManager::needs_special_mode
     // returns true for this variant and run_special_mode handles it.
     // Exists only with the `wifi` feature (offline firmware has no upload).
     #[cfg(feature = "wifi")]
-    Upload,
+    Upload = 4,
+    // The ids are saved in the RTC session stack as `as u8`, so a feature
+    // must not shift the ids of the others: fixed, not by declaration order.
+    #[cfg(feature = "flashcards")]
+    Flashcards = 5,
 }
 
 impl AppIdType for AppId {

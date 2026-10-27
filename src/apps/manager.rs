@@ -5,6 +5,8 @@
 // sits on top of page content but under quick menu and button bumps
 
 use crate::apps::files::FilesApp;
+#[cfg(feature = "flashcards")]
+use crate::apps::flashcards::FlashcardsApp;
 use crate::apps::home::HomeApp;
 use crate::apps::reader::ReaderApp;
 use crate::apps::settings::SettingsApp;
@@ -45,6 +47,11 @@ macro_rules! with_app {
                 let $app = &mut *$mgr.settings;
                 $body
             }
+            #[cfg(feature = "flashcards")]
+            AppId::Flashcards => {
+                let $app = &mut *$mgr.flashcards;
+                $body
+            }
             #[cfg(feature = "wifi")]
             AppId::Upload => {
                 unreachable!("Upload mode is handled outside the app dispatch loop");
@@ -71,6 +78,11 @@ macro_rules! with_app_ref {
             }
             AppId::Settings => {
                 let $app = &*$mgr.settings;
+                $body
+            }
+            #[cfg(feature = "flashcards")]
+            AppId::Flashcards => {
+                let $app = &*$mgr.flashcards;
                 $body
             }
             #[cfg(feature = "wifi")]
@@ -107,6 +119,10 @@ pub struct AppManager {
     pub files: &'static mut FilesApp,
     pub reader: &'static mut ReaderApp,
     pub settings: &'static mut SettingsApp,
+    // owned here, not injected like the others: keeps `new` unchanged for
+    // the feature-less firmware and every host test that builds a manager
+    #[cfg(feature = "flashcards")]
+    pub flashcards: &'static mut FlashcardsApp,
 
     pub quick_menu: &'static mut QuickMenu,
     pub bumps: &'static mut ButtonFeedback,
@@ -133,6 +149,8 @@ impl AppManager {
             files,
             reader,
             settings,
+            #[cfg(feature = "flashcards")]
+            flashcards: alloc::boxed::Box::leak(alloc::boxed::Box::new(FlashcardsApp::new())),
             quick_menu,
             bumps,
             mapper,
@@ -186,6 +204,8 @@ impl AppManager {
         self.files.reset_storage();
         self.home.reset_storage();
         self.settings.on_exit();
+        #[cfg(feature = "flashcards")]
+        self.flashcards.reset_storage();
         self.quick_menu.hide();
         self.overlay_fonts.clear();
         // A normal transition saves the outgoing app onto the current card.
@@ -273,6 +293,8 @@ impl AppManager {
                 1 => AppId::Files,
                 2 => AppId::Reader,
                 3 => AppId::Settings,
+                #[cfg(feature = "flashcards")]
+                5 => AppId::Flashcards,
                 _ => AppId::Home,
             },
         );
@@ -344,6 +366,10 @@ impl AppManager {
                 }
                 AppId::Settings if is_active => {
                     self.settings.on_enter(&mut self.launcher.ctx, k);
+                }
+                #[cfg(feature = "flashcards")]
+                AppId::Flashcards if is_active => {
+                    self.flashcards.on_enter(&mut self.launcher.ctx, k);
                 }
                 _ => {}
             }
@@ -598,6 +624,8 @@ impl AppManager {
         self.home.set_ui_font_size(ui_idx);
         self.files.set_ui_font_size(ui_idx);
         self.settings.set_ui_font_size(ui_idx);
+        #[cfg(feature = "flashcards")]
+        self.flashcards.set_ui_font_size(ui_idx);
         self.reader.set_book_font_size(book_idx);
         self.reader.set_ruby(ruby);
         self.reader.set_reading_theme(theme_idx);
