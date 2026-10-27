@@ -5,11 +5,16 @@
 mod cjk_support;
 
 use cjk_support::{BODY, SIZES, install, pack_of, rows, text_lines};
+use pulp_board_logic::chapter_ring::RingConfig;
+use pulp_board_logic::image_lru::LruConfig;
 use pulp_host::fixtures::{
     Block, Chapter, Compression, EpubSpec, EpubVersion, ImageKind, ImageSpec, Pattern, Run,
     TocItem, Writing, build_epub_writing,
 };
-use pulp_host::fonts::vertical::{Setting, em_ascent, presentation_form, setting, turned_origin};
+use pulp_host::fonts::vertical::{
+    Setting, em_ascent, presentation_form, setting, short_number_len, turned_origin,
+};
+use pulp_host::fonts::{FontSet, Style};
 use pulp_host::reader::{Action, Phase, Rig};
 use pulp_host::render::{Framebuffer, render_full, render_stitched};
 use pulp_host::storage::VirtualStorage;
@@ -286,7 +291,7 @@ fn a_missing_form_does_not_draw_the_missing_glyph_box() {
 #[test]
 fn strips_and_full_bands_agree_on_a_page_of_columns() {
     let r = open(
-        &"臺灣繁體中文「」，".repeat(60),
+        &"臺7灣12繁123體2026中文「」，".repeat(60),
         "「」，\u{FE41}",
         &VERTICAL,
     );
@@ -294,6 +299,284 @@ fn strips_and_full_bands_agree_on_a_page_of_columns() {
     let stitched = render_stitched(&|s| r.draw(s)).frame;
     assert_eq!(full.to_pbm(), stitched.to_pbm());
     assert!(full.black_count() > 0);
+}
+
+fn assert_sideways_digit(f: &Framebuffer, g: &Grid, column: usize, top: i32, digit: char) {
+    let font = FontSet::for_size(2).font(Style::Regular);
+    let r = font.resolve(digit);
+    let glyph = r.glyph;
+    let (x, y) = turned_origin(
+        g.em_left(column),
+        top,
+        PX,
+        glyph.offset_x.into(),
+        glyph.offset_y.into(),
+        glyph.height.into(),
+    );
+    let stride = usize::from(glyph.width).div_ceil(8);
+    for sy in 0..usize::from(glyph.height) {
+        for sx in 0..usize::from(glyph.width) {
+            let ink = r.bitmaps[glyph.bitmap_offset as usize + sy * stride + sx / 8]
+                & (0x80 >> (sx % 8))
+                != 0;
+            assert_eq!(
+                f.is_black(
+                    (x + i32::from(glyph.height) - 1 - sy as i32) as u16,
+                    (y + sx as i32) as u16
+                ),
+                ink,
+                "sideways {digit} at column {column}, top {top}"
+            );
+        }
+    }
+}
+
+// Compare the upright cell with an independent horizontal render of the same
+// digits. The font's digit bearings stay inside its advance box.
+fn assert_number(f: &Framebuffer, g: &Grid, column: usize, row: usize, digits: &str) {
+    let fonts = FontSet::for_size(2);
+    let font = fonts.font(Style::Regular);
+    let width: i32 = digits.chars().map(|c| i32::from(font.advance(c))).sum();
+    let above = digits
+        .chars()
+        .map(|c| i32::from(font.glyph(c).offset_y))
+        .min()
+        .unwrap();
+    let below = digits
+        .chars()
+        .map(|c| i32::from(font.glyph(c).offset_y) + i32::from(font.glyph(c).height))
+        .max()
+        .unwrap();
+    for c in digits.chars() {
+        let glyph = font.glyph(c);
+        assert!(glyph.offset_x >= 0);
+        assert!(i32::from(glyph.offset_x) + i32::from(glyph.width) <= i32::from(glyph.advance));
+    }
+    let horizontal = render_full(&|s| {
+        fonts.draw_str(s, digits, Style::Regular, 0, -above);
+    })
+    .frame;
+    let (w, h) = (width.min(i32::from(PX)), below - above);
+    assert!(h <= i32::from(PX));
+    let (left, top) = (g.em_left(column), g.em_top(row));
+    let (pad_x, pad_y) = ((i32::from(PX) - w) / 2, (i32::from(PX) - h) / 2);
+    for dy in 0..i32::from(PX) {
+        for dx in 0..i32::from(PX) {
+            let ink = (pad_x..pad_x + w).contains(&dx)
+                && (pad_y..pad_y + h).contains(&dy)
+                && horizontal.is_black(((dx - pad_x) * width / w) as u16, (dy - pad_y) as u16);
+            assert_eq!(
+                f.is_black((left + dx) as u16, (top + dy) as u16),
+                ink,
+                "upright {digits} at column {column}, row {row}: ({dx}, {dy})"
+            );
+        }
+    }
+}
+
+#[test]
+fn short_numbers_are_horizontal_in_one_em_and_long_numbers_stay_sideways() {
+    let r = open("臺7灣12體123中", "", &VERTICAL);
+    let g = Grid::of(&r);
+    let f = render_full(&|s| r.draw(s)).frame;
+    assert_upright(&f, &g, FIRST, 0, '臺');
+    assert_number(&f, &g, FIRST, 1, "7");
+    assert_upright(&f, &g, FIRST, 2, '灣');
+    assert_number(&f, &g, FIRST, 3, "12");
+    assert_upright(&f, &g, FIRST, 4, '體');
+    let font = FontSet::for_size(2).font(Style::Regular);
+    let mut y = g.em_top(5);
+    for c in "123".chars() {
+        assert_sideways_digit(&f, &g, FIRST, y, c);
+        y += i32::from(font.advance(c));
+    }
+    assert!(is_ink(
+        &f,
+        g.em_left(FIRST),
+        y + em_ascent(PX) - 3,
+        8,
+        &rows(PX, '中'),
+        3
+    ));
+}
+
+#[test]
+fn a_short_number_moves_whole_to_the_next_column_or_page() {
+    let sample = open("臺", "", &VERTICAL);
+    let rows_per_column = usize::from(sample.text_area_h() / PX);
+    for columns in [1, sample.max_lines() - FIRST] {
+        let prefix = "臺".repeat(rows_per_column * columns);
+        let mut r = open(&format!("{prefix}12灣"), "", &VERTICAL);
+        if columns > 1 {
+            r.press(Action::Next);
+            r.prepare_render();
+            assert_eq!(r.page(), 1);
+        }
+        let column = if columns == 1 { FIRST + 1 } else { 0 };
+        assert!(text_lines(&r)[column].starts_with("12灣"));
+        let g = Grid::of(&r);
+        let f = render_full(&|s| r.draw(s)).frame;
+        assert_number(&f, &g, column, 0, "12");
+        assert_upright(&f, &g, column, 1, '灣');
+    }
+}
+
+#[test]
+fn the_tail_of_a_long_number_stays_sideways_across_columns_and_pages() {
+    let sample = open("臺", "", &VERTICAL);
+    let rows_per_column = usize::from(sample.text_area_h() / PX);
+    let digit_advance = FontSet::for_size(2).advance('1', Style::Regular);
+    let remaining = usize::from(sample.text_area_h()) - (rows_per_column - 1) * usize::from(PX);
+    let fitting = remaining / usize::from(digit_advance);
+    for columns in [1, sample.max_lines() - FIRST] {
+        let prefix = "臺".repeat(rows_per_column * columns - 1);
+        let digits = "1".repeat(fitting + 2);
+        assert!(digits.len() >= 3);
+        let mut r = open(&format!("{prefix}{digits}灣"), "", &VERTICAL);
+        if columns > 1 {
+            r.press(Action::Next);
+            r.prepare_render();
+            assert_eq!(r.page(), 1);
+        }
+        let column = if columns == 1 { FIRST + 1 } else { 0 };
+        assert!(text_lines(&r)[column].starts_with("11灣"));
+        let g = Grid::of(&r);
+        let f = render_full(&|s| r.draw(s)).frame;
+        assert_sideways_digit(&f, &g, column, g.top, '1');
+        assert_sideways_digit(&f, &g, column, g.top + i32::from(digit_advance), '1');
+        assert!(is_ink(
+            &f,
+            g.em_left(column),
+            g.top + 2 * i32::from(digit_advance) + em_ascent(PX) - 3,
+            8,
+            &rows(PX, '灣'),
+            3
+        ));
+        let stitched = render_stitched(&|s| r.draw(s)).frame;
+        assert_eq!(f.to_pbm(), stitched.to_pbm());
+        if columns > 1 {
+            r.press(Action::Prev);
+            r.press(Action::Next);
+            r.prepare_render();
+            assert_eq!(f.to_pbm(), render_full(&|s| r.draw(s)).frame.to_pbm());
+        }
+    }
+}
+
+#[test]
+fn short_number_detection_is_bounded_to_complete_ascii_runs() {
+    for (text, at, continued, want) in [
+        ("7", 0, false, 1),
+        ("12年", 0, false, 2),
+        ("123", 0, false, 0),
+        ("1234", 2, false, 0),
+        ("12", 0, true, 0),
+        ("１２", 0, false, 0),
+        ("A12B", 1, false, 2),
+        ("1.2", 2, false, 1),
+        ("", 0, false, 0),
+    ] {
+        assert_eq!(
+            short_number_len(text.as_bytes(), at, continued),
+            want,
+            "{text:?}"
+        );
+    }
+    assert_eq!(short_number_len(&vec![b'1'; 100_000], 0, false), 0);
+}
+
+#[test]
+fn horizontal_numbers_keep_their_original_glyphs_and_advances() {
+    let r = open("臺12灣", "", &Writing::LATIN);
+    let fonts = FontSet::for_size(2);
+    let x = i32::from(r.text_margin()) + i32::from(PX) + 1;
+    let baseline = i32::from(r.text_y())
+        + FIRST as i32 * i32::from(r.font_line_h())
+        + i32::from(r.font_ascent());
+    let expected = render_full(&|s| {
+        fonts.draw_str(s, "12", Style::Regular, x, baseline);
+    })
+    .frame;
+    let actual = render_full(&|s| r.draw(s)).frame;
+    let width = i32::from(fonts.advance('1', Style::Regular))
+        + i32::from(fonts.advance('2', Style::Regular));
+    for y in baseline - i32::from(PX)..baseline + 1 {
+        for x in x..x + width {
+            assert_eq!(
+                actual.is_black(x as u16, y as u16),
+                expected.is_black(x as u16, y as u16)
+            );
+        }
+    }
+    assert!(is_ink(
+        &actual,
+        x + width,
+        baseline - 3,
+        8,
+        &rows(PX, '灣'),
+        3
+    ));
+}
+
+#[test]
+fn numbers_in_ruby_keep_the_groups_existing_scalar_layout() {
+    let blocks = vec![Block::Paragraph(vec![
+        Run::Ruby {
+            base: "12".into(),
+            reading: "臺".into(),
+        },
+        Run::Text("灣".into()),
+    ])];
+    let r = open_book(&epub(blocks, vec![], &VERTICAL), "");
+    let g = Grid::of(&r);
+    let f = render_full(&|s| r.draw(s)).frame;
+    let font = FontSet::for_size(2).font(Style::Regular);
+    let mut y = g.top;
+    for c in "12".chars() {
+        assert_sideways_digit(&f, &g, FIRST, y, c);
+        y += i32::from(font.advance(c));
+    }
+    assert!(is_ink(
+        &f,
+        g.em_left(FIRST),
+        y + em_ascent(PX) - 3,
+        8,
+        &rows(PX, '灣'),
+        3
+    ));
+}
+
+#[test]
+fn a_persisted_page_index_remembers_a_long_numbers_continuation() {
+    let sample = open("臺", "", &VERTICAL);
+    let rows = usize::from(sample.text_area_h() / PX);
+    let columns = sample.max_lines() - FIRST;
+    let digit_advance = FontSet::for_size(2).advance('1', Style::Regular);
+    let remaining = usize::from(sample.text_area_h()) - (rows - 1) * usize::from(PX);
+    let digits = "1".repeat(remaining / usize::from(digit_advance) + 2);
+    let text = format!("{}{digits}灣", "臺".repeat(rows * columns - 1));
+    let mut first = open(&text, "", &VERTICAL);
+    first.exit();
+    first.set_profile(RingConfig::HR8, LruConfig::OFF, true);
+    first.open(BOOK);
+    assert_eq!(first.index_counts().1, 1, "the index was stored");
+    first.press(Action::Next);
+    first.prepare_render();
+    assert_eq!(first.page(), 1);
+    let expected = render_full(&|s| first.draw(s)).frame;
+    first.exit();
+    let mut again = Rig::new(first.into_storage());
+    again.configure(2, 0);
+    again.set_profile(RingConfig::HR8, LruConfig::OFF, true);
+    again.open(BOOK);
+    assert_eq!(again.index_counts().0, 1, "the stored index was loaded");
+    again.press(Action::Next);
+    again.prepare_render();
+    assert_eq!(again.page(), 1);
+    assert_eq!(
+        expected.to_pbm(),
+        render_full(&|s| again.draw(s)).frame.to_pbm()
+    );
 }
 
 // a portrait picture, wider than the box an inline image is given

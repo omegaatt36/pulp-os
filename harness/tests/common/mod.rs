@@ -25,6 +25,7 @@ pub enum Image {
     C61Wifi,
     C61Partial,
     C61PartialWifi,
+    C61Cards,
 }
 
 /// Path of a built image; panics when it has not been built.
@@ -35,6 +36,7 @@ pub fn image(img: Image) -> PathBuf {
         Image::C61Wifi => ("c61-wifi", C61_TARGET, "pulp-os-c61"),
         Image::C61Partial => ("c61-partial", C61_TARGET, "pulp-os-c61"),
         Image::C61PartialWifi => ("c61-partial-wifi", C61_TARGET, "pulp-os-c61"),
+        Image::C61Cards => ("c61-cards", C61_TARGET, "pulp-os-c61"),
     };
     let path = workspace_root()
         .join("target/accept")

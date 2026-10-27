@@ -6,7 +6,6 @@ pub mod progress;
 pub mod table;
 pub mod vocab;
 
-use alloc::vec::Vec;
 use core::fmt::Write as _;
 
 use embedded_graphics::{pixelcolor::BinaryColor, prelude::*, primitives::PrimitiveStyle};
@@ -19,7 +18,7 @@ use crate::fonts::{
     self, Style,
     cjk::{PreparedFonts, SurfaceFonts, VisibleText},
 };
-use crate::kernel::KernelHandle;
+use crate::kernel::{BigBuf, BufClass, KernelHandle, TypedBuf};
 use crate::ui::InfallibleExt;
 use crate::ui::{
     Alignment, BUTTON_BAR_H, BitmapDynLabel, BitmapLabel, CONTENT_TOP, FULL_CONTENT_W,
@@ -36,6 +35,8 @@ pub const VOCAB_DIR: &str = "VOCAB";
 pub const VOCAB_DECKS: [&str; 6] = ["N5", "N4", "N3", "N2", "N1", "CUSTOM"];
 
 const READ_CHUNK: usize = 32 * 1024;
+const SAVE_ATTEMPTS: u8 = 3;
+const SAVE_NOTICE: &str = "Progress not saved; press a key to retry";
 
 // The card glyph is the largest body size, shown at this magnification. Body,
 // not heading: an auxiliary surface prepares only its body role.
@@ -130,13 +131,14 @@ pub struct FlashcardsApp {
     kana_loaded: bool,
     playing: Source,
     vocab: Vocab,
-    vocab_slots: Vec<u16>,
+    vocab_slots: TypedBuf<u16>,
     vocab_progress: Progress,
     vocab_deck: Option<usize>,
     kana_dirty: bool,
     vocab_dirty: bool,
     reset_vocab: Option<usize>,
     release_vocab: bool,
+    save_attempts: u8,
     seed: u32,
     ui_fonts: fonts::UiFonts,
     card_fonts: SurfaceFonts,
@@ -166,17 +168,18 @@ impl FlashcardsApp {
             direction: Direction::Forward,
             weak_only: false,
             deck: Deck::build(script, set, Direction::Forward, None),
-            progress: Progress::kana(),
+            progress: Progress::empty(),
             kana_loaded: false,
             playing: Source::Kana,
             vocab: Vocab::new(),
-            vocab_slots: Vec::new(),
-            vocab_progress: Progress::new(0),
+            vocab_slots: TypedBuf::empty(),
+            vocab_progress: Progress::empty(),
             vocab_deck: None,
             kana_dirty: false,
             vocab_dirty: false,
             reset_vocab: None,
             release_vocab: false,
+            save_attempts: 0,
             seed: 0x9e37_79b9,
             ui_fonts: fonts::UiFonts::for_size(0),
             card_fonts,
@@ -190,11 +193,12 @@ impl FlashcardsApp {
     pub fn reset_storage(&mut self) {
         self.on_exit();
         self.state = State::Menu;
-        self.progress = Progress::kana();
+        self.progress = Progress::empty();
         self.kana_loaded = false;
         self.kana_dirty = false;
         self.vocab_dirty = false;
         self.reset_vocab = None;
+        self.save_attempts = 0;
         self.drop_vocab();
     }
 
@@ -218,20 +222,25 @@ impl FlashcardsApp {
 
     fn drop_vocab(&mut self) {
         self.vocab.clear();
-        self.vocab_slots = Vec::new();
-        self.vocab_progress = Progress::new(0);
+        self.vocab_slots = TypedBuf::empty();
+        self.vocab_progress = Progress::empty();
         self.vocab_deck = None;
         self.release_vocab = false;
     }
 
     fn load_kana(&mut self, k: &mut KernelHandle<'_>) {
         let mut buf = [0u8; FILE_LEN];
-        self.progress = match k.read_app_data_start(PROGRESS_FILE, &mut buf) {
+        let progress = match k.read_app_data_start(PROGRESS_FILE, &mut buf) {
             Ok((_, n)) => Progress::decode(&buf[..n]),
             Err(_) => None,
         }
-        .unwrap_or_else(Progress::kana);
-        self.kana_loaded = true;
+        .or_else(Progress::kana);
+        if let Some(progress) = progress {
+            self.progress = progress;
+            self.kana_loaded = true;
+        } else {
+            self.notice = Some("Not enough memory for progress");
+        }
     }
 
     fn find_decks(&mut self, k: &mut KernelHandle<'_>) {
@@ -251,6 +260,10 @@ impl FlashcardsApp {
     }
 
     fn save(&mut self, k: &mut KernelHandle<'_>) {
+        if self.save_attempts >= SAVE_ATTEMPTS {
+            return;
+        }
+        self.save_attempts += 1;
         if self.kana_dirty {
             let mut buf = [0u8; FILE_LEN];
             self.progress.encode(&mut buf);
@@ -259,34 +272,51 @@ impl FlashcardsApp {
                 Err(e) => log::error!("flashcards: save failed: {}", e),
             }
         }
-        if self.vocab_dirty {
-            self.vocab_dirty = false;
-            if let Some(deck) = self.vocab_deck {
-                let mut name = StackFmt::<16>::new();
-                let _ = write!(name, "{}.PRG", VOCAB_DECKS[deck]);
-                match self.vocab_progress.words_file(self.vocab.hashes()) {
-                    Some(bytes) => {
-                        if let Err(e) = k.write_app_subdir(VOCAB_DIR, name.as_str(), &bytes) {
-                            log::error!("flashcards: save failed: {}", e);
-                        }
-                    }
-                    None => log::error!("flashcards: save failed: out of memory"),
-                }
-            }
-        }
-        if let Some(deck) = self.reset_vocab.take() {
+        if self.vocab_dirty
+            && let Some(deck) = self.vocab_deck
+        {
             let mut name = StackFmt::<16>::new();
             let _ = write!(name, "{}.PRG", VOCAB_DECKS[deck]);
-            let _ = k.delete_app_subdir(VOCAB_DIR, name.as_str());
-            if self.vocab_deck == Some(deck) {
+            match self.vocab_progress.words_file(self.vocab.hashes()) {
+                Some(bytes) => match k.write_app_subdir(VOCAB_DIR, name.as_str(), &bytes) {
+                    Ok(()) => self.vocab_dirty = false,
+                    Err(e) => log::error!("flashcards: save failed: {}", e),
+                },
+                None => log::error!("flashcards: save failed: out of memory"),
+            }
+        }
+        if let Some(deck) = self.reset_vocab {
+            let mut name = StackFmt::<16>::new();
+            let _ = write!(name, "{}.PRG", VOCAB_DECKS[deck]);
+            match k.optional_file_size_app_subdir(VOCAB_DIR, name.as_str()) {
+                Ok(None) => self.reset_vocab = None,
+                Ok(Some(_)) if k.delete_app_subdir(VOCAB_DIR, name.as_str()).is_ok() => {
+                    self.reset_vocab = None;
+                }
+                _ => {}
+            }
+            if self.reset_vocab.is_none() && self.vocab_deck == Some(deck) {
                 self.vocab_progress.reset();
+            }
+        }
+        if self.kana_dirty || self.vocab_dirty || self.reset_vocab.is_some() {
+            self.notice = Some(SAVE_NOTICE);
+        } else {
+            self.save_attempts = 0;
+            if self.notice == Some(SAVE_NOTICE) {
+                self.notice = None;
             }
         }
     }
 
+    fn save_pending(&self) -> bool {
+        self.save_attempts < SAVE_ATTEMPTS
+            && (self.kana_dirty || self.vocab_dirty || self.reset_vocab.is_some())
+    }
+
     fn fail(&mut self, notice: &'static str, ctx: &mut AppContext) {
         self.notice = Some(notice);
-        self.vocab.clear();
+        self.drop_vocab();
         self.state = State::Menu;
         ctx.mark_dirty(CONTENT_REGION);
     }
@@ -323,9 +353,9 @@ impl FlashcardsApp {
                         }
                     }
                 });
-                if failed {
+                if failed || (got == 0 && offset < size) {
                     self.fail("Cannot read the deck", ctx);
-                } else if got == 0 || offset + got as u32 >= size {
+                } else if offset + got as u32 >= size {
                     self.finish_load(deck, ctx, k);
                 }
             }
@@ -333,24 +363,38 @@ impl FlashcardsApp {
     }
 
     fn finish_load(&mut self, deck: usize, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
-        self.vocab.index();
+        if !self.vocab.index() {
+            self.fail("Deck too big for memory", ctx);
+            return;
+        }
         if self.vocab.is_empty() {
             self.fail("No words in the deck", ctx);
             return;
         }
         let mut name = StackFmt::<16>::new();
         let _ = write!(name, "{}.PRG", VOCAB_DECKS[deck]);
-        let saved = match k.optional_file_size_app_subdir(VOCAB_DIR, name.as_str()) {
-            Ok(Some(size)) if size as usize <= vocab::MAX_BYTES => {
+        let words = self.vocab.len();
+        let progress = match k.optional_file_size_app_subdir(VOCAB_DIR, name.as_str()) {
+            Ok(None) => Progress::new(words),
+            Ok(Some(size)) if size as usize <= 12 + 9 * vocab::MAX_WORDS => {
                 read_whole(k, name.as_str(), size as usize)
+                    .and_then(|bytes| Progress::from_words(&bytes, self.vocab.hashes()))
             }
             _ => None,
         };
-        let words = self.vocab.len();
-        self.vocab_progress = saved
-            .and_then(|bytes| Progress::from_words(&bytes, self.vocab.hashes()))
-            .unwrap_or_else(|| Progress::new(words));
-        self.vocab_slots = (0..words as u16).collect();
+        let Some(progress) = progress else {
+            self.fail("Cannot load progress", ctx);
+            return;
+        };
+        let Ok(mut slots) = TypedBuf::filled(BufClass::PageTable, words, 0) else {
+            self.fail("Deck too big for memory", ctx);
+            return;
+        };
+        for (i, slot) in slots.iter_mut().enumerate() {
+            *slot = i as u16;
+        }
+        self.vocab_progress = progress;
+        self.vocab_slots = slots;
         self.vocab_deck = Some(deck);
         self.playing = Source::Vocab(deck);
         match self.next_card(None) {
@@ -468,8 +512,16 @@ impl FlashcardsApp {
     }
 
     fn start(&mut self, ctx: &mut AppContext) {
+        if self.reset_vocab.is_some() || (self.vocab_dirty && self.source != self.playing) {
+            self.notice = Some(SAVE_NOTICE);
+            ctx.mark_dirty(CONTENT_REGION);
+            return;
+        }
         self.notice = None;
         match self.source {
+            Source::Kana if !self.kana_loaded => {
+                self.notice = Some("Not enough memory for progress");
+            }
             Source::Kana => {
                 self.playing = Source::Kana;
                 self.show_next(None);
@@ -487,6 +539,14 @@ impl FlashcardsApp {
     }
 
     fn on_event_menu(&mut self, event: ActionEvent, ctx: &mut AppContext) -> Transition {
+        if event == ActionEvent::Press(Action::Select)
+            && self.source == Source::Kana
+            && !self.kana_loaded
+        {
+            self.notice = Some("Not enough memory for progress");
+            ctx.mark_dirty(CONTENT_REGION);
+            return Transition::None;
+        }
         // the release of the OK that asked must not cancel the ask
         if matches!(event, ActionEvent::Release(_)) {
             return Transition::None;
@@ -533,6 +593,11 @@ impl FlashcardsApp {
                 Transition::None
             }
             ActionEvent::Press(Action::Select) if self.row == ROW_RESET => {
+                if self.reset_vocab.is_some() {
+                    self.notice = Some(SAVE_NOTICE);
+                    ctx.mark_dirty(self.notice_region());
+                    return Transition::None;
+                }
                 if was_confirming {
                     match self.source {
                         Source::Kana => {
@@ -541,7 +606,9 @@ impl FlashcardsApp {
                         }
                         Source::Vocab(deck) => {
                             self.reset_vocab = Some(deck);
-                            self.vocab_dirty = false;
+                            if self.vocab_deck == Some(deck) {
+                                self.vocab_dirty = false;
+                            }
                         }
                     }
                     ctx.mark_dirty(self.summary_region());
@@ -1044,11 +1111,8 @@ const fn chart_rows() -> u16 {
 
 // A file of `size` bytes from the deck directory; None on a short read or when
 // the memory is not there (reserved first: a refusal must not abort).
-#[allow(clippy::slow_vector_initialization)]
-fn read_whole(k: &mut KernelHandle<'_>, name: &str, size: usize) -> Option<Vec<u8>> {
-    let mut bytes = Vec::new();
-    bytes.try_reserve_exact(size).ok()?;
-    bytes.resize(size, 0);
+fn read_whole(k: &mut KernelHandle<'_>, name: &str, size: usize) -> Option<BigBuf> {
+    let mut bytes = BigBuf::zeroed(BufClass::ChapterText, size).ok()?;
     let n = k
         .read_app_subdir_chunk(VOCAB_DIR, name, 0, &mut bytes)
         .ok()?;
@@ -1157,6 +1221,8 @@ fn wrap<'a>(view: &PreparedFonts<'_>, text: &'a str, max_w: u16, out: &mut [&'a 
 impl App<AppId> for FlashcardsApp {
     fn on_enter(&mut self, ctx: &mut AppContext, k: &mut KernelHandle<'_>) {
         ctx.clear_message();
+        self.notice = None;
+        self.save_attempts = 0;
         if !self.kana_loaded {
             self.load_kana(k);
         }
@@ -1164,7 +1230,6 @@ impl App<AppId> for FlashcardsApp {
         self.release_vocab = false;
         self.state = State::Menu;
         self.confirm_reset = false;
-        self.notice = None;
         self.row = 0;
         ctx.mark_dirty(CONTENT_REGION);
     }
@@ -1172,9 +1237,13 @@ impl App<AppId> for FlashcardsApp {
     fn on_exit(&mut self) {
         self.card_fonts.clear();
         self.release_vocab = true;
+        self.save_attempts = 0;
     }
 
     fn on_event(&mut self, event: ActionEvent, ctx: &mut AppContext) -> Transition {
+        if matches!(event, ActionEvent::Press(_)) {
+            self.save_attempts = 0;
+        }
         match self.state {
             State::Menu => self.on_event_menu(event, ctx),
             State::Loading(_) => {
@@ -1217,23 +1286,25 @@ impl App<AppId> for FlashcardsApp {
         if let (State::Loading(stage), Source::Vocab(deck)) = (self.state, self.source) {
             self.load_step(stage, deck, ctx, k);
         }
+        let notice = self.notice;
         self.save(k);
+        if self.notice != notice {
+            ctx.mark_dirty(CONTENT_REGION);
+        }
     }
 
     fn background_pending(&self) -> bool {
-        matches!(self.state, State::Loading(_))
-            || self.kana_dirty
-            || self.vocab_dirty
-            || self.reset_vocab.is_some()
+        matches!(self.state, State::Loading(_)) || self.save_pending()
     }
 
     fn has_background_when_suspended(&self) -> bool {
-        self.kana_dirty || self.vocab_dirty || self.reset_vocab.is_some() || self.release_vocab
+        self.save_pending()
+            || (self.release_vocab && !self.vocab_dirty && self.reset_vocab.is_none())
     }
 
     fn background_suspended(&mut self, k: &mut KernelHandle<'_>) {
         self.save(k);
-        if self.release_vocab {
+        if self.release_vocab && !self.vocab_dirty && self.reset_vocab.is_none() {
             self.drop_vocab();
         }
     }

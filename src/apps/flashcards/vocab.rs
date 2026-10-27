@@ -9,7 +9,7 @@
 // a kanji and a kana column. Nothing of the sort ships with the firmware: the
 // deck is whatever the user puts on the card.
 
-use alloc::vec::Vec;
+use crate::kernel::{BigBuf, BufClass, TypedBuf};
 
 pub const MAX_BYTES: usize = 1 << 20;
 pub const MAX_WORDS: usize = 20_000;
@@ -69,17 +69,19 @@ pub fn parse_line(line: &str) -> Option<Entry<'_>> {
 }
 
 pub struct Vocab {
-    text: Vec<u8>,
-    lines: Vec<u32>,
-    hashes: Vec<u32>,
+    text: BigBuf,
+    loaded: usize,
+    lines: TypedBuf<u32>,
+    hashes: TypedBuf<u32>,
 }
 
 impl Vocab {
     pub const fn new() -> Self {
         Self {
-            text: Vec::new(),
-            lines: Vec::new(),
-            hashes: Vec::new(),
+            text: BigBuf::empty(),
+            loaded: 0,
+            lines: TypedBuf::empty(),
+            hashes: TypedBuf::empty(),
         }
     }
 
@@ -89,43 +91,62 @@ impl Vocab {
 
     pub fn reserve(&mut self, size: usize) -> bool {
         self.clear();
-        size <= MAX_BYTES && self.text.try_reserve_exact(size).is_ok()
+        if size > MAX_BYTES {
+            return false;
+        }
+        match BigBuf::zeroed(BufClass::ChapterText, size) {
+            Ok(text) => {
+                self.text = text;
+                true
+            }
+            Err(_) => false,
+        }
     }
 
     pub fn fill(&mut self, max: usize, read: impl FnOnce(&mut [u8]) -> usize) -> usize {
-        let room = max.min(MAX_BYTES.saturating_sub(self.text.len()));
-        let old = self.text.len();
-        self.text
-            .resize(old + room.min(self.text.capacity() - old), 0);
-        let got = read(&mut self.text[old..]).min(self.text.len() - old);
-        self.text.truncate(old + got);
+        let old = self.loaded;
+        let room = max.min(self.text.len() - old);
+        let got = read(&mut self.text[old..old + room]).min(room);
+        self.loaded += got;
         got
     }
 
     pub fn loaded_bytes(&self) -> usize {
-        self.text.len()
+        self.loaded
     }
 
-    pub fn index(&mut self) {
-        self.lines.clear();
-        self.hashes.clear();
-        let mut start = 0usize;
-        while start < self.text.len() && self.lines.len() < MAX_WORDS {
-            let end = self.text[start..]
-                .iter()
-                .position(|&b| b == b'\n')
-                .map_or(self.text.len(), |n| start + n);
-            let entry = core::str::from_utf8(&self.text[start..end])
-                .ok()
-                .and_then(parse_line);
-            if let Some(entry) = entry {
-                self.lines.push(start as u32);
-                self.hashes.push(entry.hash());
-            }
-            start = end + 1;
+    pub fn index(&mut self) -> bool {
+        self.lines = TypedBuf::empty();
+        self.hashes = TypedBuf::empty();
+        let count = self.entries().count();
+        let Ok(mut lines) = TypedBuf::filled(BufClass::PageTable, count, 0) else {
+            return false;
+        };
+        let Ok(mut hashes) = TypedBuf::filled(BufClass::PageTable, count, 0) else {
+            return false;
+        };
+        for (i, (offset, entry)) in self.entries().enumerate() {
+            lines[i] = offset as u32;
+            hashes[i] = entry.hash();
         }
-        self.lines.shrink_to_fit();
-        self.hashes.shrink_to_fit();
+        self.lines = lines;
+        self.hashes = hashes;
+        true
+    }
+
+    fn entries(&self) -> impl Iterator<Item = (usize, Entry<'_>)> {
+        let mut offset = 0;
+        self.text[..self.loaded]
+            .split(|&b| b == b'\n')
+            .filter_map(move |line| {
+                let start = offset;
+                offset += line.len() + 1;
+                core::str::from_utf8(line)
+                    .ok()
+                    .and_then(parse_line)
+                    .map(|entry| (start, entry))
+            })
+            .take(MAX_WORDS)
     }
 
     pub fn len(&self) -> usize {
@@ -142,7 +163,7 @@ impl Vocab {
 
     pub fn entry(&self, i: usize) -> Option<Entry<'_>> {
         let start = *self.lines.get(i)? as usize;
-        let rest = &self.text[start..];
+        let rest = &self.text[start..self.loaded];
         let end = rest.iter().position(|&b| b == b'\n').unwrap_or(rest.len());
         core::str::from_utf8(&rest[..end]).ok().and_then(parse_line)
     }

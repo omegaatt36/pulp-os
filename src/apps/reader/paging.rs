@@ -211,7 +211,8 @@ impl ReaderApp {
                     fonts::cjk::BODY_PIXELS[idx],
                     fonts::cjk::HEADING_PIXELS[idx],
                 );
-                let carried = view.has_fallback() || initial_flags & CARRIED_FALLBACK != 0;
+                let carried =
+                    view.has_fallback() || view.vertical() || initial_flags & CARRIED_FALLBACK != 0;
                 let mut examined = 0;
                 let line_len = self.line_len_px();
                 let (img_w, img_h) = inline_img_box(self.vertical, self.text_w, self.text_area_h);
@@ -280,6 +281,9 @@ impl ReaderApp {
         }
         self.pg.style_flags[self.pg.page + 1] =
             styles.flags() | if carried { CARRIED_FALLBACK } else { 0 };
+        if self.vertical && consumed > 0 && self.pg.buf[consumed - 1].is_ascii_digit() {
+            self.pg.style_flags[self.pg.page + 1] |= fonts::vertical::NUMBER_CONTINUED;
+        }
         self.pg.indents[self.pg.page + 1] = indent;
     }
 
@@ -911,7 +915,8 @@ pub(super) fn wrap_proportional(
     let mut space_flags = initial_flags;
     // Lines start in the style that was active at their first byte whenever
     // the window carries style across pages or stages fallback glyphs.
-    let line_start_flags = fonts.has_fallback() || initial_flags & CARRIED_FALLBACK != 0;
+    let line_start_flags =
+        fonts.has_fallback() || fonts.vertical() || initial_flags & CARRIED_FALLBACK != 0;
 
     let mut styles = fonts::StyleState::from_flags(initial_flags);
     let mut indent = initial_indent;
@@ -1073,9 +1078,31 @@ pub(super) fn wrap_proportional(
         // UTF-8 multi-byte: decode the full character and measure it
         // using the font's extended glyph tables; a malformed subpart
         // measures as the replacement character
-        if group.is_some() || b >= 0x80 || (fonts.has_fallback() && b >= b' ') {
+        if group.is_some() || b >= 0x80 || ((fonts.has_fallback() || fonts.vertical()) && b >= b' ')
+        {
+            let number_len = if fonts.vertical() && group.is_none() {
+                fonts::vertical::short_number_len(
+                    &buf[..n],
+                    i,
+                    initial_flags & fonts::vertical::NUMBER_CONTINUED != 0,
+                )
+            } else {
+                0
+            };
+            if number_len > 0 && i + number_len == n && !at_eof {
+                // Its next byte decides whether this is a short number. Retry
+                // the unfinished column with more text instead of guessing.
+                if line_start > 0 {
+                    return Ok((line_start, line_count));
+                }
+                return Err(crate::error::Error::from_kind(
+                    crate::error::ErrorKind::BufferTooSmall,
+                )
+                .with_source("font layout"));
+            }
             let (ch, seq_len) = match &group {
                 Some(g) => (g.first(), g.len),
+                None if number_len > 0 => (b as char, number_len),
                 None => decode_utf8_char(&buf[..n], i),
             };
             *examined = (*examined).max(i + seq_len);
@@ -1123,6 +1150,7 @@ pub(super) fn wrap_proportional(
                     after_group = Some(after);
                     fonts::ruby::span(base_len, reading_len).len
                 }
+                None if number_len > 0 => u32::from(fonts.vertical_number_advance(sty)),
                 None => fonts.advance(if ch == '\u{a0}' { ' ' } else { ch }, sty) as u32,
             };
             if fonts.has_fallback() {
@@ -1295,4 +1323,41 @@ pub(super) fn wrap_proportional(
     }
 
     Ok((n, line_count))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn vertical_layout_defers_a_short_digit_run_cut_by_the_read_window() {
+        let mut state = fonts::cjk::CjkState::new();
+        state.set_vertical(true);
+        let fonts = state.view(fonts::FontSet::for_size(2), 23, 32);
+        for (text, at_eof, flags, consumed, count) in [
+            ("A\n1", false, 0, 2, 1),
+            ("A\n12", false, 0, 2, 1),
+            ("A\n123", false, 0, 5, 2),
+            ("A\n12", true, 0, 4, 2),
+            ("12", false, fonts::vertical::NUMBER_CONTINUED, 2, 1),
+        ] {
+            let mut lines = [LineSpan::EMPTY; 4];
+            let result = wrap_proportional(
+                text.as_bytes(),
+                text.len(),
+                &fonts,
+                &mut lines,
+                4,
+                700,
+                0,
+                true,
+                flags,
+                0,
+                at_eof,
+                &mut 0,
+            )
+            .unwrap();
+            assert_eq!(result, (consumed, count), "{text:?}, eof={at_eof}");
+        }
+    }
 }

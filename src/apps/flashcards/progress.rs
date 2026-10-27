@@ -2,7 +2,7 @@
 // the device has no clock, so a card falls due a number of answers after it
 // was last answered. Pure data; the app reads and writes the files.
 
-use alloc::vec::Vec;
+use crate::kernel::{BigBuf, BufClass, TypedBuf};
 
 use super::table::KANA;
 
@@ -35,20 +35,28 @@ pub enum Status {
 
 pub struct Progress {
     answers: u32,
-    boxes: Vec<u8>,
-    due: Vec<u32>,
+    boxes: TypedBuf<u8>,
+    due: TypedBuf<u32>,
 }
 
 impl Progress {
-    pub fn new(slots: usize) -> Self {
+    pub const fn empty() -> Self {
         Self {
             answers: 0,
-            boxes: alloc::vec![UNSEEN; slots],
-            due: alloc::vec![0; slots],
+            boxes: TypedBuf::empty(),
+            due: TypedBuf::empty(),
         }
     }
 
-    pub fn kana() -> Self {
+    pub fn new(slots: usize) -> Option<Self> {
+        Some(Self {
+            answers: 0,
+            boxes: TypedBuf::filled(BufClass::PageTable, slots, UNSEEN).ok()?,
+            due: TypedBuf::filled(BufClass::PageTable, slots, 0).ok()?,
+        })
+    }
+
+    pub fn kana() -> Option<Self> {
         Self::new(PROGRESS_SLOTS)
     }
 
@@ -59,7 +67,7 @@ impl Progress {
             (FILE_LEN_V1, m) if m == KANA_MAGIC_V1 => SLOTS,
             _ => return None,
         };
-        let mut p = Self::kana();
+        let mut p = Self::kana()?;
         p.answers = u32::from_le_bytes(bytes[4..8].try_into().ok()?);
         let (boxes, dues) = bytes[8..].split_at(faces);
         if boxes.iter().any(|&b| b > TOP_BOX && b != UNSEEN) {
@@ -80,7 +88,7 @@ impl Progress {
             .as_chunks_mut::<4>()
             .0
             .iter_mut()
-            .zip(&self.due)
+            .zip(self.due.iter())
         {
             raw.copy_from_slice(&due.to_le_bytes());
         }
@@ -97,9 +105,12 @@ impl Progress {
         if bytes.len() != expected {
             return None;
         }
-        let mut p = Self::new(hashes.len());
+        let mut p = Self::new(hashes.len())?;
         p.answers = u32::from_le_bytes(bytes[4..8].try_into().ok()?);
-        let mut by_hash: Vec<(u32, usize)> = hashes.iter().copied().zip(0..).collect();
+        let mut by_hash = TypedBuf::filled(BufClass::PageTable, hashes.len(), (0u32, 0u32)).ok()?;
+        for (i, &hash) in hashes.iter().enumerate() {
+            by_hash[i] = (hash, u32::try_from(i).ok()?);
+        }
         by_hash.sort_unstable();
         for rec in bytes[WORDS_HEADER..].as_chunks::<WORDS_RECORD>().0 {
             let hash = u32::from_le_bytes(rec[..4].try_into().ok()?);
@@ -109,26 +120,31 @@ impl Progress {
             }
             let first = by_hash.partition_point(|&(h, _)| h < hash);
             if let Some(&(_, slot)) = by_hash.get(first).filter(|&&(h, _)| h == hash) {
-                p.boxes[slot] = boxed;
-                p.due[slot] = u32::from_le_bytes(rec[5..].try_into().ok()?);
+                p.boxes[slot as usize] = boxed;
+                p.due[slot as usize] = u32::from_le_bytes(rec[5..].try_into().ok()?);
             }
         }
         Some(p)
     }
 
-    pub fn words_file(&self, hashes: &[u32]) -> Option<Vec<u8>> {
+    pub fn words_file(&self, hashes: &[u32]) -> Option<BigBuf> {
+        if hashes.len() != self.boxes.len() {
+            return None;
+        }
         let seen = self.boxes.iter().filter(|&&b| b != UNSEEN).count();
-        let mut out = Vec::new();
-        out.try_reserve_exact(WORDS_HEADER + WORDS_RECORD * seen)
-            .ok()?;
-        out.extend_from_slice(&WORDS_MAGIC);
-        out.extend_from_slice(&self.answers.to_le_bytes());
-        out.extend_from_slice(&(seen as u32).to_le_bytes());
+        let mut out =
+            BigBuf::zeroed(BufClass::ChapterText, WORDS_HEADER + WORDS_RECORD * seen).ok()?;
+        out[..4].copy_from_slice(&WORDS_MAGIC);
+        out[4..8].copy_from_slice(&self.answers.to_le_bytes());
+        out[8..12].copy_from_slice(&(seen as u32).to_le_bytes());
+        let mut offset = WORDS_HEADER;
         for (slot, &boxed) in self.boxes.iter().enumerate() {
             if boxed != UNSEEN {
-                out.extend_from_slice(&hashes[slot].to_le_bytes());
-                out.push(boxed);
-                out.extend_from_slice(&self.due[slot].to_le_bytes());
+                out[offset..offset + 4].copy_from_slice(&hashes[slot].to_le_bytes());
+                out[offset + 4] = boxed;
+                out[offset + 5..offset + WORDS_RECORD]
+                    .copy_from_slice(&self.due[slot].to_le_bytes());
+                offset += WORDS_RECORD;
             }
         }
         Some(out)
@@ -139,23 +155,27 @@ impl Progress {
     }
 
     pub fn reset(&mut self) {
-        *self = Self::new(self.boxes.len());
+        self.answers = 0;
+        self.boxes.fill(UNSEEN);
+        self.due.fill(0);
     }
 
     pub fn is_known(&self, slot: usize) -> bool {
-        (KNOWN_BOX..=TOP_BOX).contains(&self.boxes[slot])
+        self.boxes
+            .get(slot)
+            .is_some_and(|b| (KNOWN_BOX..=TOP_BOX).contains(b))
     }
 
     // Hits still to go before the card counts as known; 0 once it does.
     pub fn hits_to_known(&self, slot: usize) -> u8 {
-        match self.boxes[slot] {
+        match self.boxes.get(slot).copied().unwrap_or(UNSEEN) {
             UNSEEN => KNOWN_BOX,
             b => KNOWN_BOX.saturating_sub(b),
         }
     }
 
     pub fn status(&self, slot: usize) -> Status {
-        match self.boxes[slot] {
+        match self.boxes.get(slot).copied().unwrap_or(UNSEEN) {
             UNSEEN => Status::New,
             _ if self.is_known(slot) => Status::Known,
             _ => Status::Learning,
@@ -216,6 +236,7 @@ impl Progress {
             slots
                 .iter()
                 .map(|&s| usize::from(s))
+                .filter(|&s| s < self.boxes.len())
                 .filter(|&s| !weak_only || self.status(s) == Status::Learning)
                 .filter(|&s| avoid != Some(s))
         };

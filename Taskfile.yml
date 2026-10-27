@@ -6,6 +6,7 @@ vars:
   C61_WIFI_ELF: '{{.ACCEPT}}/c61-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61'
   C61_PARTIAL_ELF: '{{.ACCEPT}}/c61-partial/riscv32imac-unknown-none-elf/release/pulp-os-c61'
   C61_PARTIAL_WIFI_ELF: '{{.ACCEPT}}/c61-partial-wifi/riscv32imac-unknown-none-elf/release/pulp-os-c61'
+  C61_CARDS_ELF: '{{.ACCEPT}}/c61-cards/riscv32imac-unknown-none-elf/release/pulp-os-c61'
   IANSUI_URL: https://raw.githubusercontent.com/ButTaiwan/iansui/9d9a8e68bf1e138dd91e562eeff28d95bca33196/fonts/ttf/Iansui-Regular.ttf
   IANSUI_SHA256: 7f1aa62e9dcbf40d0ce41a5d3f1e5ea602e66c295778ac6fefb6b84d8ed08bd5
   CJK_URL: https://github.com/huthief/BailuKai/releases/download/20260928/BailuKai-Medium.ttf
@@ -18,12 +19,13 @@ tasks:
     silent: true
 
   build:
-    desc: Build the C61 release matrix (offline, Wi-Fi, partial, partial+Wi-Fi) into target/accept/
+    desc: Build the C61 release matrix (offline, Wi-Fi, partial, partial+Wi-Fi, flash cards) into target/accept/
     cmds:
       - CARGO_TARGET_DIR={{.ACCEPT}}/c61 cargo build --release --locked --target riscv32imac-unknown-none-elf
       - CARGO_TARGET_DIR={{.ACCEPT}}/c61-wifi cargo build --release --locked --target riscv32imac-unknown-none-elf --features wifi
       - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial cargo build --release --locked --target riscv32imac-unknown-none-elf --features partial-refresh
       - CARGO_TARGET_DIR={{.ACCEPT}}/c61-partial-wifi cargo build --release --locked --target riscv32imac-unknown-none-elf --features partial-refresh,wifi
+      - CARGO_TARGET_DIR={{.ACCEPT}}/c61-cards cargo build --release --locked --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,flashcards
 
   font:
     desc: Fetch the pinned BailuKai Medium 20260928 font and build its SD bundle
@@ -55,6 +57,7 @@ tasks:
       IANSUI_REQUIRED: '1'
     cmds:
       - cargo test-all
+      - cargo test-host --locked --features flashcards --test e2e
 
   verify:
     desc: ELF, dependency-graph and memory-budget checks of the built images
@@ -72,7 +75,8 @@ tasks:
     cmds:
       - cargo clippy --no-deps --release --locked --target riscv32imac-unknown-none-elf -p pulp-os -p pulp-kernel -p pulp-board-logic -p pulp-fontpack -- -D warnings
       - cargo clippy --no-deps --release --locked --target riscv32imac-unknown-none-elf --features partial-refresh,wifi -p pulp-os -p pulp-kernel -- -D warnings
-      - cargo clippy --no-deps --all-targets --locked --features pulp-fontpack/builder -p pulp-host -p pulp-fontpack -p pulp-fontconv -p pulp-board-logic --target host-tuple --config 'unstable.build-std=["std","test"]' -- -D warnings
+      - cargo clippy --no-deps --release --locked --target riscv32imac-unknown-none-elf --features partial-refresh,wifi,flashcards -p pulp-os -p pulp-kernel -- -D warnings
+      - cargo clippy --no-deps --all-targets --locked --features pulp-fontpack/builder,pulp-host/flashcards -p pulp-host -p pulp-fontpack -p pulp-fontconv -p pulp-board-logic --target host-tuple --config 'unstable.build-std=["std","test"]' -- -D warnings
       # the harness tests compile kernel sources against a shim HAL, so lints there do not
       # describe the firmware; only its binaries are checked
       - cargo clippy --no-deps --bins --locked -p board-harness --target host-tuple --config 'unstable.build-std=["std","test"]' -- -D warnings
@@ -102,6 +106,7 @@ tasks:
       - '{{.LLVM_SIZE}} -A {{.C61_WIFI_ELF}}'
       - '{{.LLVM_SIZE}} -A {{.C61_PARTIAL_ELF}}'
       - '{{.LLVM_SIZE}} -A {{.C61_PARTIAL_WIFI_ELF}}'
+      - '{{.LLVM_SIZE}} -A {{.C61_CARDS_ELF}}'
 
   stack:
     desc: Static worst-case stack depth of the offline C61 image

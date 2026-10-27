@@ -162,6 +162,11 @@ fn c61_partial_wifi_image_meets_the_memory_budget() {
     verify_c61_image(Image::C61PartialWifi, true);
 }
 
+#[test]
+fn c61_cards_image_meets_the_memory_budget() {
+    verify_c61_image(Image::C61Cards, true);
+}
+
 /// `0x...` literal after `marker` in `text`
 fn hex_after(text: &str, marker: &str) -> usize {
     let i = text

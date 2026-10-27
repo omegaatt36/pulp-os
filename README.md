@@ -91,10 +91,10 @@ An EPUB whose spine declares `page-progression-direction="rtl"` and whose `dc:la
 
 - **CJK ideographs, kana, fullwidth forms:** upright, one em per step down the column.
 - **Brackets, dashes, ellipsis, stops:** the pack's vertical presentation form (`U+FE10..FE48`) when it has one. Otherwise brackets and dashes are the horizontal glyph turned a quarter clockwise; `，、。：；` stay upright.
-- **Latin text and digits:** turned a quarter clockwise, on their own advance.
+- **Short numbers (tate-chu-yoko):** a complete run of one or two ASCII digits is upright and horizontal inside one em, compressed only when needed to fit. Runs of three or more digits and Latin text stay turned a quarter clockwise, on their own advance. Markup terminates a run; ruby groups keep their existing scalar layout.
 - **Images:** an inline image takes whole columns, up to 60% of the text width and as tall as the text area. It never straddles a page edge and a page holds one: an image that does not fit, or follows another, starts the next page.
 - **Ruby:** see below.
-- **Not yet:** tate-chu-yoko, emphasis marks.
+- **Not yet:** emphasis marks.
 
 Render pages from the real reader without hardware:
 
@@ -146,6 +146,20 @@ The menu picks what to drill:
 
 A card counts as known after three hits in a row; the hint under a flipped card
 shows how many are left.
+
+Vocabulary text, indices, progress and save buffers use the same fallible,
+budgeted PSRAM storage as the reader (`ChapterText` for text and file buffers,
+`PageTable` for indices and state). The limits are 1 MiB of UTF-8 deck text and
+20,000 words; smaller parts and degraded mode may refuse a deck sooner according
+to their available memory. A failed load returns to the menu and preserves the
+existing progress file, including when saved progress cannot be read or decoded.
+
+An unsuccessful save keeps the progress in memory and retries up to three times.
+After that it yields until another key is pressed in Flash cards or the app is
+reopened. Unsaved vocabulary is retained when leaving the app, and switching to
+another deck waits until it can be saved. Returning to the menu shows a save
+failure notice. Powering off before a successful save can still lose those answers.
+The acceptance pipeline tests and builds the flash-cards feature explicitly.
 
 A deck is `_PULP/VOCAB/{N5,N4,N3,N2,N1,CUSTOM}.TSV`, UTF-8, one word per line:
 `kanji<TAB>kana<TAB>gloss[<TAB>pitch]`. No vocabulary ships with the firmware.

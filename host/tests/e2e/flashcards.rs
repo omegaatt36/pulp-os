@@ -193,7 +193,7 @@ fn all_slots() -> Vec<u16> {
 #[test]
 fn new_cards_come_in_a_seeded_order_without_repeating_the_last() {
     let slots = all_slots();
-    let p = Progress::kana();
+    let p = Progress::kana().unwrap();
     let (a, b) = (
         p.pick(&slots, 1, None, false),
         p.pick(&slots, 2, None, false),
@@ -216,7 +216,7 @@ fn new_cards_come_in_a_seeded_order_without_repeating_the_last() {
 #[test]
 fn a_missed_card_returns_before_the_new_ones() {
     let slots = all_slots();
-    let mut p = Progress::kana();
+    let mut p = Progress::kana().unwrap();
     let missed = p.pick(&slots, 1, None, false).unwrap();
     p.answer(missed, false);
     // box 0 comes back after 4 answers; until then new cards are picked
@@ -236,7 +236,7 @@ fn a_missed_card_returns_before_the_new_ones() {
 
 #[test]
 fn hits_climb_the_boxes_and_a_miss_drops_to_zero() {
-    let mut p = Progress::kana();
+    let mut p = Progress::kana().unwrap();
     let s = 5;
     assert!(!p.is_known(s));
     for _ in 0..2 {
@@ -251,7 +251,7 @@ fn hits_climb_the_boxes_and_a_miss_drops_to_zero() {
 
 #[test]
 fn the_file_round_trips_and_refuses_what_is_not_its_own() {
-    let mut p = Progress::kana();
+    let mut p = Progress::kana().unwrap();
     for s in [0, 7, 201] {
         p.answer(s, true);
     }
@@ -323,7 +323,7 @@ fn reverse_cards_sit_above_the_forward_ones() {
         assert_eq!((f.glyph(), f.romaji()), (r.glyph(), r.romaji()));
     }
 
-    let mut p = Progress::kana();
+    let mut p = Progress::kana().unwrap();
     for _ in 0..3 {
         p.answer(5, true);
     }
@@ -392,7 +392,7 @@ fn the_chart_gives_each_basic_kana_a_cell_of_its_own() {
 #[test]
 fn weak_only_drills_what_was_missed_and_nothing_else() {
     let slots = all_slots();
-    let mut p = Progress::kana();
+    let mut p = Progress::kana().unwrap();
     assert_eq!(
         p.pick(&slots, 1, None, true),
         None,
@@ -582,7 +582,7 @@ fn a_deck_is_indexed_around_bad_lines() {
         });
     }
     assert_eq!(at, text.len());
-    v.index();
+    assert!(v.index());
     assert_eq!(
         v.len(),
         6,
@@ -601,7 +601,7 @@ fn vocab_too_big() -> usize {
 #[test]
 fn progress_follows_a_word_when_the_deck_is_edited() {
     let before = deck_hashes(DECK);
-    let mut p = Progress::new(before.len());
+    let mut p = Progress::new(before.len()).unwrap();
     p.answer(1, true); // 犬
     p.answer(1, true);
     p.answer(1, true);
@@ -685,6 +685,288 @@ fn an_empty_or_unreadable_deck_leaves_the_menu_standing() {
     assert!(vocab_file(&d, "N5.PRG").is_none());
     d.tap(Key::Back);
     assert_eq!(d.active(), AppId::Home, "Back leaves from the menu");
+}
+
+#[test]
+fn maximum_deck_and_saved_progress_fit_the_hr8_budget() {
+    use pulp_board_logic::memory::{MemClass, PsramStatus, Region};
+    use pulp_host::apps::flashcards::vocab::{MAX_BYTES, MAX_WORDS};
+    use pulp_host::board_c61::memory::with_budget;
+    use pulp_host::kernel::{BufClass, TypedBuf};
+    use std::fmt::Write as _;
+
+    let mut text = String::new();
+    for i in 0..MAX_WORDS {
+        writeln!(text, "word{i}\tかな\tmeaning").unwrap();
+    }
+    text.push('#');
+    text.extend(std::iter::repeat_n('.', MAX_BYTES - text.len()));
+    with_budget(PsramStatus::Ready { bytes: 8 << 20 }, true, |budget| {
+        {
+            let mut vocab = Vocab::new();
+            assert!(vocab.reserve(text.len()));
+            assert_eq!(
+                vocab.fill(text.len(), |buf| {
+                    buf.copy_from_slice(text.as_bytes());
+                    buf.len()
+                }),
+                MAX_BYTES
+            );
+            assert!(vocab.index());
+            assert_eq!(vocab.len(), MAX_WORDS);
+            let _slots = TypedBuf::filled(BufClass::PageTable, MAX_WORDS, 0u16).unwrap();
+            let mut progress = Progress::new(MAX_WORDS).unwrap();
+            for slot in 0..MAX_WORDS {
+                progress.answer(slot, true);
+            }
+            let bytes = progress.words_file(vocab.hashes()).unwrap();
+            let restored = Progress::from_words(&bytes, vocab.hashes()).unwrap();
+            assert_eq!(restored.answers(), MAX_WORDS as u32);
+            assert_eq!(restored.status(MAX_WORDS - 1), Status::Learning);
+            let state = budget.lock().unwrap();
+            assert_eq!(state.pool_used(Region::Internal), 0);
+            assert!(state.used(Region::Psram, MemClass::ChapterText) >= MAX_BYTES);
+        }
+        assert_eq!(budget.lock().unwrap().pool_used(Region::Psram), 0);
+    });
+}
+
+#[test]
+fn refused_deck_buffers_leave_no_partial_index_or_reservations() {
+    use pulp_board_logic::memory::{PsramStatus, Region};
+    use pulp_host::board_c61::memory::with_budget;
+
+    with_budget(PsramStatus::NotInitialised, true, |budget| {
+        let mut vocab = Vocab::new();
+        assert!(
+            !vocab.reserve(1 << 20),
+            "large text cannot use internal RAM"
+        );
+        let text = "a\ta\n".repeat(3000);
+        assert!(vocab.reserve(text.len()));
+        vocab.fill(text.len(), |buf| {
+            buf.copy_from_slice(text.as_bytes());
+            buf.len()
+        });
+        assert!(
+            !vocab.index(),
+            "the index exceeds the degraded page-table budget"
+        );
+        assert!(vocab.is_empty());
+        assert!(vocab.hashes().is_empty());
+        assert!(Progress::new(20_000).is_none());
+        vocab.clear();
+        assert_eq!(budget.lock().unwrap().pool_used(Region::Internal), 0);
+    });
+}
+
+#[test]
+fn failed_vocabulary_save_retries_without_another_answer() {
+    use pulp_host::error::ErrorKind;
+    use pulp_host::storage::StorageOp;
+
+    let _serial = serial();
+    let mut d = Device::boot(deck_card(DECK));
+    open_cards(&mut d);
+    d.taps(&[Key::Right, Key::Enter, Key::Enter]);
+    d.card().inject_error(
+        StorageOp::Write,
+        "_PULP/VOCAB/N5.PRG",
+        1,
+        ErrorKind::WriteFailed,
+    );
+    d.tap(Key::Enter);
+    let bytes = vocab_file(&d, "N5.PRG").unwrap();
+    assert_eq!(
+        Progress::from_words(&bytes, &deck_hashes(DECK))
+            .unwrap()
+            .answers(),
+        1
+    );
+    assert_eq!(d.card().pending_injections(), 0);
+}
+
+#[test]
+fn repeated_save_failure_yields_and_keeps_progress_until_a_key_retries() {
+    use pulp_host::error::ErrorKind;
+    use pulp_host::storage::StorageOp;
+
+    let _serial = serial();
+    let mut d = Device::boot(deck_card(DECK));
+    open_cards(&mut d);
+    d.taps(&[Key::Right, Key::Enter, Key::Enter]);
+    for _ in 0..3 {
+        d.card().inject_error(
+            StorageOp::Write,
+            "_PULP/VOCAB/N5.PRG",
+            1,
+            ErrorKind::WriteFailed,
+        );
+    }
+    d.tap(Key::Enter);
+    assert!(vocab_file(&d, "N5.PRG").is_none());
+    assert!(
+        !d.apps.background_pending(),
+        "storage errors must not busy-loop"
+    );
+    d.tap(Key::Back);
+    let bytes = vocab_file(&d, "N5.PRG").unwrap();
+    assert_eq!(
+        Progress::from_words(&bytes, &deck_hashes(DECK))
+            .unwrap()
+            .answers(),
+        1
+    );
+}
+
+#[test]
+fn resetting_another_deck_keeps_unsaved_vocabulary_progress() {
+    use pulp_host::error::ErrorKind;
+    use pulp_host::storage::StorageOp;
+
+    let _serial = serial();
+    let card = deck_card(DECK);
+    card.write_in_pulp_subdir("VOCAB", "N4.TSV", DECK.as_bytes())
+        .unwrap();
+    let mut d = Device::boot(card);
+    open_cards(&mut d);
+    d.taps(&[Key::Right, Key::Enter, Key::Enter]);
+    for _ in 0..100 {
+        d.card().inject_error(
+            StorageOp::Write,
+            "_PULP/VOCAB/N5.PRG",
+            1,
+            ErrorKind::WriteFailed,
+        );
+    }
+    d.taps(&[Key::Enter, Key::Back, Key::Right]);
+    menu_row(&mut d, RESET_ROW);
+    d.taps(&[Key::Enter, Key::Enter]);
+    assert!(vocab_file(&d, "N5.PRG").is_none());
+    d.card().clear_injections();
+    d.tap(Key::Back);
+    let bytes = vocab_file(&d, "N5.PRG").expect("resetting N4 must retain N5's unsaved answer");
+    assert_eq!(
+        Progress::from_words(&bytes, &deck_hashes(DECK))
+            .unwrap()
+            .answers(),
+        1
+    );
+}
+
+#[test]
+fn refused_kana_progress_cannot_be_started_or_reset() {
+    use pulp_board_logic::memory::PsramStatus;
+    use pulp_host::board_c61::memory::with_budget;
+    use pulp_host::kernel::{BufClass, TypedBuf};
+
+    let _serial = serial();
+    let mut d = Device::boot(card());
+    with_budget(PsramStatus::NotInitialised, true, |_| {
+        let _blocker = TypedBuf::filled(BufClass::PageTable, 8 * 1024, 0u8).unwrap();
+        open_cards(&mut d);
+        d.tap(Key::Enter);
+        menu_row(&mut d, RESET_ROW);
+        d.taps(&[Key::Enter, Key::Enter]);
+        assert!(saved(&d).is_none());
+        assert!(!d.apps.background_pending());
+    });
+}
+
+#[test]
+fn a_failed_reset_is_not_replaced_by_resetting_another_deck() {
+    use pulp_host::error::ErrorKind;
+    use pulp_host::storage::StorageOp;
+
+    let _serial = serial();
+    let card = deck_card(DECK);
+    card.write_in_pulp_subdir("VOCAB", "N4.TSV", DECK.as_bytes())
+        .unwrap();
+    let bytes = Progress::new(deck_hashes(DECK).len())
+        .unwrap()
+        .words_file(&deck_hashes(DECK))
+        .unwrap();
+    for name in ["N5.PRG", "N4.PRG"] {
+        card.write_in_pulp_subdir("VOCAB", name, &bytes).unwrap();
+    }
+    let mut d = Device::boot(card);
+    open_cards(&mut d);
+    d.tap(Key::Right);
+    menu_row(&mut d, RESET_ROW);
+    d.tap(Key::Enter);
+    for _ in 0..100 {
+        d.card().inject_error(
+            StorageOp::Delete,
+            "_PULP/VOCAB/N5.PRG",
+            1,
+            ErrorKind::DeleteFailed,
+        );
+    }
+    d.tap(Key::Enter);
+    d.taps(&[Key::Next, Key::Right]);
+    menu_row(&mut d, RESET_ROW);
+    d.taps(&[Key::Enter, Key::Enter]);
+    assert!(vocab_file(&d, "N5.PRG").is_some());
+    assert!(
+        vocab_file(&d, "N4.PRG").is_some(),
+        "the pending N5 reset must be completed first"
+    );
+    d.card().clear_injections();
+    d.tap(Key::Back);
+    assert!(
+        vocab_file(&d, "N5.PRG").is_none(),
+        "suspended background work completes the first reset"
+    );
+    assert!(vocab_file(&d, "N4.PRG").is_some());
+}
+
+#[test]
+fn leaving_cards_releases_the_clean_vocabulary_buffers() {
+    use pulp_board_logic::memory::{MemClass, PsramStatus, Region};
+    use pulp_host::board_c61::memory::with_budget;
+
+    let _serial = serial();
+    let mut d = Device::boot(deck_card(DECK));
+    with_budget(PsramStatus::Ready { bytes: 8 << 20 }, true, |budget| {
+        open_cards(&mut d);
+        d.taps(&[Key::Right, Key::Enter]);
+        assert!(
+            budget
+                .lock()
+                .unwrap()
+                .used(Region::Psram, MemClass::ChapterText)
+                > 0
+        );
+        d.taps(&[Key::Back, Key::Back]);
+        assert_eq!(d.active(), AppId::Home);
+        assert_eq!(
+            budget
+                .lock()
+                .unwrap()
+                .used(Region::Psram, MemClass::ChapterText),
+            0
+        );
+    });
+}
+
+#[test]
+fn truncated_deck_read_does_not_become_a_partial_deck() {
+    let _serial = serial();
+    let mut d = Device::boot(deck_card(DECK));
+    open_cards(&mut d);
+    d.card().inject_short_read("_PULP/VOCAB/N5.TSV", 1, 0);
+    d.taps(&[Key::Right, Key::Enter]);
+    assert_eq!(d.active(), AppId::Flashcards);
+    assert!(!d.apps.background_pending());
+    assert!(vocab_file(&d, "N5.PRG").is_none());
+    d.tap(Key::Enter);
+    d.taps(&[Key::Enter, Key::Enter]);
+    assert_eq!(
+        Progress::from_words(&vocab_file(&d, "N5.PRG").unwrap(), &deck_hashes(DECK))
+            .unwrap()
+            .answers(),
+        1
+    );
 }
 
 // ---- pitch accent: the deck's fourth column ----

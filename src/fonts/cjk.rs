@@ -1497,6 +1497,69 @@ impl LayoutFonts<'_> {
             9
         }
     }
+    pub fn vertical_number_advance(&self, sty: Style) -> u16 {
+        pixel_size(sty, self.body_px, self.heading_px, self.ruby_px)
+    }
+    /// A complete one- or two-digit run, upright inside one em. Compress only
+    /// when its natural box exceeds the em; sampling directly from flash keeps
+    /// the operation bounded to two glyphs and needs no scratch allocation.
+    pub fn draw_vertical_number(
+        &self,
+        s: &mut StripBuffer,
+        digits: &[u8],
+        sty: Style,
+        center_x: i32,
+        top: i32,
+    ) -> u16 {
+        debug_assert!((1..=2).contains(&digits.len()) && digits.iter().all(u8::is_ascii_digit));
+        let px = self.vertical_number_advance(sty);
+        if !super::font_data::HAS_REGULAR {
+            return px;
+        }
+        let font = self.latin.font(sty);
+        let (mut pen, mut left, mut right) = (0i32, 0i32, 0i32);
+        let (mut above, mut below) = (i32::MAX, i32::MIN);
+        for &digit in digits {
+            let g = font.glyph(digit as char);
+            left = left.min(pen + i32::from(g.offset_x));
+            right = right.max(pen + i32::from(g.offset_x) + i32::from(g.width));
+            above = above.min(i32::from(g.offset_y));
+            below = below.max(i32::from(g.offset_y) + i32::from(g.height));
+            pen += i32::from(g.advance);
+        }
+        let width = (right.max(pen) - left).max(1);
+        let height = (below - above).max(1);
+        let out_w = width.min(i32::from(px));
+        let out_h = height.min(i32::from(px));
+        let x = center_x - i32::from(px) / 2 + (i32::from(px) - out_w) / 2;
+        let y = top + (i32::from(px) - out_h) / 2;
+        pen = 0;
+        for &digit in digits {
+            let r = font.resolve(digit as char);
+            let g = r.glyph;
+            let gx = pen + i32::from(g.offset_x);
+            let gy = i32::from(g.offset_y);
+            let stride = usize::from(g.width).div_ceil(8);
+            for dy in 0..out_h {
+                let sy = above + dy * height / out_h - gy;
+                if !(0..i32::from(g.height)).contains(&sy) {
+                    continue;
+                }
+                for dx in 0..out_w {
+                    let sx = left + dx * width / out_w - gx;
+                    if (0..i32::from(g.width)).contains(&sx) {
+                        let byte = r.bitmaps
+                            [g.bitmap_offset as usize + sy as usize * stride + sx as usize / 8];
+                        if byte & (0x80 >> (sx as usize % 8)) != 0 {
+                            s.draw_pixel_logical(x + dx, y + dy, true);
+                        }
+                    }
+                }
+            }
+            pen += i32::from(g.advance);
+        }
+        px
+    }
     /// Set `ch` in a column whose centre line is `center_x`, with its em box
     /// starting at `top`. Returns the advance down the column, the same
     /// `advance` gave the layout.

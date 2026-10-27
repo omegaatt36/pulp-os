@@ -568,7 +568,7 @@ impl Default for ReaderApp {
 }
 
 // Increment when the pagination algorithm changes.
-const LAYOUT_VERSION: u16 = 2;
+const LAYOUT_VERSION: u16 = 3;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) struct LayoutIdentity {
@@ -847,6 +847,22 @@ impl ReaderApp {
                     continue;
                 }
                 if b >= bitmap::FIRST_CHAR {
+                    let number_len = fonts::vertical::short_number_len(
+                        &self.pg.buf[..self.pg.buf_len],
+                        start + j,
+                        self.pg.style_flags[self.pg.page] & fonts::vertical::NUMBER_CONTINUED != 0,
+                    );
+                    if number_len > 0 {
+                        y += i32::from(fonts.draw_vertical_number(
+                            strip,
+                            &line[j..j + number_len],
+                            styles.style(),
+                            center,
+                            y,
+                        ));
+                        j += number_len;
+                        continue;
+                    }
                     y += i32::from(fonts.draw_vertical_char(
                         strip,
                         b as char,

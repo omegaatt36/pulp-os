@@ -9,10 +9,35 @@
 //             when the pack has it, else the horizontal glyph turned a quarter
 //             clockwise inside the em box (brackets, dashes, ellipsis)
 //   Sideways  the horizontal glyph turned a quarter clockwise on its own
-//             advance (Latin text and digits, long vowel mark, tildes)
+//             advance (Latin text and longer digit runs, long vowel mark, tildes)
 //
 // All glyph frames hang from one em box: its top is the pen position and the
 // horizontal baseline sits `em_ascent(px)` below it.
+
+/// Page-start state: the preceding page ended inside an ASCII digit run.
+/// Kept outside the style bits in the reader's existing page flags.
+pub const NUMBER_CONTINUED: u8 = 1 << 6;
+
+/// Tate-chu-yoko policy: a complete run of one or two ASCII digits occupies
+/// one em, upright and horizontal. Longer runs keep their sideways scalar
+/// layout, including their tails after column, page and read-window breaks.
+/// Markup terminates a run; ruby contents retain their own scalar layout.
+/// This peeks at most three following bytes; callers must defer an unfinished
+/// short run at a read edge.
+pub fn short_number_len(buf: &[u8], at: usize, continued: bool) -> usize {
+    if (at == 0 && continued)
+        || (at > 0 && buf[at - 1].is_ascii_digit())
+        || !buf.get(at).is_some_and(u8::is_ascii_digit)
+    {
+        return 0;
+    }
+    let len = buf[at..]
+        .iter()
+        .take(3)
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if len <= 2 { len } else { 0 }
+}
 
 pub enum Setting {
     Upright,

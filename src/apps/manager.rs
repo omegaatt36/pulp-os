@@ -27,6 +27,15 @@ use crate::kernel::bookmarks::BookmarkCache;
 use crate::kernel::config::{SystemSettings, WifiConfig};
 use crate::ui::Region;
 
+const BACKGROUND_APPS: &[AppId] = &[
+    AppId::Home,
+    AppId::Files,
+    AppId::Reader,
+    AppId::Settings,
+    #[cfg(feature = "flashcards")]
+    AppId::Flashcards,
+];
+
 // monomorphized dispatch from AppId to concrete app type
 macro_rules! with_app {
     ($id:expr, $mgr:expr, |$app:ident| $body:expr) => {
@@ -535,7 +544,7 @@ impl AppManager {
             app.background(&mut self.launcher.ctx, k).await
         });
 
-        for &id in &[AppId::Home, AppId::Files, AppId::Reader, AppId::Settings] {
+        for &id in BACKGROUND_APPS {
             if id != active {
                 with_app!(id, self, |app| {
                     if app.has_background_when_suspended() {
@@ -556,7 +565,7 @@ impl AppManager {
         if with_app_ref!(active, self, |app| app.background_pending()) {
             return true;
         }
-        for &id in &[AppId::Home, AppId::Files, AppId::Reader, AppId::Settings] {
+        for &id in BACKGROUND_APPS {
             if id != active && with_app_ref!(id, self, |app| app.has_background_when_suspended()) {
                 return true;
             }

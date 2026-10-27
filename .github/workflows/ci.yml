@@ -50,4 +50,5 @@ jobs:
             . -> target/accept/c61-wifi
             . -> target/accept/c61-partial
             . -> target/accept/c61-partial-wifi
+            . -> target/accept/c61-cards
       - run: task verify
