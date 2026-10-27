@@ -17,6 +17,8 @@ build        = "build.rs"
 default = []
 # Enables the production measurement code for captured-log validation.
 sd-metrics = []
+# Compiles the flash cards app and its Home entry.
+flashcards = []
 
 [dependencies]
 pulp-fontpack = { path = "../fontpack" }

@@ -4,6 +4,10 @@
 #[path = "../../src/apps/files.rs"]
 #[allow(unexpected_cfgs)]
 pub mod files;
+#[cfg(feature = "flashcards")]
+#[path = "../../src/apps/flashcards/mod.rs"]
+#[allow(unexpected_cfgs)]
+pub mod flashcards;
 #[path = "../../src/apps/home.rs"]
 #[allow(unexpected_cfgs)]
 pub mod home;
@@ -43,10 +47,12 @@ use crate::kernel::app::AppIdType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppId {
-    Home,
-    Files,
-    Reader,
-    Settings,
+    Home = 0,
+    Files = 1,
+    Reader = 2,
+    Settings = 3,
+    #[cfg(feature = "flashcards")]
+    Flashcards = 5,
 }
 
 impl AppIdType for AppId {
