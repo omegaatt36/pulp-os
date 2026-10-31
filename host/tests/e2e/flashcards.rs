@@ -1,13 +1,15 @@
 // The flash cards, reached from Home and driven by keys; the Leitner state
 // lands on the card.
-use pulp_host::apps::AppId;
 use pulp_host::apps::flashcards::PROGRESS_FILE;
 use pulp_host::apps::flashcards::deck::{
     CHART_COLS, CHART_ROWS, Card, Deck, Direction, Groups, Script, Set, chart_position, group_key,
 };
 use pulp_host::apps::flashcards::progress::{FILE_LEN, PROGRESS_SLOTS, Progress, SLOTS, Status};
 use pulp_host::apps::flashcards::table::KANA;
+use pulp_host::apps::{AppId, Redraw};
+use pulp_host::render::{Framebuffer, HEIGHT, WIDTH};
 use pulp_host::storage::VirtualStorage;
+use pulp_host::ui::Region;
 
 use crate::cjk_support::pack_of;
 use crate::device::{Device, Key, serial};
@@ -1062,4 +1064,157 @@ fn a_flipped_word_draws_its_pitch_over_the_reading() {
         flipped_word("ぱん\tぱん\t[名]麵包\n"),
         "a kana-only word shows its reading when it has a pitch"
     );
+}
+
+// ---- what a card turn sends to the panel ----
+
+// the smallest box holding every pixel that differs, as (x0, y0, x1, y1)
+fn diff_box(a: &Framebuffer, b: &Framebuffer) -> Option<(u16, u16, u16, u16)> {
+    let mut found: Option<(u16, u16, u16, u16)> = None;
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            if a.is_black(x, y) != b.is_black(x, y) {
+                let (x0, y0, x1, y1) = found.unwrap_or((x, y, x, y));
+                found = Some((x0.min(x), y0.min(y), x1.max(x), y1.max(y)));
+            }
+        }
+    }
+    found
+}
+
+fn partial(renders: Vec<Redraw>) -> Region {
+    match renders.as_slice() {
+        [Redraw::Partial(r)] => *r,
+        other => panic!("one partial refresh expected, got {other:?}"),
+    }
+}
+
+// a key, and the one partial refresh it costs; the panel only learns of the
+// pixels inside that box, so every pixel the key changed must lie in it
+fn turn(d: &mut Device, key: Key) -> Region {
+    let before = d.screen();
+    d.take_renders();
+    d.tap(key);
+    let after = d.screen();
+    let region = partial(d.take_renders());
+    if let Some((x0, y0, x1, y1)) = diff_box(&before, &after) {
+        assert!(
+            x0 >= region.x
+                && y0 >= region.y
+                && x1 < region.x + region.w
+                && y1 < region.y + region.h,
+            "pixels ({x0},{y0})-({x1},{y1}) changed outside the refreshed {region:?}"
+        );
+    }
+    region
+}
+
+fn area(r: Region) -> u32 {
+    u32::from(r.w) * u32::from(r.h)
+}
+
+const SCREEN_AREA: u32 = WIDTH as u32 * HEIGHT as u32;
+
+#[test]
+fn a_forward_kana_card_flips_by_refreshing_the_reading_and_the_hint_only() {
+    let _serial = serial();
+    let mut d = Device::boot(card());
+    open_cards(&mut d);
+    d.tap(Key::Enter);
+    for _ in 0..4 {
+        let flip = turn(&mut d, Key::Enter);
+        assert!(flip.y >= 470, "the glyph and header stay: {flip:?}");
+        assert!(area(flip) * 2 < SCREEN_AREA, "{flip:?}");
+        let next = turn(&mut d, Key::Enter);
+        assert!(next.y >= 180, "the header stays: {next:?}");
+        assert!(area(next) * 4 < SCREEN_AREA * 3, "{next:?}");
+    }
+}
+
+#[test]
+fn every_card_turn_refreshes_all_it_changes() {
+    let _serial = serial();
+    // forward and reverse, a script that changes the title, a missed card
+    for (row, presses) in [(1, 2), (4, 1), (4, 2)] {
+        let mut d = Device::boot(card());
+        open_cards(&mut d);
+        menu_row(&mut d, row);
+        for _ in 0..presses {
+            d.tap(Key::Right);
+        }
+        d.tap(Key::Enter);
+        for i in 0..12 {
+            turn(&mut d, Key::Enter);
+            turn(&mut d, if i % 3 == 0 { Key::Prev } else { Key::Enter });
+        }
+    }
+}
+
+#[test]
+fn a_vocabulary_turn_refreshes_all_it_changes() {
+    let _serial = serial();
+    let deck = "橋\tはし\t[名]橋\t2\n本\tほん\t[名]書 a long gloss that needs a second line to fit the card width\t1\n";
+    let mut d = Device::boot(deck_card(deck));
+    open_cards(&mut d);
+    d.tap(Key::Right);
+    d.tap(Key::Enter);
+    for i in 0..12 {
+        let flip = turn(&mut d, Key::Enter);
+        assert!(flip.y >= 330, "the word and header stay: {flip:?}");
+        turn(&mut d, if i % 3 == 0 { Key::Prev } else { Key::Enter });
+    }
+}
+
+#[test]
+fn the_count_in_the_header_is_refreshed_when_a_card_becomes_known() {
+    let _serial = serial();
+    let mut d = Device::boot(deck_card("橋\tはし\t[名]橋\n"));
+    open_cards(&mut d);
+    d.tap(Key::Right);
+    d.tap(Key::Enter);
+    let mut tops = Vec::new();
+    for _ in 0..3 {
+        turn(&mut d, Key::Enter);
+        tops.push(turn(&mut d, Key::Enter).y);
+    }
+    // three hits in a row: the third moves 0/1 to 1/1
+    assert!(tops[0] > tops[2], "{tops:?}");
+}
+
+#[test]
+fn an_answer_is_saved_after_its_refresh_not_before() {
+    let _serial = serial();
+    let mut d = Device::boot(card());
+    open_cards(&mut d);
+    d.tap(Key::Enter);
+    d.taps(&[Key::Enter]);
+    assert!(saved(&d).is_none(), "a flip answers nothing");
+
+    d.press(Key::Enter); // got it
+    d.background();
+    assert!(
+        saved(&d).is_none(),
+        "the card is drawn before the card is written"
+    );
+    assert!(d.refresh(), "the answer's refresh");
+    assert_eq!(
+        saved(&d)
+            .expect("written while the panel was busy")
+            .tally(&(0..SLOTS as u16).collect::<Vec<_>>())
+            .1,
+        1
+    );
+}
+
+#[test]
+fn a_full_refresh_has_no_waveform_window_and_the_save_follows_it() {
+    let _serial = serial();
+    let mut d = Device::boot(card());
+    open_cards(&mut d);
+    d.taps(&[Key::Enter, Key::Enter]);
+    d.press(Key::Enter);
+    d.background();
+    assert!(saved(&d).is_none());
+    d.settle(); // refresh without prefetch, then the background step
+    assert!(saved(&d).is_some());
 }

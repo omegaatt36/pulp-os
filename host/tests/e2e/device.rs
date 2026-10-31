@@ -19,13 +19,13 @@ use pulp_host::apps::manager::AppManager;
 use pulp_host::apps::reader::ReaderApp;
 use pulp_host::apps::settings::SettingsApp;
 use pulp_host::apps::widgets::{ButtonFeedback, QuickMenu};
-use pulp_host::apps::{AppId, Launcher, Transition};
+use pulp_host::apps::{AppId, Launcher, Redraw, Transition};
 pub use pulp_host::board::Button as Key;
 use pulp_host::board::Button;
 use pulp_host::board::action::ButtonMapper;
 use pulp_host::drivers::input::Event;
 use pulp_host::drivers::sdcard::SdStorage;
-use pulp_host::kernel::{Kernel, SessionData};
+use pulp_host::kernel::{AppLayer, Kernel, SessionData};
 use pulp_host::reader::run_image_worker;
 use pulp_host::render::{Framebuffer, render_stitched};
 use pulp_host::storage::VirtualStorage;
@@ -53,6 +53,7 @@ fn block_on(future: impl Future<Output = ()>) {
 pub struct Device {
     k: Kernel,
     pub apps: AppManager,
+    renders: Vec<Redraw>,
 }
 
 impl Device {
@@ -82,7 +83,11 @@ impl Device {
         if !restored {
             apps.enter_initial(&mut k.handle());
         }
-        let mut device = Self { k, apps };
+        let mut device = Self {
+            k,
+            apps,
+            renders: Vec::new(),
+        };
         device.settle();
         device
     }
@@ -118,23 +123,62 @@ impl Device {
         }
     }
 
-    // background work until the apps are idle, then the bookmark flush the
-    // scheduler does when its timer is due
+    // The scheduler's loop until the apps are idle: background work, then the
+    // refresh of a pending redraw, then the bookmark flush its timer does when
+    // due. A refresh here is a full one (no waveform window for `prefetch`);
+    // `refresh` is the partial one.
     pub fn settle(&mut self) {
         for _ in 0..SETTLE_TICKS {
-            if !self.apps.background_pending() {
+            let pending = self.apps.background_pending();
+            if pending {
+                self.background();
+            }
+            if !self.render(false) && !pending {
                 self.k.bookmarks_flush();
                 return;
-            }
-            block_on(self.apps.run_background(&mut self.k.handle()));
-            if self.apps.reader.is_epub() {
-                run_image_worker();
             }
         }
         panic!(
             "device did not settle in {SETTLE_TICKS} ticks (active {:?})",
             self.apps.active()
         );
+    }
+
+    // one background step, as the scheduler runs it before a refresh
+    pub fn background(&mut self) {
+        block_on(self.apps.run_background(&mut self.k.handle()));
+        if self.apps.reader.is_epub() {
+            run_image_worker();
+        }
+    }
+
+    // a key pressed and released, with no scheduler step after it
+    pub fn press(&mut self, key: Button) {
+        self.event(Event::Press(key));
+        self.event(Event::Release(key));
+    }
+
+    // a partial refresh of the pending redraw: the app's `prefetch` runs in the
+    // panel's waveform window. False when nothing was pending.
+    pub fn refresh(&mut self) -> bool {
+        self.render(true)
+    }
+
+    fn render(&mut self, waveform: bool) -> bool {
+        if !self.apps.has_redraw() {
+            return false;
+        }
+        let redraw = self.apps.take_redraw();
+        self.renders.push(redraw);
+        if waveform {
+            AppLayer::prefetch(&mut self.apps, &mut self.k.handle());
+        }
+        true
+    }
+
+    // the refreshes since the last call, oldest first
+    pub fn take_renders(&mut self) -> Vec<Redraw> {
+        std::mem::take(&mut self.renders)
     }
 
     // power off and on again with the same card

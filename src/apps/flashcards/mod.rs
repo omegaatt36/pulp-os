@@ -139,6 +139,8 @@ pub struct FlashcardsApp {
     reset_vocab: Option<usize>,
     release_vocab: bool,
     save_attempts: u8,
+    // a save during the refresh changed the notice the screen shows
+    notice_stale: bool,
     seed: u32,
     ui_fonts: fonts::UiFonts,
     card_fonts: SurfaceFonts,
@@ -180,6 +182,7 @@ impl FlashcardsApp {
             reset_vocab: None,
             release_vocab: false,
             save_attempts: 0,
+            notice_stale: false,
             seed: 0x9e37_79b9,
             ui_fonts: fonts::UiFonts::for_size(0),
             card_fonts,
@@ -312,6 +315,18 @@ impl FlashcardsApp {
     fn save_pending(&self) -> bool {
         self.save_attempts < SAVE_ATTEMPTS
             && (self.kana_dirty || self.vocab_dirty || self.reset_vocab.is_some())
+    }
+
+    // Called once per partial refresh, while the panel runs its waveform and
+    // needs no SPI traffic: the SD write that would otherwise delay the next
+    // frame goes here.
+    pub fn prefetch(&mut self, k: &mut KernelHandle<'_>) {
+        if !self.save_pending() {
+            return;
+        }
+        let notice = self.notice;
+        self.save(k);
+        self.notice_stale |= self.notice != notice;
     }
 
     fn fail(&mut self, notice: &'static str, ctx: &mut AppContext) {
@@ -664,7 +679,7 @@ impl FlashcardsApp {
                     slot,
                     flipped: true,
                 };
-                ctx.mark_dirty(CONTENT_REGION);
+                ctx.mark_dirty(self.flip_region(slot));
                 Transition::None
             }
             ActionEvent::Press(Action::Select)
@@ -682,6 +697,7 @@ impl FlashcardsApp {
     }
 
     fn answer(&mut self, slot: usize, got_it: bool, ctx: &mut AppContext) -> Transition {
+        let header = self.header_key();
         match self.playing {
             Source::Kana => {
                 self.progress.answer(slot, got_it);
@@ -693,8 +709,56 @@ impl FlashcardsApp {
             }
         }
         self.show_next(Some(slot));
-        ctx.mark_dirty(CONTENT_REGION);
+        ctx.mark_dirty(self.answer_region(header));
         Transition::None
+    }
+
+    // What the card screen shows above the card: the title (the script of a
+    // kana card, which a mixed deck changes) and the known count.
+    fn header_key(&self) -> (usize, Option<Script>) {
+        let script = match (self.state, self.playing) {
+            (State::Card { slot, .. }, Source::Kana) => Some(Card::from_slot(slot).script()),
+            _ => None,
+        };
+        (self.known(), script)
+    }
+
+    fn hint_region(&self) -> Region {
+        Region::new(
+            LARGE_MARGIN,
+            SCREEN_H - BUTTON_BAR_H - self.ui_fonts.body.line_height - SECTION_GAP,
+            FULL_CONTENT_W,
+            self.ui_fonts.body.line_height,
+        )
+    }
+
+    // The panel refreshes one box, so it ends at the hint, the lowest thing
+    // on a card, and starts at the first part that differs.
+    fn card_region(&self, top: u16) -> Region {
+        let hint = self.hint_region();
+        Region::new(0, top, SCREEN_W, hint.y + hint.h - top)
+    }
+
+    // OK on a card: the reading appears (and a reverse kana card swaps its
+    // romaji for the kana); the header and the card itself stay.
+    fn flip_region(&self, slot: usize) -> Region {
+        self.card_region(match self.playing {
+            Source::Kana if Card::from_slot(slot).reverse() => GLYPH_REGION.y,
+            Source::Kana => ROMAJI_REGION.y,
+            Source::Vocab(_) => WORD_BACK_REGION.y,
+        })
+    }
+
+    // An answer: the next card, from its glyph down, plus the header when its
+    // title or count moved. No card left returns to the menu.
+    fn answer_region(&self, header: (usize, Option<Script>)) -> Region {
+        if !matches!(self.state, State::Card { .. }) || header != self.header_key() {
+            return CONTENT_REGION;
+        }
+        self.card_region(match self.playing {
+            Source::Kana => GLYPH_REGION.y,
+            Source::Vocab(_) => WORD_REGION.y,
+        })
     }
 
     fn draw_menu(&self, strip: &mut StripBuffer) {
@@ -787,13 +851,7 @@ impl FlashcardsApp {
     }
 
     fn draw_hint(&self, strip: &mut StripBuffer, text: &str) {
-        let hint = Region::new(
-            LARGE_MARGIN,
-            SCREEN_H - BUTTON_BAR_H - self.ui_fonts.body.line_height - SECTION_GAP,
-            FULL_CONTENT_W,
-            self.ui_fonts.body.line_height,
-        );
-        BitmapLabel::new(hint, text, self.ui_fonts.body)
+        BitmapLabel::new(self.hint_region(), text, self.ui_fonts.body)
             .alignment(Alignment::Center)
             .draw(strip)
             .unwrap_infallible();
@@ -1286,15 +1344,20 @@ impl App<AppId> for FlashcardsApp {
         if let (State::Loading(stage), Source::Vocab(deck)) = (self.state, self.source) {
             self.load_step(stage, deck, ctx, k);
         }
+        // the answer on screen comes first: with a refresh pending the save
+        // waits for it, and `prefetch` writes it while the panel is busy
+        if ctx.has_redraw() {
+            return;
+        }
         let notice = self.notice;
         self.save(k);
-        if self.notice != notice {
+        if self.notice != notice || core::mem::take(&mut self.notice_stale) {
             ctx.mark_dirty(CONTENT_REGION);
         }
     }
 
     fn background_pending(&self) -> bool {
-        matches!(self.state, State::Loading(_)) || self.save_pending()
+        matches!(self.state, State::Loading(_)) || self.save_pending() || self.notice_stale
     }
 
     fn has_background_when_suspended(&self) -> bool {

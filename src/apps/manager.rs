@@ -723,8 +723,11 @@ impl AppLayer for AppManager {
     }
 
     fn prefetch(&mut self, k: &mut KernelHandle<'_>) {
-        if self.launcher.active() == AppId::Reader {
-            self.reader.prefetch(k);
+        match self.launcher.active() {
+            AppId::Reader => self.reader.prefetch(k),
+            #[cfg(feature = "flashcards")]
+            AppId::Flashcards => self.flashcards.prefetch(k),
+            _ => {}
         }
     }
 
